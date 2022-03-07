@@ -1,6 +1,7 @@
 import { Cache as MemoryCache } from "memory-cache";
 
-import { logger } from "../../logger";
+import logger from "@/logger";
+
 import { AuthProvider } from "./AuthProvider";
 
 /**

@@ -1,5 +1,6 @@
-import { Plugin } from "./plugin/Plugin";
 import dotenv from "dotenv";
+
+import { Plugin } from "./plugin/Plugin";
 
 dotenv.config();
 

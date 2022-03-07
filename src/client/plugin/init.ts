@@ -1,4 +1,5 @@
-import { loginHref, logoutHref } from "../../constants";
+import { loginHref, logoutHref } from "@/constants";
+
 import { clearCredentials, Credentials, isLoggedIn, saveCredentials, validateCredentials } from "./credentials";
 import { interruptClick, parseQueryParams, retry } from "./lib";
 

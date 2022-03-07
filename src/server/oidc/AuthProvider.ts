@@ -1,10 +1,12 @@
-import type { Request } from "express";
-import { Issuer, Client, CallbackParamsType, generators } from "openid-client";
 import { Groups } from "@gitbeaker/node";
+import { Issuer, Client, CallbackParamsType, generators } from "openid-client";
+
+import logger from "@/logger";
 
 import { AuthProvider } from "../plugin/AuthProvider";
 import { ParsedPluginConfig } from "../plugin/Config";
-import { logger } from "../../logger";
+
+import type { Request } from "express";
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
@@ -114,7 +116,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     } else if (this.config.providerType) {
       switch (this.config.providerType) {
         case "gitlab": {
-          logger.log("Get user groups from GitLab");
+          logger.debug("Get user groups from GitLab");
           return this.getGitlabGroups(token);
         }
         default: {

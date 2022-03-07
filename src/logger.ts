@@ -1,8 +1,52 @@
-import { plugin, pluginKey } from "./constants";
+import { Logger } from "@verdaccio/types";
 
-export const logger = {
-  log: console.log.bind(console, pluginKey),
-  error: (...args: any[]) => console.error(pluginKey, args.join(" ")),
+import { plugin } from "./constants";
+
+let logger: Logger | null = null;
+
+export function setLogger(l: Logger) {
+  logger = l.child({ plugin: { name: plugin.name } });
+  logger?.info(plugin, "Version: @{name}@@{version}");
+}
+
+const loggerHelper: Logger = {
+  child: (...args) => (logger ? logger.child(...args) : loggerHelper),
+  debug: (...args) =>
+    logger
+      ? logger.debug(...args)
+      : () => {
+          /* noop */
+        },
+  error: (...args) =>
+    logger
+      ? logger.error(...args)
+      : () => {
+          /* noop */
+        },
+  http: (...args) =>
+    logger
+      ? logger.http(...args)
+      : () => {
+          /* noop */
+        },
+  trace: (...args) =>
+    logger
+      ? logger.trace(...args)
+      : () => {
+          /* noop */
+        },
+  warn: (...args) =>
+    logger
+      ? logger.warn(...args)
+      : () => {
+          /* noop */
+        },
+  info: (...args) =>
+    logger
+      ? logger.info(...args)
+      : () => {
+          /* noop */
+        },
 };
 
-logger.log(`Version: ${plugin.name}@${plugin.version}`);
+export default loggerHelper;

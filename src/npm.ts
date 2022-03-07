@@ -1,8 +1,9 @@
 import { execSync } from "child_process";
-import minimist from "minimist";
 import { URL } from "url";
 
-import { logger } from "./logger";
+import minimist from "minimist";
+
+import logger from "./logger";
 
 let npmConfig: any;
 
@@ -11,7 +12,7 @@ function parseCliArgs() {
 }
 
 function runCommand(command: string) {
-  logger.log(`Running command: ${command}`);
+  logger.info({ command }, "Running command: @{command}");
   return execSync(command);
 }
 

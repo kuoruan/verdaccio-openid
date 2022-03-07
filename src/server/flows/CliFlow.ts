@@ -1,12 +1,15 @@
 import { IPluginMiddleware } from "@verdaccio/types";
-import { Application, Handler } from "express";
-import qs from "query-string";
-import { cliPort, cliProviderId } from "../../constants";
-import { logger } from "../../logger";
-import { getCallbackPath } from "../../redirect";
+import qs from "qs";
+
+import { cliPort, cliProviderId } from "@/constants";
+import logger from "@/logger";
+import { getCallbackPath } from "@/redirect";
+
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 import { Verdaccio } from "../plugin/Verdaccio";
+
+import type { Application, Handler } from "express";
 
 const pluginCallbackeUrl = getCallbackPath(cliProviderId);
 
@@ -49,7 +52,7 @@ export class CliFlow implements IPluginMiddleware<any> {
       params.message = error.message || error;
     }
 
-    const redirectUrl = `http://localhost:${cliPort}` + "?" + qs.stringify(params);
+    const redirectUrl = `http://localhost:${cliPort}?${qs.stringify(params)}`;
 
     res.redirect(redirectUrl);
   };
