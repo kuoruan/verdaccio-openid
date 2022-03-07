@@ -1,0 +1,12 @@
+.env
+.vscode/
+*.log
+dist/
+node_modules/
+package/
+plugins/
+storage/
+htpasswd
+verdaccio.yaml
+.npmrc
+.yarnrc
