@@ -1,6 +1,6 @@
-import { Logger } from "@verdaccio/types";
-
 import { plugin } from "./constants";
+
+import type { Logger } from "@verdaccio/types";
 
 let logger: Logger | null = null;
 

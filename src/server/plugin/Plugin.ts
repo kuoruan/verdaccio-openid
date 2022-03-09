@@ -1,13 +1,3 @@
-import {
-  AllowAccess,
-  AuthAccessCallback,
-  AuthCallback,
-  IPluginAuth,
-  IPluginMiddleware,
-  RemoteUser,
-  Logger,
-} from "@verdaccio/types";
-
 import { setLogger } from "@/logger";
 
 import { CliFlow, WebFlow } from "../flows";
@@ -20,6 +10,15 @@ import { registerGlobalProxyAgent } from "./ProxyAgent";
 import { ServeStatic } from "./ServeStatic";
 import { Auth, Verdaccio } from "./Verdaccio";
 
+import type {
+  AllowAccess,
+  AuthAccessCallback,
+  AuthCallback,
+  IPluginAuth,
+  IPluginMiddleware,
+  RemoteUser,
+  Logger,
+} from "@verdaccio/types";
 import type { Application } from "express";
 
 /**
