@@ -16,4 +16,4 @@ export const cliAuthorizeUrl = "/oauth/authorize";
 /**
  * See https://verdaccio.org/docs/en/packages
  */
-export const authenticatedUserGroups = ["$all", "@all", "$authenticated", "@authenticated"] as const;
+export const authenticatedUserGroups = ["$all", "@all", "$authenticated", "@authenticated", "all"] as const;
