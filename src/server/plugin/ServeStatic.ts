@@ -1,7 +1,7 @@
 import { IPluginMiddleware } from "@verdaccio/types";
 import { static as expressServeStatic } from "express";
 
-import { publicRoot, staticPath } from "@/constants";
+import { staticPath } from "@/constants";
 
 import type { Application } from "express";
 
@@ -13,6 +13,7 @@ export class ServeStatic implements IPluginMiddleware<any> {
    * IPluginMiddleware
    */
   register_middlewares(app: Application) {
-    app.use(staticPath, expressServeStatic(publicRoot));
+    const clientPath = new URL("../client", import.meta.url).pathname;
+    app.use(staticPath, expressServeStatic(clientPath));
   }
 }

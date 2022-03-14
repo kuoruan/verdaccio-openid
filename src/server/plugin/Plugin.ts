@@ -1,3 +1,5 @@
+import { errorUtils } from "@verdaccio/core";
+
 import logger, { setLogger } from "@/logger";
 
 import { CliFlow, WebFlow } from "../flows";
@@ -38,8 +40,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     this.parsedConfig = new ParsedPluginConfig(this.config);
     this.provider = new OpenIDConnectAuthProvider(this.parsedConfig);
-    this.cache = new Cache(this.provider);
-    this.verdaccio = new Verdaccio(this.config);
+    this.cache = new Cache(this.provider.getId());
+    this.verdaccio = new Verdaccio(this.config, this.cache);
     this.core = new AuthCore(this.verdaccio, this.parsedConfig);
   }
 
@@ -65,24 +67,39 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   async authenticate(username: string, token: string, callback: AuthCallback): Promise<void> {
-    try {
-      if (!username || !token) {
-        callback(null, false);
-        return;
+    if (!username || !token) {
+      callback(errorUtils.getForbidden("username and token is required"), false);
+      return;
+    }
+
+    let groups = this.cache.getGroups(username);
+    if (!groups) {
+      const providerToken = this.cache.getProviderToken(token);
+
+      if (!providerToken) {
+        return callback(errorUtils.getForbidden("invalid token"), false);
       }
 
-      const groups = await this.cache.getGroups(token);
+      try {
+        groups = await this.provider.getGroups(username, providerToken);
+      } catch (e: any) {
+        callback(errorUtils.getForbidden(e.message), false);
+        return;
+      }
+    }
 
-      if (groups && this.core.authenticate(username, groups)) {
-        const user = await this.core.createAuthenticatedUser(username, groups);
+    if (groups) {
+      this.cache.setGroups(token, groups);
+
+      if (this.core.authenticate(username, groups)) {
+        const user = this.core.createAuthenticatedUser(username, groups);
 
         callback(null, user.real_groups);
-        return;
+      } else {
+        callback(errorUtils.getForbidden("user groups are not authenticated"), false);
       }
-
-      callback(null, false);
-    } catch (error: any) {
-      callback(error, false);
+    } else {
+      callback(errorUtils.getForbidden("empty user groups"), false);
     }
   }
 

@@ -103,8 +103,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     throw new Error(`Could not grab username using the ${this.config.usernameClaim} property`);
   }
 
-  async getGroups(token: string): Promise<string[]> {
+  async getGroups(username: string, token: string): Promise<string[]> {
     const userinfo = await this.discoveredClient.userinfo(token);
+
+    if (username !== userinfo[this.config.usernameClaim]) {
+      throw new Error(`Username did not match, expected ${username}`);
+    }
 
     if (this.config.groupsClaim) {
       const groups = userinfo[this.config.groupsClaim] as string[] | undefined;
@@ -115,13 +119,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       return groups;
     }
 
-    const username = userinfo[this.config.usernameClaim];
-
     if (this.config.providerType) {
       switch (this.config.providerType) {
         case "gitlab": {
           const gitlabGroups = await this.getGitlabGroups(token);
-          logger.info({ username, gitlabGroups }, "GitLab user @{username} has groups: @{gitlabGroups}");
+          logger.info({ username, gitlabGroups }, `GitLab user "@{username}" has groups: "@{gitlabGroups}"`);
           return gitlabGroups;
         }
         default: {
@@ -131,7 +133,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     let groupUsers;
-    if ((groupUsers = this.config.groupUsers) && username) {
+    if ((groupUsers = this.config.groupUsers)) {
       return Object.keys(groupUsers).filter((group) => {
         return groupUsers[group].includes(username);
       });

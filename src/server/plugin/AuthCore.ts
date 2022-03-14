@@ -34,7 +34,7 @@ export class AuthCore {
     return this.config.authorizedGroup ? this.config.authorizedGroup : null;
   }
 
-  async createAuthenticatedUser(username: string, groups: string[]): Promise<User> {
+  createAuthenticatedUser(username: string, groups: string[]): User {
     const relevantGroups = groups.filter((group) => group in this.configuredGroups);
 
     relevantGroups.push(username);
@@ -53,22 +53,27 @@ export class AuthCore {
     return user;
   }
 
-  async createUiCallbackUrl(username: string, token: string, groups: string[]): Promise<string> {
-    const user = await this.createAuthenticatedUser(username, groups);
+  async createUiCallbackUrl(username: string, providerToken: string, groups: string[]): Promise<string> {
+    const user = this.createAuthenticatedUser(username, groups);
 
     const uiToken = await this.verdaccio.issueUiToken(user);
-    const npmToken = await this.verdaccio.issueNpmToken(token, user);
+    const npmToken = await this.verdaccio.issueNpmToken(providerToken, user);
 
     const query = { username, uiToken, npmToken };
-    const url = "/?" + qs.stringify(query);
+    const url = `/?${qs.stringify(query)}`;
 
     return url;
   }
 
-  authenticate(username: string, groups: string[]): boolean {
-    if (this.requiredGroup && !groups.includes(this.requiredGroup)) {
-      logger.error(`Access denied: User "${username}" is not a member of "${this.requiredGroup}"`);
-      return false;
+  authenticate(username: string, groups: string[] = []): boolean {
+    if (this.requiredGroup) {
+      if (username !== this.requiredGroup && !groups.includes(this.requiredGroup)) {
+        logger.error(
+          { username, requiredGroup: this.requiredGroup },
+          `Access denied: User "@{username}" is not a member of "@{requiredGroup}"`
+        );
+        return false;
+      }
     }
 
     // empty group is allowed
