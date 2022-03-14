@@ -1,4 +1,4 @@
-import { setLogger } from "@/logger";
+import logger, { setLogger } from "@/logger";
 
 import { CliFlow, WebFlow } from "../flows";
 import { OpenIDConnectAuthProvider } from "../oidc";
@@ -90,6 +90,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
+    logger.info({ username: user.name, package: config.name }, "@{username} is trying to access @{package}");
+
     if (config.access) {
       const grant = config.access.some((group) => user.groups.includes(group));
       callback(null, grant);
@@ -102,6 +104,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
+    logger.info({ username: user.name, package: config.name }, "@{username} is trying to publish @{package}");
+
     if (config.publish) {
       const grant = config.publish.some((group) => user.groups.includes(group));
       callback(null, grant);
@@ -114,6 +118,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
+    logger.info({ username: user.name, package: config.name }, "@{username} is trying to unpublish @{package}");
+
     if (config.unpublish) {
       const grant = config.unpublish.some((group) => user.groups.includes(group));
       callback(null, grant);
