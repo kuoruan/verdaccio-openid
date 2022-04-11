@@ -33,8 +33,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly verdaccio: Verdaccio;
   private readonly core: AuthCore;
 
-  constructor(private readonly config: Config, { logger }: { logger: Logger }) {
-    setLogger(logger);
+  constructor(private readonly config: Config, params: { logger: Logger }) {
+    setLogger(params.logger);
 
     registerGlobalProxyAgent();
 

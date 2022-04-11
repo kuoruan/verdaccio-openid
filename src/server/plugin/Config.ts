@@ -3,7 +3,6 @@ import process from "process";
 import get from "lodash/get";
 import assert from "ow";
 import { PartialDeep, RemoveIndexSignature } from "type-fest";
-import pkg from "verdaccio/package.json";
 
 import { pluginKey } from "@/constants";
 import logger from "@/logger";
@@ -53,24 +52,9 @@ export interface Config extends VerdaccioConfig {
   auth: { [key: string]: PluginConfig };
 }
 
-/**
- * e.g. "5.0.4"
- */
-export function getVersion(): string {
-  return pkg.version;
-}
-
 //
 // Validation
 //
-
-function validateVersion() {
-  const version = getVersion();
-
-  if (version < "5") {
-    throw new Error("This plugin requires verdaccio 5 or above");
-  }
-}
 
 function validateNodeExists(config: Config, node: keyof Config) {
   const path = `[${node}][${pluginKey}]`;
@@ -192,8 +176,6 @@ export class ParsedPluginConfig {
   }
 
   constructor(public readonly config: Config) {
-    validateVersion();
-
     validateNodeExists(config, "middlewares");
     validateNodeExists(config, "auth");
   }

@@ -73,7 +73,7 @@
     "verdaccio-htpasswd": "^11.0.0-6-next.13"
   },
   "peerDependencies": {
-    "verdaccio": "^6"
+    "verdaccio": ">=6.0.0-6-next.0"
   },
   "engines": {
     "node": "^14||^16"
