@@ -71,9 +71,9 @@ export default defineConfig([
     plugins: getPlugins(),
   },
   {
-    input: "src/client/verdaccio-5.ts",
+    input: "src/client/verdaccio-6.ts",
     output: {
-      file: "dist/client/verdaccio-5.js",
+      file: "dist/client/verdaccio-6.js",
       format: "iife",
     },
     plugins: getPlugins(true),

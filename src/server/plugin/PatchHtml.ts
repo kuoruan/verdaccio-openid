@@ -8,7 +8,7 @@ import type { Application, Handler } from "express";
  * that modifies the login button.
  */
 export class PatchHtml implements IPluginMiddleware<any> {
-  private readonly scriptTag = `<script src="${staticPath}/verdaccio-5.js"></script>`;
+  private readonly scriptTag = `<script src="${staticPath}/verdaccio-6.js"></script>`;
 
   /**
    * IPluginMiddleware
