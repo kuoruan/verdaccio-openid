@@ -18,7 +18,7 @@ export type User = RemoteUser;
 // Most of this is duplicated Verdaccio code because it is unfortunately not availabel via API.
 // https://github.com/verdaccio/verdaccio/blob/master/src/lib/auth-utils.ts#L129
 
-const TIME_EXPIRATION_7D = "7d" as const;
+const TIME_EXPIRATION_7D = "7d";
 
 const defaultSecurity = {
   api: {
@@ -30,7 +30,7 @@ const defaultSecurity = {
     },
     verify: {},
   },
-} as const;
+};
 
 function getSecurity(config: VerdaccioConfig) {
   return merge({}, defaultSecurity, config.security);
