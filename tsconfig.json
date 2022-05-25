@@ -5,7 +5,6 @@
     "module": "ESNext",
     "target": "ESNext",
     "baseUrl": ".",
-    "rootDir": ".",
     "esModuleInterop": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
