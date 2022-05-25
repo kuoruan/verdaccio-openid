@@ -10,3 +10,4 @@ htpasswd
 verdaccio.yaml
 .npmrc
 .yarnrc
+.history

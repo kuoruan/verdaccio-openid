@@ -17,7 +17,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "rollup -c --environment NODE_ENV=production",
+    "build": "rollup -c --environment NODE_ENV:production",
     "start": "verdaccio -c verdaccio.yaml",
     "lint": "eslint --fix --ext .js,.ts .",
     "link:oidc": "yarn link && yarn link verdaccio-oidc-ui",
@@ -29,7 +29,7 @@
     "@verdaccio/core": "^6.0.0-6-next.5",
     "@verdaccio/url": "^11.0.0-6-next.9",
     "chalk": "^5.0.0",
-    "core-js": "^3.22.5",
+    "core-js": "^3.22.7",
     "dotenv": "^16.0.1",
     "express": "^4.18.1",
     "global-agent": "^3.0.0",
