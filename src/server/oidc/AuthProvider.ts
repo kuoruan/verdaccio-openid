@@ -150,7 +150,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   async getUsername(token: string): Promise<string> {
-    const userinfo = this.getUserinfo(token);
+    const userinfo = await this.getUserinfo(token);
     const username = userinfo[this.config.usernameClaim];
 
     if (username) {
