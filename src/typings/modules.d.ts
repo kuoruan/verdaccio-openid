@@ -9,3 +9,8 @@ declare module "*.json" {
     bin,
   };
 }
+
+declare module "*.svg" {
+  const content: string;
+  export default content;
+}

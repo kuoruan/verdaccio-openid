@@ -3,6 +3,7 @@ import path from "path";
 import alias from "@rollup/plugin-alias";
 import { babel } from "@rollup/plugin-babel";
 import commonjs from "@rollup/plugin-commonjs";
+import image from "@rollup/plugin-image";
 import json from "@rollup/plugin-json";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import { defineConfig } from "rollup";
@@ -25,6 +26,7 @@ function getPlugins(isBrowser = false) {
       entries: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
     }),
     json(),
+    image(),
     commonjs(),
     babel({
       babelHelpers: "bundled",

@@ -53,7 +53,7 @@ export class CliFlow implements IPluginMiddleware<any> {
       params.message = error.message || error;
     }
 
-    const redirectUrl = `http://localhost:${cliPort}?${qs.stringify(params)}`;
+    const redirectUrl = `http://localhost:${cliPort}${qs.stringify(params, { addQueryPrefix: true })}`;
 
     res.redirect(redirectUrl);
   };
