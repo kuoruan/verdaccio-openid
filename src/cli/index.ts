@@ -14,9 +14,9 @@ const authorizeUrl = registry + getAuthorizePath(cliProviderId);
 
 const server = express()
   .get("/", (req, res) => {
-    let status = req.query.status as string;
-    let message = req.query.message as string;
-    const token = decodeURIComponent(req.query.token as string);
+    let status = String(req.query.status);
+    let message = String(req.query.message);
+    const token = decodeURIComponent(String(req.query.token));
 
     // We use `!status` for compatibility with plugin version <=2.3.0
     // where there was no error handling and status differentiation yet.

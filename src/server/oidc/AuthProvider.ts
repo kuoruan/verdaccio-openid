@@ -1,24 +1,34 @@
 import { Groups } from "@gitbeaker/node";
-import { Issuer, Client, CallbackParamsType, generators } from "openid-client";
+import TTLCache from "@isaacs/ttlcache";
+import { getPublicUrl } from "@verdaccio/url";
+import { Issuer, generators } from "openid-client";
 
 import logger from "@/logger";
+import { getCallbackPath } from "@/redirect";
 
 import { AuthProvider } from "../plugin/AuthProvider";
 import { ParsedPluginConfig } from "../plugin/Config";
 
+import type { RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
+import type { OpenIDCallbackChecks, Client } from "openid-client";
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
-  private readonly state: string;
   private host: string;
+  private scope: string;
+
+  private stateCache: TTLCache<string>;
+  private userinfoCache: TTLCache<Record<string, unknown>>;
 
   constructor(private readonly config: ParsedPluginConfig) {
     this.host = this.config.host;
+    this.scope = this.initScope();
 
-    // not sure of a better way to do this:
+    this.stateCache = new TTLCache({ ttl: 5 * 60 * 1000 }); // 5min
+    this.userinfoCache = new TTLCache({ ttl: 30 * 1000 }); // 1min
+
     this.discoverClient();
-    this.state = generators.state(32);
   }
 
   private get discoveredClient(): Client {
@@ -27,6 +37,22 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     return this.client;
+  }
+
+  private initScope() {
+    let scope: string;
+
+    if (this.config.scope) {
+      scope = this.config.scope;
+    } else {
+      scope = "openid email";
+
+      if (this.config.groupsClaim) {
+        scope += " groups";
+      }
+    }
+
+    return scope;
   }
 
   private async discoverClient() {
@@ -62,36 +88,45 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     return "oidc";
   }
 
-  getLoginUrl(callbackUrl: string): string {
-    let scope: string;
+  getLoginUrl(req: Request): string {
+    const redirectUrl = this.getRedirectUrl(req);
 
-    if (this.config.scope) {
-      scope = this.config.scope;
-    } else {
-      scope = "openid email";
+    const state = generators.state(32);
+    const nonce = generators.nonce();
 
-      if (this.config.groupsClaim) {
-        scope += " groups";
-      }
-    }
+    this.stateCache.set(state, nonce);
 
     return this.discoveredClient.authorizationUrl({
-      scope: scope,
-      redirect_uri: callbackUrl,
-      state: this.state,
+      scope: this.scope,
+      redirect_uri: redirectUrl,
+      state: state,
+      nonce: nonce,
     });
   }
 
-  getCode(req: Request): string {
-    return JSON.stringify(this.discoveredClient.callbackParams(req.url));
-  }
+  async getToken(callbackReq: Request): Promise<string> {
+    const redirectUrl = this.getRedirectUrl(callbackReq);
 
-  async getToken(code: string, callbackUrl?: string): Promise<string> {
-    const params = JSON.parse(code) as CallbackParamsType;
-    const checks = {
-      state: this.state,
+    const params = this.discoveredClient.callbackParams(callbackReq.url);
+
+    const state = params.state;
+    if (!state) {
+      throw new Error("No state parameter found in callback request");
+    }
+
+    if (!this.stateCache.has(state)) {
+      throw new Error("State parameter does not match a known state");
+    }
+
+    const nonce = this.stateCache.get(state);
+    this.stateCache.delete(state);
+
+    const checks: OpenIDCallbackChecks = {
+      state,
+      nonce,
+      scope: this.scope,
     };
-    const tokenSet = await this.discoveredClient.callback(callbackUrl, params, checks);
+    const tokenSet = await this.discoveredClient.callback(redirectUrl, params, checks);
 
     if (tokenSet.access_token !== undefined) {
       return tokenSet.access_token;
@@ -100,42 +135,63 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     throw new Error("No access_token received in getToken callback");
   }
 
-  async getUsername(token: string): Promise<string> {
-    const userinfo = await this.discoveredClient.userinfo(token);
-    const username = userinfo[this.config.usernameClaim] as string | undefined;
+  private async getUserinfo(token: string): Promise<Record<string, unknown>> {
+    let userinfo = this.userinfoCache.get(token);
+    if (!userinfo) {
+      userinfo = await this.discoveredClient.userinfo<Record<string, unknown>>(token);
 
-    if (username !== undefined) {
-      return username;
+      this.userinfoCache.set(token, userinfo);
+    }
+    return userinfo;
+  }
+
+  private verifyUsername(username: string, userinfo: Record<string, unknown>): boolean {
+    return username === userinfo[this.config.usernameClaim];
+  }
+
+  async getUsername(token: string): Promise<string> {
+    const userinfo = this.getUserinfo(token);
+    const username = userinfo[this.config.usernameClaim];
+
+    if (username) {
+      return String(username);
     }
 
     throw new Error(`Could not grab username using the ${this.config.usernameClaim} property`);
   }
 
-  async getGroups(username: string, token: string): Promise<string[]> {
-    const userinfo = await this.discoveredClient.userinfo(token);
+  async getGroups(username: string, token?: string): Promise<string[]> {
+    if (token) {
+      const userinfo = await this.getUserinfo(token);
 
-    if (username !== userinfo[this.config.usernameClaim]) {
-      throw new Error(`Username did not match, expected ${username}`);
-    }
-
-    if (this.config.groupsClaim) {
-      const groups = userinfo[this.config.groupsClaim] as string[] | undefined;
-
-      if (!groups) {
-        throw new Error(`Could not grab groups using the ${this.config.groupsClaim} property`);
+      if (!this.verifyUsername(username, userinfo)) {
+        throw new Error(`Username did not match, expected ${username}`);
       }
-      return groups;
-    }
 
-    if (this.config.providerType) {
-      switch (this.config.providerType) {
-        case "gitlab": {
-          const gitlabGroups = await this.getGitlabGroups(token);
-          logger.info({ username, gitlabGroups }, `GitLab user "@{username}" has groups: "@{gitlabGroups}"`);
-          return gitlabGroups;
+      if (this.config.groupsClaim) {
+        const groups = userinfo[this.config.groupsClaim];
+
+        if (!groups) {
+          throw new Error(`Could not grab groups using the ${this.config.groupsClaim} property`);
+        } else if (Array.isArray(groups)) {
+          return groups;
+        } else if (typeof groups === "string") {
+          return [groups];
+        } else {
+          throw new Error(`Groups claim is not an array or string`);
         }
-        default: {
-          throw new Error("unexpected provider type");
+      }
+
+      if (this.config.providerType) {
+        switch (this.config.providerType) {
+          case "gitlab": {
+            const gitlabGroups = await this.getGitlabGroups(token);
+            logger.info({ username, gitlabGroups }, `GitLab user "@{username}" has groups: "@{gitlabGroups}"`);
+            return gitlabGroups;
+          }
+          default: {
+            throw new Error("unexpected provider type");
+          }
         }
       }
     }
@@ -158,5 +214,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     const userGroups = await group.all();
     return userGroups.map((g) => g.name);
+  }
+
+  private getRedirectUrl(req: Request): string {
+    const baseUrl = getPublicUrl(this.config.url_prefix, req as RequestOptions).replace(/\/$/, "");
+    const path = getCallbackPath(req.params.id);
+
+    return baseUrl + path;
   }
 }
