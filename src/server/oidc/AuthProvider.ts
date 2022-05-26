@@ -34,7 +34,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     if (this.config.configurationEndpoint) {
       issuer = await Issuer.discover(this.config.configurationEndpoint);
-    } else if (this.config.authorizationEndpoint && this.config.tokenEndpoint && this.config.userinfoEndpoint) {
+    } else if (
+      this.config.authorizationEndpoint ||
+      this.config.tokenEndpoint ||
+      this.config.userinfoEndpoint ||
+      this.config.jwksUri
+    ) {
       issuer = new Issuer({
         issuer: this.config.issuer || this.host,
         authorization_endpoint: this.config.authorizationEndpoint,
