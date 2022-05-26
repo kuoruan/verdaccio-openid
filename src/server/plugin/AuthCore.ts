@@ -62,9 +62,7 @@ export class AuthCore {
     const npmToken = await this.verdaccio.issueNpmToken(providerToken, user);
 
     const query = { username, uiToken, npmToken };
-    const url = `/?${qs.stringify(query)}`;
-
-    return url;
+    return `/${qs.stringify(query, { addQueryPrefix: true })}`;
   }
 
   authenticate(username: string, groups: string[] = []): boolean {

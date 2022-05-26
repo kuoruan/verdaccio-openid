@@ -31,6 +31,7 @@ export type VerdaccioConfig = Omit<RemoveIndexSignature<IncorrectVerdaccioConfig
 type ProviderType = "gitlab";
 
 export interface PluginConfig {
+  host: string;
   "configuration-endpoint"?: string;
   issuer?: string;
   "authorization-endpoint"?: string;
@@ -91,9 +92,6 @@ function getConfigValue<T>(config: Config, key: string, predicate: any): T {
   return value as T;
 }
 
-//
-// Access
-//
 export class ParsedPluginConfig {
   public get packages() {
     return this.config.packages ?? {};
@@ -102,14 +100,8 @@ export class ParsedPluginConfig {
     return this.config.url_prefix ?? "";
   }
 
-  public get authorizedGroup() {
-    return (
-      getConfigValue<string | false>(
-        this.config,
-        "authorized-group",
-        assert.any(assert.string.nonEmpty, assert.boolean.false)
-      ) ?? false
-    );
+  public get host() {
+    return getConfigValue<string>(this.config, "host", assert.string.nonEmpty);
   }
 
   public get configurationEndpoint() {
@@ -149,7 +141,17 @@ export class ParsedPluginConfig {
   }
 
   public get usernameClaim() {
-    return getConfigValue<string>(this.config, "username-claim", assert.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "username-claim", assert.optional.string.nonEmpty) ?? "sub";
+  }
+
+  public get authorizedGroup() {
+    return (
+      getConfigValue<string | false | undefined>(
+        this.config,
+        "authorized-group",
+        assert.any(assert.optional.string.nonEmpty, assert.optional.boolean.false)
+      ) ?? false
+    );
   }
 
   public get groupsClaim() {
@@ -162,8 +164,8 @@ export class ParsedPluginConfig {
       "group-users",
       assert.optional.map
         .keysOfType(assert.string.nonEmpty)
-        .valuesOfType(assert.array.ofType(assert.string.nonEmpty).maxLength(1))
-        .maxSize(1)
+        .valuesOfType(assert.array.ofType(assert.string.nonEmpty).minLength(1))
+        .minSize(1)
     );
   }
 
