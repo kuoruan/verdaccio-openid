@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/package",
   "name": "verdaccio-oidc-ui",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "repository": "https://github.com/kuoruan/verdaccio-oidc-ui",
   "license": "MIT",
   "author": {
