@@ -3,7 +3,6 @@ import { name, version, bin } from "../package.json";
 export const plugin = { name, version, bin };
 
 export const pluginKey = plugin.name.replace("verdaccio-", "");
-export const staticPath = `/-/static/${pluginKey}`;
 export const authorizePath = "/-/oauth/authorize";
 export const callbackPath = "/-/oauth/callback";
 export const loginHref = authorizePath;
