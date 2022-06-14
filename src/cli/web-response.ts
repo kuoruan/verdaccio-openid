@@ -3,13 +3,13 @@ import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "@/status
 
 import type { Response } from "express";
 
-const withBackButton = false;
+const withBack = false;
 
 const successPage = buildStatusPage(
   `<h1>All done!</h1>
   <p>We've updated your npm configuration.</p>
   <p><code>${getNpmConfigFile()}</code></p>`,
-  withBackButton
+  withBack
 );
 
 export function respondWithWebPage(status: string, message: string, res: Response) {
@@ -23,12 +23,12 @@ export function respondWithWebPage(status: string, message: string, res: Respons
 
     case "denied":
       res.status(401);
-      res.send(buildAccessDeniedPage(withBackButton));
+      res.send(buildAccessDeniedPage(withBack));
       break;
 
     default:
       res.status(500);
-      res.send(buildErrorPage(message, withBackButton));
+      res.send(buildErrorPage(message, withBack));
       break;
   }
 }
