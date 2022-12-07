@@ -18,8 +18,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private host: string;
   private scope: string;
 
-  private stateCache: TTLCache<string>;
-  private userinfoCache: TTLCache<Record<string, unknown>>;
+  private stateCache: TTLCache<string, string>;
+  private userinfoCache: TTLCache<string, Record<string, unknown>>;
 
   constructor(private readonly config: ParsedPluginConfig) {
     this.host = this.config.host;

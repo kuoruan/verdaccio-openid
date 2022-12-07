@@ -2,7 +2,6 @@ import process from "process";
 
 import get from "lodash/get";
 import assert from "ow";
-import { PartialDeep, RemoveIndexSignature } from "type-fest";
 
 import { pluginKey } from "@/constants";
 import logger from "@/logger";
@@ -12,6 +11,7 @@ import type {
   PackageAccess as IncorrectVerdaccioPackageAccess,
   Security,
 } from "@verdaccio/types";
+import type { PartialDeep, OmitIndexSignature } from "type-fest";
 
 //
 // Types
@@ -23,7 +23,7 @@ export interface PackageAccess extends IncorrectVerdaccioPackageAccess {
   unpublish?: string[];
 }
 
-export type VerdaccioConfig = Omit<RemoveIndexSignature<IncorrectVerdaccioConfig>, "packages" | "security"> & {
+export type VerdaccioConfig = Omit<OmitIndexSignature<IncorrectVerdaccioConfig>, "packages" | "security"> & {
   packages?: Record<string, PackageAccess>;
   security?: PartialDeep<Security>;
 };
