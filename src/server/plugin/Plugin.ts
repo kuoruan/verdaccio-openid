@@ -2,8 +2,6 @@ import { errorUtils } from "@verdaccio/core";
 
 import logger, { setLogger } from "@/logger";
 
-import { CliFlow, WebFlow } from "../flows";
-import { OpenIDConnectAuthProvider } from "../oidc";
 import { AuthCore } from "./AuthCore";
 import { Cache } from "./Cache";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
@@ -11,6 +9,8 @@ import { PatchHtml } from "./PatchHtml";
 import { registerGlobalProxyAgent } from "./ProxyAgent";
 import { ServeStatic } from "./ServeStatic";
 import { Auth, Verdaccio } from "./Verdaccio";
+import { CliFlow, WebFlow } from "../flows";
+import { OpenIDConnectAuthProvider } from "../oidc";
 
 import type {
   AllowAccess,

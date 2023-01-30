@@ -5,7 +5,9 @@ import { authenticatedUserGroups } from "@/constants";
 import logger from "@/logger";
 
 import { ParsedPluginConfig } from "./Config";
-import { User, Verdaccio } from "./Verdaccio";
+import { Verdaccio } from "./Verdaccio";
+
+import type { RemoteUser } from "@verdaccio/types";
 
 export class AuthCore {
   private readonly configuredGroups: Record<string, true>;
@@ -34,7 +36,7 @@ export class AuthCore {
     return this.config.authorizedGroup ? this.config.authorizedGroup : null;
   }
 
-  createAuthenticatedUser(username: string, groups: string[]): User {
+  createAuthenticatedUser(username: string, groups: string[]): RemoteUser {
     const relevantGroups = groups.filter((group) => group in this.configuredGroups);
 
     relevantGroups.push(username);
@@ -45,7 +47,7 @@ export class AuthCore {
 
     const realGroups = uniq(relevantGroups.filter(Boolean).sort());
 
-    const user: User = {
+    const user: RemoteUser = {
       name: username,
       groups: [...authenticatedUserGroups, ...realGroups],
       real_groups: realGroups,
