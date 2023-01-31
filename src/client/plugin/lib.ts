@@ -1,10 +1,15 @@
-import qs from "qs";
-
 /**
  * Returns `?a=b&c` as `{ a: b, c: true }`.
  */
-export function parseQueryParams() {
-  return qs.parse(location.search, { ignoreQueryPrefix: true });
+export function parseQueryParams(): Record<string, string> {
+  const p = new URLSearchParams(location.search);
+
+  const result: Record<string, string> = {};
+  p.forEach((value, key) => {
+    result[key] = value;
+  });
+
+  return result;
 }
 
 export function retry(action: () => void) {

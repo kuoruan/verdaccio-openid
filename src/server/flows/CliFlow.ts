@@ -1,5 +1,3 @@
-import qs from "qs";
-
 import { cliPort, cliProviderId } from "@/constants";
 import logger from "@/logger";
 import { getCallbackPath } from "@/redirect";
@@ -40,7 +38,7 @@ export class CliFlow implements IPluginMiddleware<any> {
         const npmToken = await this.verdaccio.issueNpmToken(providerToken, user);
 
         params.status = "success";
-        params.token = encodeURIComponent(npmToken);
+        params.token = npmToken;
       } else {
         params.status = "denied";
       }
@@ -51,7 +49,7 @@ export class CliFlow implements IPluginMiddleware<any> {
       params.message = error.message || error;
     }
 
-    const redirectUrl = `http://localhost:${cliPort}${qs.stringify(params, { addQueryPrefix: true })}`;
+    const redirectUrl = `http://localhost:${cliPort}?${new URLSearchParams(params).toString()}`;
 
     res.redirect(redirectUrl);
   };

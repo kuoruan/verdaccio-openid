@@ -1,4 +1,4 @@
-import { Cache as MemoryCache } from "memory-cache";
+import TTLCache from "@isaacs/ttlcache";
 
 /**
  * When installing packages, the CLI makes a burst of package requests.
@@ -11,28 +11,31 @@ import { Cache as MemoryCache } from "memory-cache";
  * has been made for a short period.
  */
 export class Cache {
-  private readonly groupsCache = new MemoryCache<string, string[]>();
-  private readonly providerTokenCache = new MemoryCache<string, string>();
+  private readonly groupsCache: TTLCache<string, string[]>;
+  private readonly providerTokenCache: TTLCache<string, string>;
 
-  constructor(private readonly namespace: string) {}
+  constructor(private readonly namespace: string) {
+    this.groupsCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5m;
+    this.providerTokenCache = new TTLCache({ max: 1000 });
+  }
 
   private getKey(str: string): string {
     return this.namespace + "_" + str;
   }
 
-  getGroups(key: string): string[] | null {
+  getGroups(key: string): string[] | null | undefined {
     return this.groupsCache.get(this.getKey(key));
   }
 
   setGroups(key: string, groups: string[]): void {
-    this.groupsCache.put(this.getKey(key), groups, 5 * 60 * 1000); // 5m
+    this.groupsCache.set(this.getKey(key), groups);
   }
 
   setProviderToken(key: string, providerToken: string, ttl?: number) {
-    this.providerTokenCache.put(this.getKey(key), providerToken, ttl);
+    this.providerTokenCache.set(this.getKey(key), providerToken, { ttl });
   }
 
-  getProviderToken(key: string): string | null {
+  getProviderToken(key: string): string | null | undefined {
     return this.providerTokenCache.get(this.getKey(key));
   }
 }

@@ -1,6 +1,3 @@
-import uniq from "lodash/uniq";
-import qs from "qs";
-
 import { authenticatedUserGroups } from "@/constants";
 import logger from "@/logger";
 
@@ -45,7 +42,8 @@ export class AuthCore {
       relevantGroups.push(this.requiredGroup);
     }
 
-    const realGroups = uniq(relevantGroups.filter(Boolean).sort());
+    // get unique and sorted groups
+    const realGroups = relevantGroups.filter((val, index, self) => self.indexOf(val) === index).sort();
 
     const user: RemoteUser = {
       name: username,
@@ -64,7 +62,7 @@ export class AuthCore {
     const npmToken = await this.verdaccio.issueNpmToken(providerToken, user);
 
     const query = { username, uiToken, npmToken };
-    return `/${qs.stringify(query, { addQueryPrefix: true })}`;
+    return `/?${new URLSearchParams(query).toString()}`;
   }
 
   authenticate(username: string, groups: string[] = []): boolean {
