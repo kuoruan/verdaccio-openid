@@ -1,9 +1,16 @@
+import {
+  Auth,
+  buildUser,
+  isAESLegacy,
+  signPayload,
+  verifyJWTPayload,
+  aesDecrypt,
+  parseBasicPayload,
+} from "@verdaccio/auth";
 import merge from "deepmerge";
 
 import { VerdaccioConfig } from "../plugin/Config";
 
-import type { Cache } from "./Cache";
-import type { Auth } from "@verdaccio/auth";
 import type { JWTSignOptions, RemoteUser } from "@verdaccio/types";
 
 // Most of this is duplicated Verdaccio code because it is unfortunately not available via API.
@@ -27,52 +34,92 @@ function getSecurity(config: VerdaccioConfig) {
   return merge(defaultSecurity, config.security);
 }
 
+export type UserWithToken = RemoteUser & { token?: string; legacyToken?: boolean };
+
 /**
  * Abstract Verdaccio version differences and usage of all Verdaccio objects.
  */
 export class Verdaccio {
   readonly security: ReturnType<typeof getSecurity>;
 
-  private auth!: Auth;
-
-  constructor(private readonly config: VerdaccioConfig, private readonly cache: Cache) {
+  constructor(private readonly config: VerdaccioConfig, private readonly auth: Auth) {
     this.security = getSecurity(this.config);
   }
 
-  setAuth(auth: Auth): Verdaccio {
-    this.auth = auth;
-    return this;
-  }
-
-  issueNpmToken(providerToken: string, user: RemoteUser): Promise<string> {
+  issueNpmToken(user: RemoteUser, providerToken: string): Promise<string> {
     const jwtSignOptions = this.security?.api?.jwt?.sign;
 
-    if (jwtSignOptions) {
-      return this.issueVerdaccioJWT(user, jwtSignOptions);
-    }
+    if (isAESLegacy(this.security) || !jwtSignOptions) {
+      const npmToken = this.legacyEncrypt(user, providerToken);
+      if (!npmToken) {
+        throw new Error("Failed to encrypt npm token");
+      }
 
-    const npmToken = this.encrypt(user.name + ":" + providerToken.slice(0, 6));
-    if (!npmToken) {
-      throw new Error("Failed to encrypt npm token");
+      return Promise.resolve(npmToken);
+    } else {
+      return this.issueVerdaccioJWT(user, providerToken, jwtSignOptions);
     }
-
-    // save relationship between npm token and provider token
-    this.cache.setProviderToken(npmToken, providerToken);
-    return Promise.resolve(npmToken);
   }
 
-  issueUiToken(user: RemoteUser): Promise<string> {
+  verifyNpmToken(token: string): UserWithToken {
+    const jwtSignOptions = this.security?.api?.jwt?.sign;
+
+    if (isAESLegacy(this.security) || !jwtSignOptions) {
+      return this.legacyDecrypt(token);
+    } else {
+      return this.verifyVerdaccioJWT(token);
+    }
+  }
+
+  // The ui token of verdaccio is always a JWT token.
+  issueUiToken(user: RemoteUser, providerToken: string): Promise<string> {
     const jwtSignOptions = this.security?.web?.sign;
 
-    return this.issueVerdaccioJWT(user, jwtSignOptions);
+    return this.issueVerdaccioJWT(user, providerToken, jwtSignOptions);
   }
 
-  // https://github.com/verdaccio/verdaccio/blob/master/src/api/web/endpoint/user.ts#L31
-  private issueVerdaccioJWT(user: RemoteUser, jwtSignOptions: JWTSignOptions): Promise<string> {
-    return this.auth.jwtEncrypt(user, jwtSignOptions);
+  verifyUiToken(token: string): UserWithToken {
+    return this.verifyVerdaccioJWT(token);
   }
 
-  private encrypt(text: string): string | void {
-    return this.auth.aesEncrypt(Buffer.from(text).toString("base64"));
+  private issueVerdaccioJWT(
+    user: UserWithToken,
+    providerToken: string,
+    jwtSignOptions: JWTSignOptions
+  ): Promise<string> {
+    return signPayload({ ...user, providerToken } as UserWithToken, this.auth.secret, jwtSignOptions);
+  }
+
+  private verifyVerdaccioJWT(token: string): UserWithToken {
+    // verifyPayload
+    // use internal function to avoid error handling
+    const user = verifyJWTPayload(token, this.auth.secret);
+
+    return { ...user, legacyToken: false };
+  }
+
+  private legacyEncrypt(user: RemoteUser, providerToken: string): string {
+    // use internal function to encrypt token
+    const token = this.auth.aesEncrypt(buildUser(user.name as string, providerToken));
+
+    if (!token) {
+      throw new Error("Failed to encrypt token");
+    }
+
+    return token;
+  }
+
+  private legacyDecrypt(value: string): UserWithToken {
+    const payload = aesDecrypt(value, this.auth.secret);
+    if (!payload) {
+      throw new Error("Failed to decrypt token");
+    }
+
+    const res = parseBasicPayload(payload);
+    if (!res) {
+      throw new Error("Failed to parse token");
+    }
+
+    return { name: res.user, real_groups: [], groups: [], token: res.password, legacyToken: true };
   }
 }

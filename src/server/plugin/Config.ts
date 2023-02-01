@@ -24,7 +24,7 @@ export type VerdaccioConfig = IncorrectVerdaccioConfig & {
   security?: Partial<Security>;
 };
 
-type ProviderType = "gitlab";
+type ProviderType = "gitlab" | "universal";
 
 export interface PluginConfig {
   host: string;
@@ -164,10 +164,12 @@ export class ParsedPluginConfig {
   }
 
   public get providerType() {
-    return getConfigValue<ProviderType | undefined>(
-      this.config,
-      "provider-type",
-      assert.optional.string.oneOf(["gitlab"])
+    return (
+      getConfigValue<ProviderType | undefined>(
+        this.config,
+        "provider-type",
+        assert.optional.string.oneOf(["gitlab"])
+      ) ?? "universal"
     );
   }
 

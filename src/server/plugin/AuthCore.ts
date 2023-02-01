@@ -2,15 +2,27 @@ import { authenticatedUserGroups } from "@/constants";
 import logger from "@/logger";
 
 import { ParsedPluginConfig } from "./Config";
-import { Verdaccio } from "./Verdaccio";
+import { UserWithToken, Verdaccio } from "./Verdaccio";
 
 import type { RemoteUser } from "@verdaccio/types";
 
 export class AuthCore {
   private readonly configuredGroups: Record<string, true>;
 
-  constructor(private readonly verdaccio: Verdaccio, private readonly config: ParsedPluginConfig) {
+  private verdaccio?: Verdaccio;
+
+  constructor(private readonly config: ParsedPluginConfig) {
     this.configuredGroups = this.getConfiguredGroups();
+  }
+
+  public setVerdaccio(verdaccio: Verdaccio) {
+    this.verdaccio = verdaccio;
+  }
+
+  private checkVerdaccioInitialized() {
+    if (!this.verdaccio) {
+      throw new Error("Verdaccio is not initialized");
+    }
   }
 
   /**
@@ -56,10 +68,12 @@ export class AuthCore {
   }
 
   async createUiCallbackUrl(username: string, providerToken: string, groups: string[]): Promise<string> {
+    this.checkVerdaccioInitialized();
+
     const user = this.createAuthenticatedUser(username, groups);
 
-    const uiToken = await this.verdaccio.issueUiToken(user);
-    const npmToken = await this.verdaccio.issueNpmToken(providerToken, user);
+    const uiToken = await this.verdaccio!.issueUiToken(user, providerToken);
+    const npmToken = await this.verdaccio!.issueNpmToken(user, providerToken);
 
     const query = { username, uiToken, npmToken };
     return `/?${new URLSearchParams(query).toString()}`;
@@ -78,5 +92,17 @@ export class AuthCore {
 
     // empty group is allowed
     return true;
+  }
+
+  verifyUiToken(uiToken: string): UserWithToken {
+    this.checkVerdaccioInitialized();
+
+    return this.verdaccio!.verifyUiToken(uiToken);
+  }
+
+  verifyNpmToken(npmToken: string): UserWithToken {
+    this.checkVerdaccioInitialized();
+
+    return this.verdaccio!.verifyNpmToken(npmToken);
   }
 }
