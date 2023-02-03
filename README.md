@@ -15,10 +15,7 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 ### Install
 
 ```sh
-git clone https://github.com/kuoruan/verdaccio-oidc-ui.git /path/of/verdaccio-oidc-ui
-npm install && npm run build
-cd /path/of/verdaccio
-npm install /path/of/verdaccio-oidc-ui
+npm install -S verdaccio-openid
 ```
 
 ### Verdaccio Config
