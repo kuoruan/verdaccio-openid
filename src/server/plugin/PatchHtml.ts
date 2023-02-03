@@ -1,4 +1,6 @@
-import { staticPath } from "../constants";
+import fs from "fs";
+
+import { staticPath, publicRoot } from "../constants";
 
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
@@ -8,7 +10,21 @@ import type { Application, Handler } from "express";
  * that modifies the login button.
  */
 export class PatchHtml implements IPluginMiddleware<any> {
-  private readonly scriptTag = `<script src="${staticPath}/verdaccio-6.js"></script>`;
+  private readonly scriptTag: string;
+
+  constructor() {
+    const scriptName = this.getScriptName();
+
+    if (!scriptName) {
+      throw new Error("Could not find script to inject");
+    }
+
+    this.scriptTag = `<script src="${staticPath}/${scriptName}"></script>`;
+  }
+
+  private getScriptName(): string | undefined {
+    return fs.readdirSync(publicRoot).find((file) => file.startsWith("verdaccio") && file.endsWith(".js"));
+  }
 
   /**
    * IPluginMiddleware
@@ -20,7 +36,7 @@ export class PatchHtml implements IPluginMiddleware<any> {
   /**
    * Patches `res.send` in order to inject style and script tags.
    */
-  patchResponse: Handler = (req, res, next) => {
+  patchResponse: Handler = (_, res, next) => {
     const send = res.send;
     res.send = (html) => {
       html = this.insertTags(html);

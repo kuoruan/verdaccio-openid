@@ -4,13 +4,10 @@
 // thinks we are logged in.
 //
 
-export interface Credentials {
-  username: string;
-  uiToken: string;
-  npmToken: string;
-}
+export type Credentials = Record<"username" | "uiToken" | "npmToken", string>;
 
 export function saveCredentials(credentials: Credentials) {
+  // username and token are required for verdaccio to think we are logged in
   localStorage.setItem("username", credentials.username);
   localStorage.setItem("token", credentials.uiToken);
   localStorage.setItem("npm", credentials.npmToken);

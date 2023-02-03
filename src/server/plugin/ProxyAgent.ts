@@ -2,10 +2,11 @@ import { bootstrap } from "global-agent";
 
 import logger from "@/logger";
 
-declare const GLOBAL_AGENT: any;
+declare const GLOBAL_AGENT: Record<"HTTP_PROXY" | "HTTPS_PROXY" | "NO_PROXY", string>;
 
 export function registerGlobalProxyAgent() {
   bootstrap();
+
   const config = JSON.stringify(GLOBAL_AGENT || {});
-  logger.info({ config }, "Proxy config: @{config}");
+  logger.info({ config }, "using proxy config: @{config}");
 }

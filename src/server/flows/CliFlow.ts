@@ -4,7 +4,6 @@ import { getCallbackPath } from "@/redirect";
 
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
-import { Verdaccio } from "../plugin/Verdaccio";
 
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
@@ -12,11 +11,7 @@ import type { Application, Handler } from "express";
 const pluginCallbackeUrl = getCallbackPath(cliProviderId);
 
 export class CliFlow implements IPluginMiddleware<any> {
-  constructor(
-    private readonly verdaccio: Verdaccio,
-    private readonly core: AuthCore,
-    private readonly provider: AuthProvider
-  ) {}
+  constructor(private readonly core: AuthCore, private readonly provider: AuthProvider) {}
 
   /**
    * IPluginMiddleware
@@ -31,11 +26,16 @@ export class CliFlow implements IPluginMiddleware<any> {
     try {
       const providerToken = await this.provider.getToken(req);
       const username = await this.provider.getUsername(providerToken);
-      const groups = await this.provider.getGroups(username, providerToken);
+
+      let groups = this.core.getUserGroups(username);
+
+      if (!groups) {
+        groups = await this.provider.getGroups(username);
+      }
 
       if (this.core.authenticate(username, groups)) {
         const user = await this.core.createAuthenticatedUser(username, groups);
-        const npmToken = await this.verdaccio.issueNpmToken(providerToken, user);
+        const npmToken = await this.core.issueNpmToken(user, providerToken);
 
         params.status = "success";
         params.token = npmToken;

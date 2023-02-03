@@ -1,4 +1,5 @@
-import { authenticatedUserGroups } from "@/constants";
+import { defaultLoggedUserRoles } from "@verdaccio/config";
+
 import logger from "@/logger";
 
 import { ParsedPluginConfig } from "./Config";
@@ -45,11 +46,27 @@ export class AuthCore {
     return this.config.authorizedGroup ? this.config.authorizedGroup : null;
   }
 
+  /**
+   * Get the user groups from the config
+   *
+   * @param username
+   * @returns groups or undefined
+   */
+  getUserGroups(username: string): string[] | undefined {
+    let groupUsers;
+    if ((groupUsers = this.config.groupUsers)) {
+      return Object.keys(groupUsers).filter((group) => {
+        return groupUsers[group].includes(username);
+      });
+    }
+  }
+
   createAuthenticatedUser(username: string, groups: string[]): RemoteUser {
     const relevantGroups = groups.filter((group) => group in this.configuredGroups);
 
     relevantGroups.push(username);
 
+    // put required group at the end
     if (this.requiredGroup) {
       relevantGroups.push(this.requiredGroup);
     }
@@ -59,7 +76,7 @@ export class AuthCore {
 
     const user: RemoteUser = {
       name: username,
-      groups: [...authenticatedUserGroups, ...realGroups],
+      groups: [...defaultLoggedUserRoles, ...realGroups],
       real_groups: realGroups,
     };
     logger.info({ user }, "Created authenticated user @{user}");
@@ -79,6 +96,13 @@ export class AuthCore {
     return `/?${new URLSearchParams(query).toString()}`;
   }
 
+  /**
+   * Check if the user is allowed to access the registry
+   *
+   * @param username
+   * @param groups
+   * @returns true if the user is allowed to access the registry
+   */
   authenticate(username: string, groups: string[] = []): boolean {
     if (this.requiredGroup) {
       if (username !== this.requiredGroup && !groups.includes(this.requiredGroup)) {
@@ -92,6 +116,18 @@ export class AuthCore {
 
     // empty group is allowed
     return true;
+  }
+
+  issueNpmToken(user: RemoteUser, providerToken: string): Promise<string> {
+    this.checkVerdaccioInitialized();
+
+    return this.verdaccio!.issueNpmToken(user, providerToken);
+  }
+
+  issueUiToken(user: RemoteUser, providerToken: string): Promise<string> {
+    this.checkVerdaccioInitialized();
+
+    return this.verdaccio!.issueUiToken(user, providerToken);
   }
 
   verifyUiToken(uiToken: string): UserWithToken {

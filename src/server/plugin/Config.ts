@@ -1,6 +1,6 @@
 import process from "process";
 
-import assert from "ow";
+import { object, string, mixed, array, AnySchema, lazy } from "yup";
 
 import { pluginKey } from "@/constants";
 import logger from "@/logger";
@@ -11,24 +11,23 @@ import type {
   Security,
 } from "@verdaccio/types";
 
-//
-// Types
-//
-
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.
-export type PackageAccess = Partial<IncorrectVerdaccioPackageAccess>;
+export type PackageAccess = IncorrectVerdaccioPackageAccess & {
+  unpublish?: string[];
+};
 
 export type VerdaccioConfig = IncorrectVerdaccioConfig & {
   packages?: Record<string, PackageAccess>;
   security?: Partial<Security>;
 };
 
-type ProviderType = "gitlab" | "universal";
+type ProviderType = "gitlab";
 
 export interface PluginConfig {
-  host: string;
-  "configuration-endpoint"?: string;
+  "provider-host": string;
+  "provider-type"?: ProviderType;
+  "configuration-uri"?: string;
   issuer?: string;
   "authorization-endpoint"?: string;
   "userinfo-endpoint"?: string;
@@ -37,27 +36,15 @@ export interface PluginConfig {
   scope?: string;
   "client-id": string;
   "client-secret": string;
-  "username-claim": string;
+  "username-claim"?: string;
   "groups-claim"?: string;
-  "authorized-group": string | false;
+  "authorized-group"?: string | false;
   "group-users"?: Record<string, string[]>;
-  "provider-type"?: ProviderType;
 }
 
 export interface Config extends VerdaccioConfig {
   middlewares: { [key: string]: PluginConfig };
   auth: { [key: string]: PluginConfig };
-}
-
-//
-// Validation
-//
-function validatePluginEnabled(config: Config, node: keyof Config) {
-  const obj = config.node?.[pluginKey];
-
-  if (!obj) {
-    throw new Error(`"${node}.${pluginKey}" must be enabled`);
-  }
 }
 
 function getEnvValue(name: any) {
@@ -68,17 +55,26 @@ function getEnvValue(name: any) {
   return value;
 }
 
-function getConfigValue<T>(config: Config, key: string, predicate: any): T {
+function getConfigValue<T>(config: Config, key: string, schema: AnySchema | ReturnType<typeof lazy>): T {
   const valueOrEnvName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
 
   const value = getEnvValue(valueOrEnvName) ?? valueOrEnvName;
 
   try {
-    assert(value, predicate);
-  } catch (error: any) {
+    schema.validateSync(value);
+  } catch (e: any) {
+    let message: string;
+
+    if (e.errors) {
+      // ValidationError
+      message = e.errors[0];
+    } else {
+      message = e.message || e;
+    }
+
     logger.error(
-      { pluginKey, key, message: error.message },
-      'Invalid configuration at "auth.@{pluginKey}.@{key}": @{error.message} — Please check your verdaccio config.'
+      { pluginKey, key, message },
+      'Invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.'
     );
     process.exit(1);
   }
@@ -87,6 +83,16 @@ function getConfigValue<T>(config: Config, key: string, predicate: any): T {
 }
 
 export class ParsedPluginConfig {
+  constructor(public readonly config: Config) {
+    for (const node of ["middlewares", "auth"]) {
+      const obj = config[node]?.[pluginKey];
+
+      if (!obj) {
+        throw new Error(`"${node}.${pluginKey}" must be enabled`);
+      }
+    }
+  }
+
   public get packages() {
     return this.config.packages ?? {};
   }
@@ -94,48 +100,56 @@ export class ParsedPluginConfig {
     return this.config.url_prefix ?? "";
   }
 
-  public get host() {
-    return getConfigValue<string>(this.config, "host", assert.string.nonEmpty);
+  public get providerHost() {
+    return getConfigValue<string>(this.config, "provider-host", string().required());
   }
 
-  public get configurationEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "configuration-endpoint", assert.optional.string.nonEmpty);
+  public get providerType() {
+    return getConfigValue<ProviderType | undefined>(this.config, "provider-type", mixed().oneOf(["gitlab"]).optional());
+  }
+
+  public get configurationUri() {
+    return getConfigValue<string | undefined>(this.config, "configuration-uri", string().url().optional());
   }
 
   public get issuer() {
-    return getConfigValue<string | undefined>(this.config, "issuer", assert.optional.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "issuer", string().url().optional());
   }
 
   public get authorizationEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "authorization-endpoint", assert.optional.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "authorization-endpoint", string().url().optional());
   }
 
   public get tokenEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "token-endpoint", assert.optional.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "token-endpoint", string().url().optional());
   }
 
   public get userinfoEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "userinfo-endpoint", assert.optional.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "userinfo-endpoint", string().url().optional());
   }
 
   public get jwksUri() {
-    return getConfigValue<string | undefined>(this.config, "jwks-uri", assert.optional.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "jwks-uri", string().url().optional());
   }
 
   public get scope() {
-    return getConfigValue<string | undefined>(this.config, "scope", assert.optional.string.nonEmpty);
+    return getConfigValue<string | undefined>(this.config, "scope", string().optional());
   }
 
   public get clientId() {
-    return getConfigValue<string>(this.config, "client-id", assert.string.nonEmpty);
+    return getConfigValue<string>(this.config, "client-id", string().required());
   }
 
   public get clientSecret() {
-    return getConfigValue<string>(this.config, "client-secret", assert.string.nonEmpty);
+    return getConfigValue<string>(this.config, "client-secret", string().required());
   }
 
   public get usernameClaim() {
-    return getConfigValue<string | undefined>(this.config, "username-claim", assert.optional.string.nonEmpty) ?? "sub";
+    return getConfigValue<string | undefined>(this.config, "username-claim", string().optional()) ?? "sub";
+  }
+
+  public get groupsClaim() {
+    return getConfigValue<string | undefined>(this.config, "groups-claim", string().optional());
   }
 
   public get authorizedGroup() {
@@ -143,38 +157,25 @@ export class ParsedPluginConfig {
       getConfigValue<string | false | undefined>(
         this.config,
         "authorized-group",
-        assert.any(assert.optional.string.nonEmpty, assert.optional.boolean.false)
+        mixed().oneOf([string(), false]).optional()
       ) ?? false
     );
-  }
-
-  public get groupsClaim() {
-    return getConfigValue<string | undefined>(this.config, "groups-claim", assert.optional.string.nonEmpty);
   }
 
   public get groupUsers() {
     return getConfigValue<Record<string, string[]> | undefined>(
       this.config,
       "group-users",
-      assert.optional.map
-        .keysOfType(assert.string.nonEmpty)
-        .valuesOfType(assert.array.ofType(assert.string.nonEmpty).minLength(1))
-        .minSize(1)
+      lazy((val) => {
+        switch (typeof val) {
+          case "object":
+            return object(
+              Object.fromEntries(Object.keys(val).map((key) => [key, array().of(string()).min(1).required()]))
+            ).optional();
+          default:
+            return object().optional();
+        }
+      })
     );
-  }
-
-  public get providerType() {
-    return (
-      getConfigValue<ProviderType | undefined>(
-        this.config,
-        "provider-type",
-        assert.optional.string.oneOf(["gitlab"])
-      ) ?? "universal"
-    );
-  }
-
-  constructor(public readonly config: Config) {
-    validatePluginEnabled(config, "middlewares");
-    validatePluginEnabled(config, "auth");
   }
 }

@@ -2,51 +2,25 @@ import { plugin } from "./constants";
 
 import type { Logger } from "@verdaccio/types";
 
-let logger: Logger | null = null;
+function noop() {
+  /* noop */
+}
+
+const dummyLogger: Logger = {
+  child: () => dummyLogger,
+  debug: noop,
+  error: noop,
+  http: noop,
+  trace: noop,
+  warn: noop,
+  info: noop,
+};
+
+let logger: Logger = dummyLogger;
 
 export function setLogger(l: Logger) {
   logger = l.child({ plugin: { name: plugin.name } });
-  logger?.info(plugin, "Version: @{name}@@{version}");
+  logger?.info(plugin, "plugin loading: @{name}@@{version}");
 }
 
-const loggerHelper: Logger = {
-  child: (...args) => (logger ? logger.child(...args) : loggerHelper),
-  debug: (...args) =>
-    logger
-      ? logger.debug(...args)
-      : () => {
-          /* noop */
-        },
-  error: (...args) =>
-    logger
-      ? logger.error(...args)
-      : () => {
-          /* noop */
-        },
-  http: (...args) =>
-    logger
-      ? logger.http(...args)
-      : () => {
-          /* noop */
-        },
-  trace: (...args) =>
-    logger
-      ? logger.trace(...args)
-      : () => {
-          /* noop */
-        },
-  warn: (...args) =>
-    logger
-      ? logger.warn(...args)
-      : () => {
-          /* noop */
-        },
-  info: (...args) =>
-    logger
-      ? logger.info(...args)
-      : () => {
-          /* noop */
-        },
-};
-
-export default loggerHelper;
+export default logger;

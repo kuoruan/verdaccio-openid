@@ -1,4 +1,4 @@
-# verdaccio-oidc-ui
+# verdaccio-openid
 
 ## About
 
@@ -6,8 +6,8 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 
 ### Compatibility
 
-- Verdaccio 5
-- Node 14, 16
+- Verdaccio 5, 6
+- Node 16, 18
 - Chrome, Firefox, Firefox ESR, Edge, Safari
 
 ## Setup
@@ -27,11 +27,11 @@ Merge the below options with your existing Verdaccio config:
 
 ```yml
 middlewares:
-  oidc-ui:
+  openid:
     enabled: true
 
 auth:
-  oidc-ui:
+  openid:
     host: https://example.com # required, the host of oidc provider
     configuration-endpoint: https://example.com/.well-known/openid-configuration # optional
     # issuer: https://example.com # optional, jwt issuer, use 'host' when empty

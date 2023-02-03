@@ -3,23 +3,22 @@ import { errorUtils } from "@verdaccio/core";
 import logger, { setLogger } from "@/logger";
 
 import { AuthCore } from "./AuthCore";
-import { Cache } from "./Cache";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { registerGlobalProxyAgent } from "./ProxyAgent";
 import { ServeStatic } from "./ServeStatic";
-import { Verdaccio } from "./Verdaccio";
+import { UserWithToken, Verdaccio } from "./Verdaccio";
 import { CliFlow, WebFlow } from "../flows";
-import { OpenIDConnectAuthProvider } from "../oidc";
+import { OpenIDConnectAuthProvider } from "../openid";
 
 import type {
-  AllowAccess,
   AuthAccessCallback,
   AuthCallback,
   IPluginAuth,
+  IPluginMiddleware,
+  AllowAccess,
   RemoteUser,
   Logger,
-  IPluginMiddleware,
 } from "@verdaccio/types";
 import type { Application } from "express";
 
@@ -29,7 +28,6 @@ import type { Application } from "express";
 export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly parsedConfig: ParsedPluginConfig;
   private readonly provider: OpenIDConnectAuthProvider;
-  private readonly cache: Cache;
   private readonly core: AuthCore;
 
   constructor(private readonly config: Config, params: { logger: Logger }) {
@@ -39,7 +37,6 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     this.parsedConfig = new ParsedPluginConfig(this.config);
     this.provider = new OpenIDConnectAuthProvider(this.parsedConfig);
-    this.cache = new Cache(this.provider.getId());
     this.core = new AuthCore(this.parsedConfig);
   }
 
@@ -54,8 +51,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     const children = [
       new ServeStatic(),
       new PatchHtml(),
-      new WebFlow(this.parsedConfig, this.core, this.provider),
-      new CliFlow(verdaccio, this.core, this.provider),
+      new WebFlow(this.core, this.provider),
+      new CliFlow(this.core, this.provider),
     ];
 
     for (const child of children) {
@@ -68,41 +65,55 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    */
   async authenticate(username: string, token: string, callback: AuthCallback): Promise<void> {
     if (!username || !token) {
-      callback(errorUtils.getForbidden("username and token is required"), false);
-      return;
+      return callback(errorUtils.getForbidden("Username and token are required."), false);
     }
 
-    let groups = this.cache.getGroups(token);
+    let user: UserWithToken;
+    try {
+      user = this.core.verifyNpmToken(token);
+    } catch (e: any) {
+      logger.warn(
+        { username, token, message: e.message },
+        `Invalid token: @{message}, user: "@{username}", token: "@{token}"`
+      );
+
+      return callback(errorUtils.getForbidden("Invalid token."), false);
+    }
+
+    if (username !== user.name) {
+      logger.warn(
+        { expected: user.name, actual: username },
+        `Invalid username: expected "@{expected}", actual "@{actual}"`
+      );
+
+      return callback(errorUtils.getForbidden("Invalid username."), false);
+    }
+
+    let groups: string[] | undefined;
+    if (!user.legacyToken && Array.isArray(user.real_groups)) {
+      groups = user.real_groups;
+    }
+
     if (!groups) {
-      let providerToken: string | undefined;
+      groups = this.core.getUserGroups(username);
+    }
+
+    if (!groups && user.token) {
       try {
-        const user = this.core.verifyNpmToken(token);
-
-        providerToken = user.token;
+        groups = await this.provider.getGroups(user.token);
       } catch (e: any) {
-        return callback(errorUtils.getForbidden(e.message || "invalid token"), false);
-      }
-
-      try {
-        groups = await this.provider.getGroups(username, providerToken);
-
-        this.cache.setGroups(token, groups);
-      } catch (e: any) {
-        callback(errorUtils.getForbidden(e.message), false);
-        return;
+        return callback(errorUtils.getForbidden(e.message), false);
       }
     }
 
     if (groups) {
       if (this.core.authenticate(username, groups)) {
-        const user = this.core.createAuthenticatedUser(username, groups);
-
-        callback(null, user.real_groups);
+        return callback(null, groups);
       } else {
-        callback(errorUtils.getForbidden("user groups are not authenticated"), false);
+        return callback(errorUtils.getForbidden("User groups are not authenticated."), false);
       }
     } else {
-      callback(errorUtils.getForbidden("empty user groups"), false);
+      return callback(errorUtils.getForbidden("Empty user groups."), false);
     }
   }
 
@@ -110,24 +121,22 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    logger.info({ username: user.name, package: config.name }, "@{username} is trying to access @{package}");
-
-    if (config.access) {
-      const grant = config.access.some((group) => user.groups.includes(group));
-      callback(null, grant);
-    } else {
-      callback(null, true);
+    const grant = !config.access || config.access.some((group) => user.groups.includes(group));
+    if (!grant) {
+      logger.info({ username: user.name, package: config.name }, "@{username} is not allowed to access @{package}");
     }
+    callback(null, grant);
   }
 
   /**
    * IPluginAuth
    */
   allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    logger.info({ username: user.name, package: config.name }, "@{username} is trying to publish @{package}");
-
     if (config.publish) {
       const grant = config.publish.some((group) => user.groups.includes(group));
+      if (!grant) {
+        logger.info({ username: user.name, package: config.name }, "@{username} is not allowed to publish @{package}");
+      }
       callback(null, grant);
     } else {
       this.allow_access(user, config, callback);
@@ -138,10 +147,14 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    logger.info({ username: user.name, package: config.name }, "@{username} is trying to unpublish @{package}");
-
     if (config.unpublish) {
       const grant = config.unpublish.some((group) => user.groups.includes(group));
+      if (!grant) {
+        logger.info(
+          { username: user.name, package: config.name },
+          "@{username} is not allowed to unpublish @{package}"
+        );
+      }
       callback(null, grant);
     } else {
       this.allow_publish(user, config, callback);

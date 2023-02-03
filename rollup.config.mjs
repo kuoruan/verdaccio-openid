@@ -45,6 +45,7 @@ function getPlugins(isBrowser = false) {
           {
             useBuiltIns: isBrowser ? "usage" : false,
             corejs: isBrowser ? "3.27" : false,
+            // set to undefined to use the default browserslist config
             targets: !isBrowser ? { node: "current" } : undefined,
             ignoreBrowserslistConfig: !isBrowser,
           },
@@ -85,10 +86,10 @@ export default defineConfig([
     plugins: getPlugins(),
   },
   {
-    input: "src/client/verdaccio-6.ts",
+    input: "src/client/verdaccio.ts",
     output: {
       dir: "dist/client",
-      entryFileNames: "[name].js",
+      entryFileNames: "[name].[hash].js",
       format: "iife",
     },
     plugins: getPlugins(true),
