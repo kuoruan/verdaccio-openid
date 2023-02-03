@@ -74,7 +74,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     } catch (e: any) {
       logger.warn(
         { username, token, message: e.message },
-        `Invalid token: @{message}, user: "@{username}", token: "@{token}"`
+        `invalid token: @{message}, user: "@{username}", token: "@{token}"`
       );
 
       return callback(errorUtils.getForbidden("Invalid token."), false);
@@ -83,7 +83,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     if (username !== user.name) {
       logger.warn(
         { expected: user.name, actual: username },
-        `Invalid username: expected "@{expected}", actual "@{actual}"`
+        `invalid username: expected "@{expected}", actual "@{actual}"`
       );
 
       return callback(errorUtils.getForbidden("Invalid username."), false);
@@ -123,7 +123,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
     const grant = !config.access || config.access.some((group) => user.groups.includes(group));
     if (!grant) {
-      logger.info({ username: user.name, package: config.name }, "@{username} is not allowed to access @{package}");
+      logger.info({ username: user.name, package: config.name }, `"@{username}" is not allowed to access "@{package}"`);
     }
     callback(null, grant);
   }
@@ -135,7 +135,10 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     if (config.publish) {
       const grant = config.publish.some((group) => user.groups.includes(group));
       if (!grant) {
-        logger.info({ username: user.name, package: config.name }, "@{username} is not allowed to publish @{package}");
+        logger.info(
+          { username: user.name, package: config.name },
+          `"@{username}" is not allowed to publish "@{package}"`
+        );
       }
       callback(null, grant);
     } else {
@@ -152,7 +155,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       if (!grant) {
         logger.info(
           { username: user.name, package: config.name },
-          "@{username} is not allowed to unpublish @{package}"
+          `"@{username}" is not allowed to unpublish "@{package}"`
         );
       }
       callback(null, grant);

@@ -135,7 +135,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       return tokenSet.access_token;
     }
 
-    throw new Error("No access_token received in getToken callback.");
+    throw new Error(`No "access_token" received in getToken callback.`);
   }
 
   private async getUserinfo(token: string): Promise<Record<string, unknown>> {
