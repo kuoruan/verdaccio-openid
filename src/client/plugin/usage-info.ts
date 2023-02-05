@@ -3,14 +3,20 @@
 // to be configured.
 //
 
+declare global {
+  interface Window {
+    VERDACCIO_API_URL: string;
+  }
+}
+
 export function getUsageInfo() {
   const username = localStorage.getItem("username");
   if (!username) {
     return "Click the login button to authenticate with OIDC.";
   }
 
-  const configBase = (window as any).VERDACCIO_API_URL
-    ? (window as any).VERDACCIO_API_URL.replace(/^https?:/, "").replace(/-\/verdaccio\/$/, "")
+  const configBase = window.VERDACCIO_API_URL
+    ? window.VERDACCIO_API_URL.replace(/^https?:/, "").replace(/-\/verdaccio\/$/, "")
     : `//${location.host}/`;
   const authToken = localStorage.getItem("npm");
   return [
