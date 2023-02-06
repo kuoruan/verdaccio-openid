@@ -1,5 +1,6 @@
 import process from "process";
 
+import merge from "deepmerge";
 import { object, string, mixed, array, AnySchema, lazy } from "yup";
 
 import { pluginKey } from "@/constants";
@@ -48,6 +49,21 @@ export interface Config extends VerdaccioConfig {
   auth: { [key: string]: PluginConfig };
 }
 
+// https://github.com/verdaccio/verdaccio/blob/master/packages/config/src/security.ts
+const TIME_EXPIRATION_7D = "7d";
+
+const defaultSecurity = {
+  api: {
+    legacy: true,
+  },
+  web: {
+    sign: {
+      expiresIn: TIME_EXPIRATION_7D,
+    },
+    verify: {},
+  },
+};
+
 function getEnvValue(name: any) {
   const value = process.env[String(name)];
   if (value === "true" || value === "false") {
@@ -94,10 +110,18 @@ export class ParsedPluginConfig {
     }
   }
 
+  public get secret() {
+    return this.config.secret;
+  }
+
+  public get security(): Security {
+    return merge(defaultSecurity, this.config.security || {});
+  }
+
   public get packages() {
     return this.config.packages ?? {};
   }
-  public get url_prefix() {
+  public get urlPrefix() {
     return this.config.url_prefix ?? "";
   }
 

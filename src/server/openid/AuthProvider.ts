@@ -5,8 +5,7 @@ import { Issuer, generators } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
 
-import { AuthProvider } from "../plugin/AuthProvider";
-import { ParsedPluginConfig } from "../plugin/Config";
+import { AuthProvider, ConfigHolder } from "../plugin/AuthProvider";
 
 import type { RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
@@ -21,7 +20,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private readonly userinfoCache: TTLCache<string, Record<string, unknown>>;
   private readonly groupsCache: TTLCache<string, string[]>;
 
-  constructor(private readonly config: ParsedPluginConfig) {
+  constructor(private readonly config: ConfigHolder) {
     this.providerHost = this.config.providerHost;
     this.scope = this.initScope();
 
@@ -224,6 +223,6 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   public getBaseUrl(req: Request): string {
-    return getPublicUrl(this.config.url_prefix, req as RequestOptions).replace(/\/$/, "");
+    return getPublicUrl(this.config.urlPrefix, req as RequestOptions).replace(/\/$/, "");
   }
 }

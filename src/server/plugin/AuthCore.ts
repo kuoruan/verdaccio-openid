@@ -1,30 +1,42 @@
+import {
+  Auth,
+  buildUser,
+  isAESLegacy,
+  signPayload,
+  verifyJWTPayload,
+  aesDecrypt,
+  parseBasicPayload,
+} from "@verdaccio/auth";
 import { defaultLoggedUserRoles } from "@verdaccio/config";
 
 import { stringifyQueryParams } from "@/query-params";
 
 import { ParsedPluginConfig } from "./Config";
-import { UserWithToken, Verdaccio } from "./Verdaccio";
 import logger from "../logger";
 
-import type { RemoteUser } from "@verdaccio/types";
+import type { RemoteUser, JWTSignOptions, Security } from "@verdaccio/types";
+
+export type UserWithToken = RemoteUser & { token?: string; legacyToken?: boolean };
 
 export class AuthCore {
+  private readonly security: Security;
+
+  private auth?: Auth;
+
   private readonly configuredGroups: Record<string, true>;
 
-  private verdaccio?: Verdaccio;
+  constructor(private readonly parsedConfig: ParsedPluginConfig) {
+    this.security = this.parsedConfig.security;
 
-  constructor(private readonly config: ParsedPluginConfig) {
     this.configuredGroups = this.getConfiguredGroups();
   }
 
-  public setVerdaccio(verdaccio: Verdaccio) {
-    this.verdaccio = verdaccio;
+  setAuth(auth: Auth) {
+    this.auth = auth;
   }
 
-  private checkVerdaccioInitialized() {
-    if (!this.verdaccio) {
-      throw new Error("Verdaccio is not initialized");
-    }
+  private get secret(): string {
+    return this.auth ? this.auth.secret : this.parsedConfig.secret;
   }
 
   /**
@@ -32,7 +44,7 @@ export class AuthCore {
    */
   getConfiguredGroups() {
     const configuredGroups: Record<string, true> = {};
-    Object.values(this.config.packages || {}).forEach((packageConfig) => {
+    Object.values(this.parsedConfig.packages || {}).forEach((packageConfig) => {
       ["access", "publish", "unpublish"]
         .flatMap((key) => packageConfig[key])
         .filter(Boolean)
@@ -44,7 +56,7 @@ export class AuthCore {
   }
 
   private get requiredGroup(): string | null {
-    return this.config.authorizedGroup ? this.config.authorizedGroup : null;
+    return this.parsedConfig.authorizedGroup ? this.parsedConfig.authorizedGroup : null;
   }
 
   /**
@@ -55,7 +67,7 @@ export class AuthCore {
    */
   getUserGroups(username: string): string[] | undefined {
     let groupUsers;
-    if ((groupUsers = this.config.groupUsers)) {
+    if ((groupUsers = this.parsedConfig.groupUsers)) {
       return Object.keys(groupUsers).filter((group) => {
         return groupUsers[group].includes(username);
       });
@@ -86,12 +98,10 @@ export class AuthCore {
   }
 
   async createUiCallbackUrl(username: string, providerToken: string, groups: string[]): Promise<string> {
-    this.checkVerdaccioInitialized();
-
     const user = this.createAuthenticatedUser(username, groups);
 
-    const uiToken = await this.verdaccio!.issueUiToken(user, providerToken);
-    const npmToken = await this.verdaccio!.issueNpmToken(user, providerToken);
+    const uiToken = await this.issueUiToken(user, providerToken);
+    const npmToken = await this.issueNpmToken(user, providerToken);
 
     const query = { username, uiToken, npmToken };
     return `/?${stringifyQueryParams(query)}`;
@@ -120,26 +130,79 @@ export class AuthCore {
   }
 
   issueNpmToken(user: RemoteUser, providerToken: string): Promise<string> {
-    this.checkVerdaccioInitialized();
+    const jwtSignOptions = this.security.api.jwt?.sign;
 
-    return this.verdaccio!.issueNpmToken(user, providerToken);
+    if (isAESLegacy(this.security) || !jwtSignOptions) {
+      const npmToken = this.legacyEncrypt(user, providerToken);
+      if (!npmToken) {
+        throw new Error("Failed to encrypt npm token");
+      }
+
+      return Promise.resolve(npmToken);
+    } else {
+      return this.signJWT(user, providerToken, jwtSignOptions);
+    }
   }
 
+  verifyNpmToken(token: string): UserWithToken {
+    const jwtSignOptions = this.security.api.jwt?.sign;
+
+    if (isAESLegacy(this.security) || !jwtSignOptions) {
+      return this.legacyDecrypt(token);
+    } else {
+      return this.verifyJWT(token);
+    }
+  }
+
+  // The ui token of verdaccio is always a JWT token.
   issueUiToken(user: RemoteUser, providerToken: string): Promise<string> {
-    this.checkVerdaccioInitialized();
+    const jwtSignOptions = this.security.web.sign;
 
-    return this.verdaccio!.issueUiToken(user, providerToken);
+    return this.signJWT(user, providerToken, jwtSignOptions);
   }
 
-  verifyUiToken(uiToken: string): UserWithToken {
-    this.checkVerdaccioInitialized();
-
-    return this.verdaccio!.verifyUiToken(uiToken);
+  verifyUiToken(token: string): UserWithToken {
+    return this.verifyJWT(token);
   }
 
-  verifyNpmToken(npmToken: string): UserWithToken {
-    this.checkVerdaccioInitialized();
+  private signJWT(user: UserWithToken, providerToken: string, jwtSignOptions: JWTSignOptions): Promise<string> {
+    return signPayload({ ...user, providerToken } as UserWithToken, this.secret, jwtSignOptions);
+  }
 
-    return this.verdaccio!.verifyNpmToken(npmToken);
+  private verifyJWT(token: string): UserWithToken {
+    // verifyPayload
+    // use internal function to avoid error handling
+    const user = verifyJWTPayload(token, this.secret);
+
+    return { ...user, legacyToken: false };
+  }
+
+  private legacyEncrypt(user: RemoteUser, providerToken: string): string {
+    if (!this.auth) {
+      throw new Error("Auth object is not initialized");
+    }
+    // use internal function to encrypt token
+    const token = this.auth!.aesEncrypt(buildUser(user.name as string, providerToken));
+
+    if (!token) {
+      throw new Error("Failed to encrypt token");
+    }
+
+    // the return value in verdaccio 5 is a buffer
+    return typeof token === "string" ? token : Buffer.from(token).toString("base64");
+  }
+
+  private legacyDecrypt(value: string): UserWithToken {
+    const payload = aesDecrypt(value, this.secret);
+    if (!payload) {
+      throw new Error("Failed to decrypt token");
+    }
+
+    const res = parseBasicPayload(payload);
+    if (!res) {
+      throw new Error("Failed to parse token");
+    }
+
+    return { name: res.user, real_groups: [], groups: [], token: res.password, legacyToken: true };
   }
 }
