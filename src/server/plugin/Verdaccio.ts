@@ -101,7 +101,8 @@ export class Verdaccio {
       throw new Error("Failed to encrypt token");
     }
 
-    return token;
+    // the return value in verdaccio 5 is a buffer
+    return typeof token === "string" ? token : Buffer.from(token).toString("base64");
   }
 
   private legacyDecrypt(value: string): UserWithToken {

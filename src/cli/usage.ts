@@ -1,5 +1,6 @@
 import { cliName } from "@/constants";
-import { getRegistryUrl } from "@/npm";
+
+import { getRegistryUrl } from "./npm";
 
 export function getUsageInfo() {
   return [

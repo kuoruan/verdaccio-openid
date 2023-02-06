@@ -3,7 +3,7 @@ import { URL } from "url";
 
 import minimist from "minimist";
 
-import logger from "./logger";
+import logger from "../server/logger";
 
 let npmConfig: any;
 

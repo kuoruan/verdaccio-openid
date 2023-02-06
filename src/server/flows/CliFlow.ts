@@ -1,7 +1,8 @@
 import { cliPort, cliProviderId } from "@/constants";
-import logger from "@/logger";
+import { stringifyQueryParams } from "@/query-params";
 import { getCallbackPath } from "@/redirect";
 
+import logger from "../logger";
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 
@@ -25,6 +26,8 @@ export class CliFlow implements IPluginMiddleware<any> {
 
     try {
       const providerToken = await this.provider.getToken(req);
+      logger.debug({ providerToken }, `provider auth success, token: "@{providerToken}"`);
+
       const username = await this.provider.getUsername(providerToken);
 
       let groups = this.core.getUserGroups(username);
@@ -49,7 +52,7 @@ export class CliFlow implements IPluginMiddleware<any> {
       params.message = error.message || error;
     }
 
-    const redirectUrl = `http://localhost:${cliPort}?${new URLSearchParams(params).toString()}`;
+    const redirectUrl = `http://localhost:${cliPort}?${stringifyQueryParams(params)}`;
 
     res.redirect(redirectUrl);
   };

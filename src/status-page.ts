@@ -1,6 +1,5 @@
 import Logo from "@/assets/images/logo.svg";
-
-import { pluginKey } from "./constants";
+import { pluginKey } from "@/constants";
 
 const styles = `
 html,

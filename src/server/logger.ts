@@ -1,4 +1,4 @@
-import { plugin } from "./constants";
+import { plugin } from "../constants";
 
 import type { Logger } from "@verdaccio/types";
 

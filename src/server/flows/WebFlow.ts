@@ -1,7 +1,7 @@
-import logger from "@/logger";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
-import { buildAccessDeniedPage, buildErrorPage } from "@/statusPage";
+import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
+import logger from "../logger";
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 
@@ -51,6 +51,7 @@ export class WebFlow implements IPluginMiddleware<any> {
 
     try {
       const providerToken = await this.provider.getToken(req);
+      logger.debug({ providerToken }, `provider auth success, token: "@{providerToken}"`);
 
       const username = await this.provider.getUsername(providerToken);
 
