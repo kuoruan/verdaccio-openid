@@ -29,7 +29,8 @@ const defaultSecurity = {
 };
 
 function getSecurity(config: VerdaccioConfig) {
-  return merge(defaultSecurity, config.security);
+  // the security config may be undefined
+  return merge(defaultSecurity, config.security || {});
 }
 
 export type UserWithToken = RemoteUser & { token?: string; legacyToken?: boolean };
@@ -45,7 +46,7 @@ export class Verdaccio {
   }
 
   issueNpmToken(user: RemoteUser, providerToken: string): Promise<string> {
-    const jwtSignOptions = this.security?.api?.jwt?.sign;
+    const jwtSignOptions = this.security.api.jwt?.sign;
 
     if (isAESLegacy(this.security) || !jwtSignOptions) {
       const npmToken = this.legacyEncrypt(user, providerToken);
@@ -60,7 +61,7 @@ export class Verdaccio {
   }
 
   verifyNpmToken(token: string): UserWithToken {
-    const jwtSignOptions = this.security?.api?.jwt?.sign;
+    const jwtSignOptions = this.security.api.jwt?.sign;
 
     if (isAESLegacy(this.security) || !jwtSignOptions) {
       return this.legacyDecrypt(token);
@@ -71,7 +72,7 @@ export class Verdaccio {
 
   // The ui token of verdaccio is always a JWT token.
   issueUiToken(user: RemoteUser, providerToken: string): Promise<string> {
-    const jwtSignOptions = this.security?.web?.sign;
+    const jwtSignOptions = this.security.web.sign;
 
     return this.signJWT(user, providerToken, jwtSignOptions);
   }
