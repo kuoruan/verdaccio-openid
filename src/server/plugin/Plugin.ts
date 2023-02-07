@@ -1,25 +1,24 @@
 import { errorUtils } from "@verdaccio/core";
-
-import { registerGlobalProxyAgent } from "@/server/proxy-agent";
-
-import { AuthCore, UserWithToken } from "./AuthCore";
-import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
-import { PatchHtml } from "./PatchHtml";
-import { ServeStatic } from "./ServeStatic";
-import { CliFlow, WebFlow } from "../flows";
-import logger, { setLogger } from "../logger";
-import { OpenIDConnectAuthProvider } from "../openid";
-
 import type {
+  AllowAccess,
   AuthAccessCallback,
   AuthCallback,
   IPluginAuth,
   IPluginMiddleware,
-  AllowAccess,
-  RemoteUser,
   Logger,
+  RemoteUser,
 } from "@verdaccio/types";
 import type { Application } from "express";
+
+import { registerGlobalProxyAgent } from "@/server/proxy-agent";
+
+import { CliFlow, WebFlow } from "../flows";
+import logger, { setLogger } from "../logger";
+import { OpenIDConnectAuthProvider } from "../openid";
+import { AuthCore, UserWithToken } from "./AuthCore";
+import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
+import { PatchHtml } from "./PatchHtml";
+import { ServeStatic } from "./ServeStatic";
 
 /**
  * Implements the verdaccio plugin interfaces.

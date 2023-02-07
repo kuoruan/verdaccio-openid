@@ -1,15 +1,14 @@
 import { Groups } from "@gitbeaker/node";
 import TTLCache from "@isaacs/ttlcache";
+import type { RequestOptions } from "@verdaccio/url";
 import { getPublicUrl } from "@verdaccio/url";
-import { Issuer, generators } from "openid-client";
+import type { Request } from "express";
+import type { Client, OpenIDCallbackChecks } from "openid-client";
+import { generators, Issuer } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
 
 import { AuthProvider, ConfigHolder } from "../plugin/AuthProvider";
-
-import type { RequestOptions } from "@verdaccio/url";
-import type { Request } from "express";
-import type { OpenIDCallbackChecks, Client } from "openid-client";
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
