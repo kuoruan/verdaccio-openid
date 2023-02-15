@@ -7,15 +7,16 @@ import {
   signPayload,
   verifyJWTPayload,
 } from "@verdaccio/auth";
-import { defaultLoggedUserRoles } from "@verdaccio/config";
+import { createAnonymousRemoteUser, createRemoteUser } from "@verdaccio/config";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
-import { stringifyQueryParams } from "@/query-params";
-
 import logger from "../logger";
+import { AuthProvider } from "./AuthProvider";
 import { ParsedPluginConfig } from "./Config";
 
-export type UserWithToken = RemoteUser & { token?: string; legacyToken?: boolean };
+export type User = Omit<RemoteUser, "groups"> & {
+  token?: string;
+};
 
 export class AuthCore {
   private readonly security: Security;
@@ -24,7 +25,7 @@ export class AuthCore {
 
   private readonly configuredGroups: Record<string, true>;
 
-  constructor(private readonly parsedConfig: ParsedPluginConfig) {
+  constructor(private readonly parsedConfig: ParsedPluginConfig, private readonly provider: AuthProvider) {
     this.security = this.parsedConfig.security;
 
     this.configuredGroups = this.getConfiguredGroups();
@@ -73,7 +74,8 @@ export class AuthCore {
     }
   }
 
-  createAuthenticatedUser(username: string, groups: string[]): RemoteUser {
+  // get unique and sorted groups
+  filterRealGroups(username: string, groups: string[]): string[] {
     const relevantGroups = groups.filter((group) => group in this.configuredGroups);
 
     relevantGroups.push(username);
@@ -83,27 +85,15 @@ export class AuthCore {
       relevantGroups.push(this.requiredGroup);
     }
 
-    // get unique and sorted groups
-    const realGroups = relevantGroups.filter((val, index, self) => self.indexOf(val) === index).sort();
-
-    const user: RemoteUser = {
-      name: username,
-      groups: [...defaultLoggedUserRoles, ...realGroups],
-      real_groups: realGroups,
-    };
-    logger.info({ user: JSON.stringify(user) }, "created authenticated user: @{user}");
-
-    return user;
+    return relevantGroups.filter((val, index, self) => self.indexOf(val) === index).sort();
   }
 
-  async createUiCallbackUrl(username: string, providerToken: string, groups: string[]): Promise<string> {
-    const user = this.createAuthenticatedUser(username, groups);
+  createAuthenticatedUser(username: string, realGroups: string[]): RemoteUser {
+    return createRemoteUser(username, realGroups);
+  }
 
-    const uiToken = await this.issueUiToken(user, providerToken);
-    const npmToken = await this.issueNpmToken(user, providerToken);
-
-    const query = { username, uiToken, npmToken };
-    return `/?${stringifyQueryParams(query)}`;
+  createAnonymousUser(): RemoteUser {
+    return createAnonymousRemoteUser();
   }
 
   /**
@@ -113,7 +103,11 @@ export class AuthCore {
    * @param groups
    * @returns true if the user is allowed to access the registry
    */
-  authenticate(username: string, groups: string[] = []): boolean {
+  authenticate(username: string | void, groups: string[] = []): boolean {
+    if (!username) {
+      logger.error("Access denied: No username provided");
+      return false;
+    }
     if (this.requiredGroup) {
       if (username !== this.requiredGroup && !groups.includes(this.requiredGroup)) {
         logger.error(
@@ -143,11 +137,22 @@ export class AuthCore {
     }
   }
 
-  verifyNpmToken(token: string): UserWithToken {
+  async verifyNpmToken(token: string): Promise<User> {
     const jwtSignOptions = this.security.api.jwt?.sign;
 
+    // if jwt is not enabled, use legacy encryption
+    // the token is the password in basic auth
+    // decode it and get the token from the payload
     if (isAESLegacy(this.security) || !jwtSignOptions) {
-      return this.legacyDecrypt(token);
+      const payload = this.legacyDecode(token);
+
+      if (!payload.token) {
+        throw new Error("Invalid payload token");
+      }
+
+      const name = await this.provider.getUsername(payload.token);
+
+      return { ...payload, name };
     } else {
       return this.verifyJWT(token);
     }
@@ -160,38 +165,44 @@ export class AuthCore {
     return this.signJWT(user, providerToken, jwtSignOptions);
   }
 
-  verifyUiToken(token: string): UserWithToken {
+  verifyUiToken(token: string): User {
     return this.verifyJWT(token);
   }
 
-  private signJWT(user: UserWithToken, providerToken: string, jwtSignOptions: JWTSignOptions): Promise<string> {
-    return signPayload({ ...user, providerToken } as UserWithToken, this.secret, jwtSignOptions);
+  private signJWT(user: RemoteUser, providerToken: string, jwtSignOptions: JWTSignOptions): Promise<string> {
+    // providerToken is not needed in the token, we use jwt to check the expiration
+    // remove groups from the user, so that the token is smaller
+    const cleanedUser: RemoteUser = { ...user, groups: [] };
+    return signPayload(cleanedUser, this.secret, jwtSignOptions);
   }
 
-  private verifyJWT(token: string): UserWithToken {
+  private verifyJWT(token: string): User {
     // verifyPayload
     // use internal function to avoid error handling
-    const user = verifyJWTPayload(token, this.secret);
-
-    return { ...user, legacyToken: false };
+    return verifyJWTPayload(token, this.secret);
   }
 
   private legacyEncrypt(user: RemoteUser, providerToken: string): string {
     if (!this.auth) {
       throw new Error("Auth object is not initialized");
     }
+    // encode the user info to get a token
+    // save it to the final token, so that we can get the user info from aes token.
+    const payloadToken = this.legacyEncode(user, providerToken);
+
     // use internal function to encrypt token
-    const token = this.auth!.aesEncrypt(buildUser(user.name as string, providerToken));
+    const token = this.auth!.aesEncrypt(buildUser(user.name as string, payloadToken));
 
     if (!token) {
       throw new Error("Failed to encrypt token");
     }
 
-    // the return value in verdaccio 5 is a buffer
+    // the return value in verdaccio 5 is a buffer, we need to convert it to a string
     return typeof token === "string" ? token : Buffer.from(token).toString("base64");
   }
 
-  private legacyDecrypt(value: string): UserWithToken {
+  // decode the legacy token
+  private legacyDecrypt(value: string): User {
     const payload = aesDecrypt(value, this.secret);
     if (!payload) {
       throw new Error("Failed to decrypt token");
@@ -202,6 +213,41 @@ export class AuthCore {
       throw new Error("Failed to parse token");
     }
 
-    return { name: res.user, real_groups: [], groups: [], token: res.password, legacyToken: true };
+    let u: Omit<User, "name">;
+    try {
+      u = JSON.parse(Buffer.from(res.password, "base64").toString("utf8"));
+    } catch {
+      u = {
+        real_groups: [],
+      };
+    }
+
+    return { name: res.user, real_groups: u.real_groups ?? [], token: u.token };
+  }
+
+  private legacyEncode(user: RemoteUser, providerToken: string): string {
+    // legacy token does not have a expiration time
+    // we use the provider token to check if the token is still valid
+    // remove name and groups from user, to reduce token size
+    const u: Omit<User, "name"> = {
+      real_groups: user.real_groups,
+      token: providerToken,
+    };
+
+    // save groups and token in password field
+    return Buffer.from(JSON.stringify(u)).toString("base64");
+  }
+
+  private legacyDecode(payloadToken: string): Omit<User, "name"> {
+    let u: Omit<User, "name">;
+    try {
+      u = JSON.parse(Buffer.from(payloadToken, "base64").toString("utf8"));
+    } catch {
+      u = {
+        real_groups: [],
+      };
+    }
+
+    return { real_groups: u.real_groups ?? [], token: u.token };
   }
 }

@@ -3,12 +3,6 @@
 // to be configured.
 //
 
-declare global {
-  interface Window {
-    VERDACCIO_API_URL: string;
-  }
-}
-
 export function getUsageInfo() {
   const username = localStorage.getItem("username");
   if (!username) {

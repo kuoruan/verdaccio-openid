@@ -1,6 +1,7 @@
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
 
+import { stringifyQueryParams } from "@/query-params";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
@@ -61,9 +62,23 @@ export class WebFlow implements IPluginMiddleware<any> {
       }
 
       if (this.core.authenticate(username, groups)) {
-        const ui = await this.core.createUiCallbackUrl(username, providerToken, groups);
+        const realGroups = this.core.filterRealGroups(username, groups);
 
-        res.redirect(ui);
+        logger.debug(
+          { username, groups: JSON.stringify(realGroups) },
+          `user authenticated: name: "@{username}", groups: "@{groups}"`
+        );
+
+        const user = this.core.createAuthenticatedUser(username, realGroups);
+
+        const uiToken = await this.core.issueUiToken(user, providerToken);
+        const npmToken = await this.core.issueNpmToken(user, providerToken);
+
+        const params = { username: user.name!, uiToken, npmToken };
+
+        const redirectUrl = `/?${stringifyQueryParams(params)}`;
+
+        res.redirect(redirectUrl);
       } else {
         res.status(401).send(buildAccessDeniedPage(withBackButton));
       }

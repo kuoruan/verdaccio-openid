@@ -15,7 +15,7 @@ import { registerGlobalProxyAgent } from "@/server/proxy-agent";
 import { CliFlow, WebFlow } from "../flows";
 import logger, { setLogger } from "../logger";
 import { OpenIDConnectAuthProvider } from "../openid";
-import { AuthCore, UserWithToken } from "./AuthCore";
+import { AuthCore, User } from "./AuthCore";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
@@ -35,7 +35,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     this.parsedConfig = new ParsedPluginConfig(this.config);
     this.provider = new OpenIDConnectAuthProvider(this.parsedConfig);
-    this.core = new AuthCore(this.parsedConfig);
+    this.core = new AuthCore(this.parsedConfig, this.provider);
   }
 
   /**
@@ -64,9 +64,11 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       return callback(errorUtils.getForbidden("Username and token are required."), false);
     }
 
-    let user: UserWithToken;
+    logger.debug({ username, token }, "authenticating user, username: @{username}, token: @{token}");
+
+    let user: User;
     try {
-      user = this.core.verifyNpmToken(token);
+      user = await this.core.verifyNpmToken(token);
     } catch (e: any) {
       logger.warn(
         { username, token, message: e.message },
@@ -76,7 +78,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       return callback(errorUtils.getForbidden("Invalid token."), false);
     }
 
-    if (username !== user.name) {
+    if (!!username && username !== user.name) {
       logger.warn(
         { expected: user.name, actual: username },
         `invalid username: expected "@{expected}", actual "@{actual}"`
@@ -86,7 +88,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     }
 
     let groups: string[] | undefined;
-    if (!user.legacyToken && Array.isArray(user.real_groups)) {
+    if (Array.isArray(user.real_groups)) {
       groups = user.real_groups;
     }
 
@@ -117,7 +119,12 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    const grant = !config.access || config.access.some((group) => user.groups.includes(group));
+    logger.debug(
+      { username: user.name, groups: user.groups, package: config.name },
+      "check access: @{username} (@{groups}) -> @{package}"
+    );
+
+    const grant = this.checkPackageAccess(user, config.access);
     if (!grant) {
       logger.info({ username: user.name, package: config.name }, `"@{username}" is not allowed to access "@{package}"`);
     }
@@ -128,35 +135,64 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    if (config.publish) {
-      const grant = config.publish.some((group) => user.groups.includes(group));
-      if (!grant) {
-        logger.info(
-          { username: user.name, package: config.name },
-          `"@{username}" is not allowed to publish "@{package}"`
-        );
-      }
-      callback(null, grant);
-    } else {
-      this.allow_access(user, config, callback);
+    logger.debug(
+      { username: user.name, groups: user.groups, package: config.name },
+      "check publish: @{username} (@{groups}) -> @{package}"
+    );
+
+    const grant = this.checkPackageAccess(user, config.publish || config.access);
+
+    if (!grant) {
+      logger.info(
+        { username: user.name, package: config.name },
+        `"@{username}" is not allowed to unpublish "@{package}"`
+      );
     }
+
+    callback(null, grant);
   }
 
   /**
    * IPluginAuth
    */
   allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    if (config.unpublish) {
-      const grant = config.unpublish.some((group) => user.groups.includes(group));
-      if (!grant) {
-        logger.info(
-          { username: user.name, package: config.name },
-          `"@{username}" is not allowed to unpublish "@{package}"`
-        );
-      }
-      callback(null, grant);
-    } else {
-      this.allow_publish(user, config, callback);
+    logger.debug(
+      { username: user.name, groups: user.groups, package: config.name },
+      "check unpublish: @{username} (@{groups}) -> @{package}"
+    );
+
+    const grant = this.checkPackageAccess(user, config.unpublish || config.access);
+
+    if (!grant) {
+      logger.info(
+        { username: user.name, package: config.name },
+        `"@{username}" is not allowed to unpublish "@{package}"`
+      );
     }
+    callback(null, grant);
+  }
+
+  checkPackageAccess(user: RemoteUser, requiredGroups: string[] | undefined): boolean {
+    if (!requiredGroups || requiredGroups.length === 0) {
+      return true;
+    }
+
+    let userGroups: string[];
+
+    // check if user is authenticated
+    if (this.core.authenticate(user.name, user.real_groups)) {
+      const authUser = this.core.createAuthenticatedUser(user.name as string, user.real_groups);
+      userGroups = authUser.groups;
+    } else {
+      // usually, user groups is empty with our jwt
+      // but with lagacy token, user groups is not empty
+      if (user.groups && user.groups.length > 0) {
+        userGroups = user.groups;
+      } else {
+        const unauthUser = this.core.createAnonymousUser();
+        userGroups = unauthUser.groups;
+      }
+    }
+    return requiredGroups.some((group) => userGroups.includes(group));
   }
 }
