@@ -11,7 +11,7 @@ export function registerGlobalProxy(
 ) {
   for (const [key, value] of Object.entries(proxyConfig)) {
     if (value) {
-      global.GLOBAL_AGENT[key.toLocaleUpperCase()] = value;
+      global.GLOBAL_AGENT[key.toUpperCase()] = value;
     }
   }
 
