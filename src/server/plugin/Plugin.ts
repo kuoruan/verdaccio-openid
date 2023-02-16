@@ -61,7 +61,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    */
   async authenticate(username: string, token: string, callback: AuthCallback): Promise<void> {
     if (!username || !token) {
-      return callback(errorUtils.getForbidden("Username and token are required."), false);
+      // set error to null, next auth plugin will be called
+      return callback(null, false);
     }
 
     logger.debug({ username, token }, "authenticating user, username: @{username}, token: @{token}");
@@ -75,7 +76,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
         `invalid token: @{message}, user: "@{username}", token: "@{token}"`
       );
 
-      return callback(errorUtils.getForbidden("Invalid token."), false);
+      // the token is not valid by us, let the next auth plugin to handle it
+      return callback(null, false);
     }
 
     if (!!username && username !== user.name) {
@@ -104,14 +106,10 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       }
     }
 
-    if (groups) {
-      if (this.core.authenticate(username, groups)) {
-        return callback(null, groups);
-      } else {
-        return callback(errorUtils.getForbidden("User groups are not authenticated."), false);
-      }
+    if (this.core.authenticate(username, groups)) {
+      return callback(null, groups || []);
     } else {
-      return callback(errorUtils.getForbidden("Empty user groups."), false);
+      return callback(errorUtils.getForbidden(`User "${username}" are not authenticated.`), false);
     }
   }
 
