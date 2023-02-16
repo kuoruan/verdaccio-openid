@@ -4,7 +4,7 @@
 
 This is a Verdaccio plugin that offers OIDC OAuth integration for both the browser and the command line.
 
-### Compatibility
+## Compatibility
 
 - Verdaccio 5, 6
 - Node 16, 18
@@ -14,9 +14,25 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 
 ### Install
 
-```sh
-npm install -S verdaccio-openid
-```
+1. Install globally
+
+  ```sh
+  npm install -S verdaccio-openid
+  ```
+
+2. Install to Verdaccio plugins folder
+
+  with npm >= 7
+
+  ```bash
+  mkdir -p ./install-here/
+  npm install --global-style \
+    --bin-links=false --save=false --package-lock=false \
+    --omit=dev --omit=optional --omit=peer \
+    --prefix ./install-here/ \
+    verdaccio-openid@latest
+  mv ./install-here/node_modules/verdaccio-openid/ /path/to/verdaccio/plugins/
+  ```
 
 ### Verdaccio Config
 
@@ -47,4 +63,12 @@ auth:
     #   animal:
     #     - tom
     #     - jack
+```
+
+Now you can use the openid-connect auth in the webUI.
+
+## Auth with CLI
+
+```sh
+npx verdaccio-openid@latest --registry http://your-registry.com
 ```
