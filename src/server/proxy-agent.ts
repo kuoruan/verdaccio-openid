@@ -2,13 +2,19 @@ import { bootstrap } from "global-agent";
 
 import logger from "./logger";
 
-declare const GLOBAL_AGENT: Record<"HTTP_PROXY" | "HTTPS_PROXY" | "NO_PROXY", string>;
+bootstrap({
+  environmentVariableNamespace: "",
+});
 
-export function registerGlobalProxyAgent() {
-  bootstrap({
-    environmentVariableNamespace: "",
-  });
+export function registerGlobalProxy(
+  proxyConfig: Record<"http_proxy" | "https_proxy" | "no_proxy", string | undefined>
+) {
+  for (const [key, value] of Object.entries(proxyConfig)) {
+    if (value) {
+      global.GLOBAL_AGENT[key.toLocaleUpperCase()] = value;
+    }
+  }
 
-  const config = JSON.stringify(GLOBAL_AGENT || {});
+  const config = JSON.stringify(global.GLOBAL_AGENT || {});
   logger.info({ config }, "using proxy config: @{config}");
 }

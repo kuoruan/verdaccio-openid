@@ -10,7 +10,7 @@ import type {
 } from "@verdaccio/types";
 import type { Application } from "express";
 
-import { registerGlobalProxyAgent } from "@/server/proxy-agent";
+import { registerGlobalProxy } from "@/server/proxy-agent";
 
 import { CliFlow, WebFlow } from "../flows";
 import logger, { setLogger } from "../logger";
@@ -31,7 +31,11 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   constructor(private readonly config: Config, params: { logger: Logger }) {
     setLogger(params.logger);
 
-    registerGlobalProxyAgent();
+    registerGlobalProxy({
+      http_proxy: config.http_proxy,
+      https_proxy: config.https_proxy,
+      no_proxy: config.no_proxy,
+    });
 
     this.parsedConfig = new ParsedPluginConfig(this.config);
     this.provider = new OpenIDConnectAuthProvider(this.parsedConfig);
