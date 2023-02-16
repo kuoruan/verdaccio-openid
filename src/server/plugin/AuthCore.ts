@@ -104,10 +104,8 @@ export class AuthCore {
    * @returns true if the user is allowed to access the registry
    */
   authenticate(username: string | void, groups: string[] = []): boolean {
-    if (!username) {
-      logger.error("Access denied: No username provided");
-      return false;
-    }
+    if (!username) return false;
+
     if (this.requiredGroup) {
       if (username !== this.requiredGroup && !groups.includes(this.requiredGroup)) {
         logger.error(
