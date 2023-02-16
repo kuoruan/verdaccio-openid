@@ -13,7 +13,7 @@ import type { Application } from "express";
 import { registerGlobalProxy } from "@/server/proxy-agent";
 
 import { CliFlow, WebFlow } from "../flows";
-import logger, { setLogger } from "../logger";
+import logger, { debug, setLogger } from "../logger";
 import { OpenIDConnectAuthProvider } from "../openid";
 import { AuthCore, User } from "./AuthCore";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
@@ -69,22 +69,26 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       return callback(null, false);
     }
 
-    logger.debug({ username, token }, "authenticating user, username: @{username}, token: @{token}");
+    debug("authenticating user, username: %s, token: %s", username, token);
 
     let user: User;
     try {
       user = await this.core.verifyNpmToken(token);
+
+      debug("user: %o", user);
     } catch (e: any) {
-      logger.warn(
-        { username, token, message: e.message },
-        `invalid token: @{message}, user: "@{username}", token: "@{token}"`
-      );
+      debug(`%s. user: "%s", token: "%s"`, e.message, username, token);
 
       // the token is not valid by us, let the next auth plugin to handle it
       return callback(null, false);
     }
 
-    if (!!username && username !== user.name) {
+    if (!user.name) {
+      debug(`invalid token: %s. user: "%s"`, token, username);
+      return callback(null, false);
+    }
+
+    if (username !== user.name) {
       logger.warn(
         { expected: user.name, actual: username },
         `invalid username: expected "@{expected}", actual "@{actual}"`
@@ -121,14 +125,11 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    logger.debug(
-      { username: user.name, groups: user.groups, package: config.name },
-      "check access: @{username} (@{groups}) -> @{package}"
-    );
+    debug("check access: %s (%o) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.access);
     if (!grant) {
-      logger.info({ username: user.name, package: config.name }, `"@{username}" is not allowed to access "@{package}"`);
+      debug(`"%s" is not allowed to access "%s"`, user.name, config.name);
     }
     callback(null, grant);
   }
@@ -137,15 +138,12 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    logger.debug(
-      { username: user.name, groups: user.groups, package: config.name },
-      "check publish: @{username} (@{groups}) -> @{package}"
-    );
+    debug("check publish: %s (%o) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.publish || config.access);
 
     if (!grant) {
-      logger.info(
+      logger.warn(
         { username: user.name, package: config.name },
         `"@{username}" is not allowed to unpublish "@{package}"`
       );
@@ -158,15 +156,12 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    logger.debug(
-      { username: user.name, groups: user.groups, package: config.name },
-      "check unpublish: @{username} (@{groups}) -> @{package}"
-    );
+    debug("check publish: %s (%o) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.unpublish || config.access);
 
     if (!grant) {
-      logger.info(
+      logger.warn(
         { username: user.name, package: config.name },
         `"@{username}" is not allowed to unpublish "@{package}"`
       );

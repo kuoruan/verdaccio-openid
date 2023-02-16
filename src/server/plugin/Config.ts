@@ -89,7 +89,7 @@ function getConfigValue<T>(config: Config, key: string, schema: Pick<Schema, "va
 
     logger.error(
       { pluginKey, key, message },
-      'Invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.'
+      'invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.'
     );
     process.exit(1);
   }

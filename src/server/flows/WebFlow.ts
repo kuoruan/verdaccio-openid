@@ -5,7 +5,7 @@ import { stringifyQueryParams } from "@/query-params";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
-import logger from "../logger";
+import logger, { debug } from "../logger";
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 
@@ -27,9 +27,9 @@ export class WebFlow implements IPluginMiddleware<any> {
     try {
       const url = this.provider.getLoginUrl(req);
       res.redirect(url);
-    } catch (error) {
-      logger.error(error);
-      next(error);
+    } catch (e: any) {
+      logger.error({ message: e.message || e }, "auth error: @{message}");
+      next(e);
     }
   };
 
@@ -52,7 +52,7 @@ export class WebFlow implements IPluginMiddleware<any> {
 
     try {
       const providerToken = await this.provider.getToken(req);
-      logger.debug({ providerToken }, `provider auth success, token: "@{providerToken}"`);
+      debug(`provider auth success, token: "%s"`, providerToken);
 
       const username = await this.provider.getUsername(providerToken);
 
@@ -64,10 +64,7 @@ export class WebFlow implements IPluginMiddleware<any> {
       if (this.core.authenticate(username, groups)) {
         const realGroups = this.core.filterRealGroups(username, groups);
 
-        logger.debug(
-          { username, groups: JSON.stringify(realGroups) },
-          `user authenticated: name: "@{username}", groups: "@{groups}"`
-        );
+        debug(`user authenticated, name: "%s", groups: "%o"`, username, realGroups);
 
         const user = this.core.createAuthenticatedUser(username, realGroups);
 
@@ -82,10 +79,10 @@ export class WebFlow implements IPluginMiddleware<any> {
       } else {
         res.status(401).send(buildAccessDeniedPage(withBackButton));
       }
-    } catch (error) {
-      logger.error(error);
+    } catch (e: any) {
+      logger.error({ message: e.message || e }, "auth error: @{message}");
 
-      res.status(500).send(buildErrorPage(error, withBackButton));
+      res.status(500).send(buildErrorPage(e, withBackButton));
     }
   };
 }

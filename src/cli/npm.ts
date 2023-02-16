@@ -11,7 +11,7 @@ function parseCliArgs() {
 }
 
 function runCommand(command: string) {
-  logger.info({ command }, "Running command: @{command}");
+  logger.info({ command }, "running command: @{command}");
   return execSync(command);
 }
 
