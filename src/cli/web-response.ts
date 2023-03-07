@@ -16,19 +16,22 @@ export function respondWithWebPage(status: string, message: string, res: Respons
   res.setHeader("Content-Type", "text/html");
 
   switch (status) {
-    case "success":
+    case "success": {
       res.status(200);
       res.send(successPage);
       break;
+    }
 
-    case "denied":
+    case "denied": {
       res.status(401);
       res.send(buildAccessDeniedPage(withBack));
       break;
+    }
 
-    default:
+    default: {
       res.status(500);
       res.send(buildErrorPage(message, withBack));
       break;
+    }
   }
 }

@@ -5,17 +5,20 @@
  * @returns a key/value object
  */
 export function parseQueryParams(search: string): Record<string, string> {
-  if (!search) return {};
+  const params = {};
+
+  if (!search) return params;
 
   if (search.startsWith("?")) {
-    search = search.substring(1);
+    search = search.slice(1);
   }
 
-  return search.split("&").reduce((acc, pair) => {
-    const [key, value] = pair.split("=");
-    acc[key] = decodeURIComponent(value);
-    return acc;
-  }, {});
+  for (const str of search.split("&")) {
+    const [key, value] = str.split("=");
+    params[key] = decodeURIComponent(value);
+  }
+
+  return params;
 }
 
 /**

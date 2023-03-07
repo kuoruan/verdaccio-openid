@@ -16,7 +16,9 @@ export function getUsageInfo() {
 }
 
 export function printUsage() {
-  getUsageInfo().forEach((line) => console.log(line));
+  for (const line of getUsageInfo()) {
+    console.log(line);
+  }
 }
 
 export function validateRegistry() {

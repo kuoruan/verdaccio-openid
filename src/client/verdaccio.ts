@@ -13,40 +13,40 @@ function updateUsageInfo(): void {
 
   const usageInfoLines = getUsageInfo().split("\n").reverse();
 
-  tabs.forEach((tab) => {
+  for (const tab of tabs) {
     const alreadyReplaced = tab.getAttribute("replaced") === "true";
-    if (alreadyReplaced) return;
+    if (alreadyReplaced) continue;
 
-    const commands = Array.from<HTMLElement>(tab.querySelectorAll("button"))
+    const commands = [...tab.querySelectorAll("button")]
       .map((node) => node.parentElement!)
-      .filter((node) => !!node.innerText.match(/^(npm|pnpm|yarn)/));
-    if (!commands.length) return;
+      .filter((node) => !!/^(npm|pnpm|yarn)/.test(node.textContent || ""));
+    if (commands.length === 0) continue;
 
-    usageInfoLines.forEach((info) => {
+    for (const info of usageInfoLines) {
       const cloned = commands[0].cloneNode(true) as HTMLElement;
       const textEl = cloned.querySelector("span")!;
-      textEl.innerText = info;
+      textEl.textContent = info;
 
       const copyEl = cloned.querySelector("button")!;
       copyEl.style.visibility = loggedIn ? "visible" : "hidden";
-      copyEl.onclick = (e) => {
+      copyEl.addEventListener("click", (e) => {
         e.preventDefault();
         e.stopPropagation();
         copyToClipboard(info);
-      };
+      });
 
-      commands[0].parentElement!.appendChild(cloned);
+      commands[0].parentElement!.append(cloned);
       tab.setAttribute("replaced", "true");
-    });
+    }
 
     // Remove commands that don't work with oauth
-    commands.forEach((node) => {
-      if (node.innerText.includes("adduser") || node.innerText.includes("set password")) {
-        node.parentElement!.removeChild(node);
+    for (const node of commands) {
+      if (node.textContent?.includes("adduser") || node.textContent?.includes("set password")) {
+        node.remove();
         tab.setAttribute("replaced", "true");
       }
-    });
-  });
+    }
+  }
 }
 
 init({

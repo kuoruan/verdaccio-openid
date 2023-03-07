@@ -52,13 +52,14 @@ auth:
     # token-endpoint: https://example.com/oauth/token # optional
     # userinfo-endpoint: https://example.com/oauth/userinfo # optional
     # jwks-uri: https://example.com/oauth/jwks # optional
-    # scope: openid email groups # optional. custom scope
+    # scope: openid email groups # optional. custom scope, default is openid
     client-id: CLIENT_ID # required
     client-secret: CLIENT_SECRET # required
-    username-claim: name # optional. default is sub
+    username-claim: name # optional. username claim in openid, or key to get username in userinfo endpoint response, default is sub
     groups-claim: groups # optional. claim to get groups from
     # provider-type: gitlab # optional. define this to get groups from gitlab api
-    # authorized-group: false # optional. user in group is allowed to login, or false to disable
+    # authorized-groups: # optional. user in array is allowed to login. use true to ensure user have at least one group, false means no groups check
+    #  - access
     # group-users: # optional. custom the group users. eg. animal group has user tom and jack. if set, 'groups-claim' and 'provider-type' take no effect
     #   animal:
     #     - tom

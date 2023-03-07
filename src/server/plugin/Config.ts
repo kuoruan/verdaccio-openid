@@ -1,11 +1,12 @@
+import process from "node:process";
+
 import type {
   Config as IncorrectVerdaccioConfig,
   PackageAccess as IncorrectVerdaccioPackageAccess,
   Security,
 } from "@verdaccio/types";
 import merge from "deepmerge";
-import process from "process";
-import { array, lazy, mixed, object, Schema, string } from "yup";
+import { array, boolean, lazy, mixed, object, Schema, string } from "yup";
 
 import { pluginKey } from "@/constants";
 
@@ -62,7 +63,7 @@ const defaultSecurity = {
   },
 };
 
-function getEnvValue(name: any) {
+function getEnvironmentValue(name: any) {
   const value = process.env[String(name)];
   if (value === "true" || value === "false") {
     return value === "true";
@@ -71,26 +72,29 @@ function getEnvValue(name: any) {
 }
 
 function getConfigValue<T>(config: Config, key: string, schema: Pick<Schema, "validateSync">): T {
-  const valueOrEnvName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
+  const valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
 
-  const value = getEnvValue(valueOrEnvName) ?? valueOrEnvName;
+  const value = getEnvironmentValue(valueOrEnvironmentName) ?? valueOrEnvironmentName;
 
   try {
     schema.validateSync(value);
-  } catch (e: any) {
+  } catch (error: any) {
     let message: string;
 
-    if (e.errors) {
+    // eslint-disable-next-line unicorn/prefer-ternary
+    if (error.errors) {
       // ValidationError
-      message = e.errors[0];
+      message = error.errors[0];
     } else {
-      message = e.message || e;
+      message = error.message || error;
     }
 
     logger.error(
       { pluginKey, key, message },
       'invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.'
     );
+
+    // eslint-disable-next-line unicorn/no-process-exit
     process.exit(1);
   }
 
@@ -100,9 +104,9 @@ function getConfigValue<T>(config: Config, key: string, schema: Pick<Schema, "va
 export class ParsedPluginConfig {
   constructor(public readonly config: Config) {
     for (const node of ["middlewares", "auth"]) {
-      const obj = config[node]?.[pluginKey];
+      const object_ = config[node]?.[pluginKey];
 
-      if (!obj) {
+      if (!object_) {
         throw new Error(`"${node}.${pluginKey}" must be enabled`);
       }
     }
@@ -156,7 +160,7 @@ export class ParsedPluginConfig {
   }
 
   public get scope() {
-    return getConfigValue<string | undefined>(this.config, "scope", string().optional());
+    return getConfigValue<string | undefined>(this.config, "scope", string().optional()) ?? "openid";
   }
 
   public get clientId() {
@@ -175,28 +179,24 @@ export class ParsedPluginConfig {
     return getConfigValue<string | undefined>(this.config, "groups-claim", string().optional());
   }
 
-  public get authorizedGroup() {
-    return (
-      getConfigValue<string | false | undefined>(
-        this.config,
-        "authorized-group",
-        mixed().oneOf([string(), false]).optional()
-      ) ?? false
-    );
+  public get authorizedGroups() {
+    return getConfigValue<unknown>(this.config, "authorized-groups", mixed().optional()) ?? false;
   }
 
   public get groupUsers() {
     return getConfigValue<Record<string, string[]> | undefined>(
       this.config,
       "group-users",
-      lazy((val) => {
-        switch (typeof val) {
-          case "object":
+      lazy((value) => {
+        switch (typeof value) {
+          case "object": {
             return object(
-              Object.fromEntries(Object.keys(val).map((key) => [key, array().of(string()).min(1).required()]))
+              Object.fromEntries(Object.keys(value).map((key) => [key, array(string()).compact().min(1).required()]))
             ).optional();
-          default:
+          }
+          default: {
             return object().optional();
+          }
         }
       })
     );
