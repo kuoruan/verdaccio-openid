@@ -1635,7 +1635,7 @@
     lru-cache "7.16.1"
     mime "2.6.0"
 
-"@verdaccio/signature@6.0.0-6-next.2":
+"@verdaccio/signature@6.0.0-6-next.2", "@verdaccio/signature@^6.0.0-6-next.2":
   version "6.0.0-6-next.2"
   resolved "https://registry.npmmirror.com/@verdaccio/signature/-/signature-6.0.0-6-next.2.tgz#2df445354e0857daa6dd7a6b744a36d570a4602d"
   integrity sha512-aFvMbxxHzJCpPmqSgVuQYvYN2RP11CoSEcTXikkyb1zF4Uf3cOy53zUZ1Y7iOKCRYTgWrmet9KP7+24e44GHxg==

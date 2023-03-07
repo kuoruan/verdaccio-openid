@@ -1,13 +1,6 @@
-import {
-  aesDecrypt,
-  Auth,
-  buildUser,
-  isAESLegacy,
-  parseBasicPayload,
-  signPayload,
-  verifyJWTPayload,
-} from "@verdaccio/auth";
+import { Auth, buildUser, isAESLegacy } from "@verdaccio/auth";
 import { createAnonymousRemoteUser, createRemoteUser } from "@verdaccio/config";
+import { aesDecrypt, aesEncrypt, parseBasicPayload, signPayload, verifyPayload } from "@verdaccio/signature";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import logger from "../logger";
@@ -177,19 +170,16 @@ export class AuthCore {
   private verifyJWT(token: string): User {
     // verifyPayload
     // use internal function to avoid error handling
-    return verifyJWTPayload(token, this.secret);
+    return verifyPayload(token, this.secret) as User;
   }
 
   private legacyEncrypt(user: RemoteUser, providerToken: string): string {
-    if (!this.auth) {
-      throw new Error("Auth object is not initialized");
-    }
     // encode the user info to get a token
     // save it to the final token, so that we can get the user info from aes token.
     const payloadToken = this.legacyEncode(user, providerToken);
 
     // use internal function to encrypt token
-    const token = this.auth!.aesEncrypt(buildUser(user.name as string, payloadToken));
+    const token = aesEncrypt(buildUser(user.name as string, payloadToken), this.secret);
 
     if (!token) {
       throw new Error("Failed to encrypt token");
