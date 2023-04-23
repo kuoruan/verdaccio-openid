@@ -6,7 +6,7 @@ import type {
   Security,
 } from "@verdaccio/types";
 import merge from "deepmerge";
-import { array, boolean, lazy, mixed, object, Schema, string } from "yup";
+import { array, lazy, mixed, object, Schema, string } from "yup";
 
 import { pluginKey } from "@/constants";
 
