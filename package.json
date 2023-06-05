@@ -9,6 +9,7 @@
     "email": "kuoruan@gmail.com"
   },
   "description": "A UI for OIDC authentication for Verdaccio, a fork of verdaccio-github-oauth-ui",
+  "keywords": ["verdaccio", "oidc", "openid", "authentication", "oauth", "oauth2", "ui"],
   "main": "dist/server/index.js",
   "module": "dist/server/index.mjs",
   "bin": "dist/cli/verdaccio-openid",
