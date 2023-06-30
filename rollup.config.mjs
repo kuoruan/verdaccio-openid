@@ -80,9 +80,9 @@ export default defineConfig([
   {
     input: "./src/cli/index.ts",
     output: {
-      dir: "dist/cli",
-      entryFileNames: process.env.npm_package_name,
-      format: "cjs",
+      dir: "dist",
+      entryFileNames: `${process.env.npm_package_name}.mjs`,
+      format: "es",
     },
     plugins: [
       ...getBasePlugins(),

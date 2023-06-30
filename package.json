@@ -20,7 +20,7 @@
   ],
   "main": "./dist/server/index.js",
   "module": "./dist/server/index.mjs",
-  "bin": "./dist/cli/verdaccio-openid",
+  "bin": "./dist/verdaccio-openid.mjs",
   "files": [
     "dist",
     "LICENSE",
