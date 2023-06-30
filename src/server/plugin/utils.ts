@@ -10,7 +10,7 @@ export function base64Encode(str: string): string {
   if (Buffer.isEncoding("base64url")) {
     return Buffer.from(str, "utf8").toString("base64url");
   }
-  return Buffer.from(str, "utf8").toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+  return Buffer.from(str, "utf8").toString("base64").replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
 }
 
 /**

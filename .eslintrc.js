@@ -6,21 +6,16 @@ module.exports = {
     node: true,
     es2022: true,
   },
-  parser: "@typescript-eslint/parser",
   extends: [
     "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
     "plugin:prettier/recommended",
     "plugin:import/recommended",
-    "plugin:import/typescript",
     "plugin:unicorn/recommended",
   ],
   plugins: ["simple-import-sort"],
   rules: {
     "simple-import-sort/imports": "error",
     "simple-import-sort/exports": "error",
-    "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/no-non-null-assertion": "off",
     "unicorn/no-null": "off",
     "unicorn/no-process-exit": "off",
     "unicorn/catch-error-name": "off",
@@ -29,13 +24,22 @@ module.exports = {
     "unicorn/prevent-abbreviations": "off",
   },
   settings: {
-    "import/resolver": ["node", "typescript"],
+    "import/resolver": {
+      node: {},
+      typescript: {
+        project: "./tsconfig.json",
+      },
+    },
   },
   overrides: [
     {
-      files: ["*.js"],
+      files: ["*.ts"],
+      extends: ["plugin:@typescript-eslint/recommended", "plugin:import/typescript"],
+      parser: "@typescript-eslint/parser",
       rules: {
         "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-non-null-assertion": "off",
       },
     },
   ],
