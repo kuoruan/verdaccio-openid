@@ -38,7 +38,7 @@
     "prepublishOnly": "pnpm run build"
   },
   "dependencies": {
-    "@gitbeaker/rest": "^39.4.0",
+    "@gitbeaker/node": "^35.8.1",
     "@isaacs/ttlcache": "^1.4.0",
     "@verdaccio/auth": "6.0.0-6-next.51",
     "@verdaccio/config": "6.0.0-6-next.72",

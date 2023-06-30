@@ -1,4 +1,4 @@
-import { Groups } from "@gitbeaker/rest";
+import { Groups } from "@gitbeaker/node";
 import TTLCache from "@isaacs/ttlcache";
 import type { RequestOptions } from "@verdaccio/url";
 import { getPublicUrl } from "@verdaccio/url";
