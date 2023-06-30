@@ -39,11 +39,11 @@ export function getNpmConfigFile() {
   return getNpmConfig().userconfig;
 }
 
-export function getNpmSaveCommands(registry: string, token: string) {
+export function getNpmSaveCommands(registry: string, token: string): string[] {
   const url = new URL(registry);
   const baseUrl = `${url.host}/`;
 
-  return [`npm config set //${baseUrl}:always-auth true`, `npm config set //${baseUrl}:_authToken "${token}"`];
+  return [`npm config set //${baseUrl}:_authToken "${token}"`];
 }
 
 export function saveNpmToken(token: string) {
