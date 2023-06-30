@@ -36,6 +36,11 @@ module.exports = {
       files: ["*.ts"],
       extends: ["plugin:@typescript-eslint/recommended", "plugin:import/typescript"],
       parser: "@typescript-eslint/parser",
+      parserOptions: {
+        ecmaVersion: "latest",
+        sourceType: "module",
+        warnOnUnsupportedTypeScriptVersion: false,
+      },
       rules: {
         "@typescript-eslint/no-var-requires": "off",
         "@typescript-eslint/no-explicit-any": "off",
