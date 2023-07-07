@@ -31,11 +31,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     if (this.config.configurationEndpoint) {
       issuer = await Issuer.discover(this.config.configurationEndpoint);
     } else {
-      if (!this.config.issuer) {
-        throw new Error("Issuer must be specified");
-      }
       issuer = new Issuer({
-        issuer: this.config.issuer,
+        issuer: this.config.issuer || this.config.host,
         authorization_endpoint: this.config.authorizationEndpoint,
         token_endpoint: this.config.tokenEndpoint,
         userinfo_endpoint: this.config.userinfoEndpoint,
@@ -144,7 +141,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
   async getGitlabGroups(token: string): Promise<string[]> {
     const group = new Groups({
-      host: this.config.issuer,
+      host: this.config.host,
       oauthToken: token,
     });
 
