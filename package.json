@@ -16,7 +16,9 @@
   "scripts": {
     "build": "webpack",
     "start": "verdaccio -c verdaccio.yaml",
-    "lint": "eslint --fix --ext .js,.ts ."
+    "lint": "eslint --fix --ext .js,.ts .",
+    "link:oidc": "yarn link && yarn link verdaccio-oidc-ui",
+    "unlink:oidc": "yarn unlink verdaccio-oidc-ui && yarn unlink"
   },
   "dependencies": {
     "@gitbeaker/node": "^35.4.0",
