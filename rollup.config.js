@@ -11,15 +11,40 @@ import { terser } from "rollup-plugin-terser";
 
 import pkg from "./package.json";
 
-const basePlugins = [
-  alias({
-    entries: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
-  }),
-  json(),
-  commonjs(),
-  babel({ babelHelpers: "bundled", extensions: [".js", ".ts"] }),
-  terser(),
-];
+function getPlugins(isBrowser = false) {
+  return [
+    externals({
+      deps: !isBrowser,
+      devDeps: true,
+    }),
+    nodeResolve({
+      extensions: [".js", ".ts"],
+      browser: isBrowser,
+    }),
+    alias({
+      entries: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
+    }),
+    json(),
+    commonjs(),
+    babel({
+      babelHelpers: "bundled",
+      extensions: [".js", ".ts"],
+      presets: [
+        [
+          "@babel/preset-env",
+          {
+            useBuiltIns: isBrowser ? "usage" : false,
+            corejs: isBrowser ? "3" : false,
+            targets: isBrowser ? pkg.browserslist : { node: "current" },
+          },
+        ],
+        "@babel/preset-typescript",
+      ],
+      exclude: [/core-js/],
+    }),
+    isBrowser && terser(),
+  ].filter(Boolean);
+}
 
 export default defineConfig([
   {
@@ -27,7 +52,7 @@ export default defineConfig([
     output: [
       {
         file: pkg.main,
-        exports: "auto",
+        exports: "named", // change to "default" or "auto" will cause verdaccio error
         format: "cjs",
       },
       {
@@ -35,28 +60,15 @@ export default defineConfig([
         format: "es",
       },
     ],
-    plugins: [
-      externals(),
-      nodeResolve({
-        extensions: [".js", ".ts"],
-      }),
-      ...basePlugins,
-    ],
+    plugins: getPlugins(),
   },
   {
     input: "src/cli/index.ts",
     output: {
       file: Object.values(pkg.bin)[0],
-      exports: "auto",
       format: "cjs",
     },
-    plugins: [
-      externals(),
-      nodeResolve({
-        extensions: [".js", ".ts"],
-      }),
-      ...basePlugins,
-    ],
+    plugins: getPlugins(),
   },
   {
     input: "src/client/verdaccio-5.ts",
@@ -64,16 +76,6 @@ export default defineConfig([
       file: "dist/client/verdaccio-5.js",
       format: "iife",
     },
-    plugins: [
-      externals({
-        deps: false,
-        devDeps: true,
-      }),
-      nodeResolve({
-        extensions: [".js", ".ts"],
-        browser: true,
-      }),
-      ...basePlugins,
-    ],
+    plugins: getPlugins(true),
   },
 ]);

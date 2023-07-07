@@ -17,7 +17,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "rollup -c",
+    "build": "rollup -c --environment NODE_ENV=production",
     "start": "verdaccio -c verdaccio.yaml",
     "lint": "eslint --fix --ext .js,.ts .",
     "link:oidc": "yarn link && yarn link verdaccio-oidc-ui",
@@ -75,5 +75,13 @@
   },
   "engines": {
     "node": "^14||^16"
-  }
+  },
+  "browserslist": [
+    "last 2 chrome versions",
+    "last 2 firefox versions",
+    "last 2 edge versions",
+    "last 2 safari versions",
+    "last 2 node versions",
+    "firefox esr"
+  ]
 }
