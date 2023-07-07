@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@gitbeaker/node": "^35.4.0",
+    "@isaacs/ttlcache": "^1.0.3",
     "@verdaccio/core": "^6.0.0-6-next.5",
     "@verdaccio/url": "^11.0.0-6-next.9",
     "chalk": "^5.0.0",

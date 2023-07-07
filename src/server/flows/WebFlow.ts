@@ -1,5 +1,3 @@
-import { getPublicUrl } from "@verdaccio/url";
-
 import logger from "@/logger";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import { buildAccessDeniedPage, buildErrorPage } from "@/statusPage";
@@ -9,8 +7,7 @@ import { AuthProvider } from "../plugin/AuthProvider";
 import { ParsedPluginConfig } from "../plugin/Config";
 
 import type { IPluginMiddleware } from "@verdaccio/types";
-import type { RequestOptions } from "@verdaccio/url";
-import type { Application, Handler, Request } from "express";
+import type { Application, Handler } from "express";
 
 export class WebFlow implements IPluginMiddleware<any> {
   constructor(
@@ -32,8 +29,7 @@ export class WebFlow implements IPluginMiddleware<any> {
    */
   authorize: Handler = async (req, res, next) => {
     try {
-      const redirectUrl = this.getRedirectUrl(req);
-      const url = this.provider.getLoginUrl(redirectUrl);
+      const url = this.provider.getLoginUrl(req);
       res.redirect(url);
     } catch (error) {
       logger.error(error);
@@ -59,9 +55,7 @@ export class WebFlow implements IPluginMiddleware<any> {
     const withBackButton = true;
 
     try {
-      const code = this.provider.getCode(req);
-
-      const providerToken = await this.provider.getToken(code, this.getRedirectUrl(req));
+      const providerToken = await this.provider.getToken(req);
 
       const username = await this.provider.getUsername(providerToken);
       const groups = await this.provider.getGroups(username, providerToken);
@@ -79,12 +73,4 @@ export class WebFlow implements IPluginMiddleware<any> {
       res.status(500).send(buildErrorPage(error, withBackButton));
     }
   };
-
-  private getRedirectUrl(req: Request): string {
-    const baseUrl = getPublicUrl(this.config.url_prefix, req as RequestOptions).replace(/\/$/, "");
-    const path = getCallbackPath(req.params.id);
-    const redirectUrl = baseUrl + path;
-
-    return redirectUrl;
-  }
 }
