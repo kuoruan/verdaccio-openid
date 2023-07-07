@@ -5,7 +5,7 @@ import { cliPort, cliProviderId } from "@/constants";
 import { stringifyQueryParams } from "@/query-params";
 import { getCallbackPath } from "@/redirect";
 
-import logger from "../logger";
+import logger, { debug } from "../logger";
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 
@@ -26,7 +26,8 @@ export class CliFlow implements IPluginMiddleware<any> {
 
     try {
       const providerToken = await this.provider.getToken(req);
-      logger.debug({ providerToken }, `provider auth success, token: "@{providerToken}"`);
+
+      debug(`provider auth success, token: "%s"`, providerToken);
 
       const username = await this.provider.getUsername(providerToken);
 
@@ -39,10 +40,7 @@ export class CliFlow implements IPluginMiddleware<any> {
       if (this.core.authenticate(username, groups)) {
         const realGroups = this.core.filterRealGroups(username, groups);
 
-        logger.debug(
-          { username, groups: JSON.stringify(realGroups) },
-          `user authenticated: name: "@{username}", groups: "@{groups}"`
-        );
+        debug(`user authenticated, name: "%s", groups: "%o"`, username, realGroups);
 
         const user = await this.core.createAuthenticatedUser(username, realGroups);
         const npmToken = await this.core.issueNpmToken(user, providerToken);
@@ -53,10 +51,10 @@ export class CliFlow implements IPluginMiddleware<any> {
         params.status = "denied";
       }
     } catch (error: any) {
-      logger.error(error);
-
       params.status = "error";
       params.message = error.message || error;
+
+      logger.error({ message: params.message }, "auth error: @{message}");
     }
 
     const redirectUrl = `http://localhost:${cliPort}?${stringifyQueryParams(params)}`;

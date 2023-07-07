@@ -110,7 +110,7 @@ export class AuthCore {
       if (username !== this.requiredGroup && !groups.includes(this.requiredGroup)) {
         logger.error(
           { username, requiredGroup: this.requiredGroup },
-          `Access denied: User "@{username}" is not a member of "@{requiredGroup}"`
+          `access denied: User "@{username}" is not a member of "@{requiredGroup}"`
         );
         return false;
       }
@@ -237,15 +237,7 @@ export class AuthCore {
   }
 
   private legacyDecode(payloadToken: string): Omit<User, "name"> {
-    let u: Omit<User, "name">;
-    try {
-      u = JSON.parse(Buffer.from(payloadToken, "base64").toString("utf8"));
-    } catch {
-      u = {
-        real_groups: [],
-      };
-    }
-
+    const u: Omit<User, "name"> = JSON.parse(Buffer.from(payloadToken, "base64").toString("utf8"));
     return { real_groups: u.real_groups ?? [], token: u.token };
   }
 }
