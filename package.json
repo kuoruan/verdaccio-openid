@@ -31,7 +31,8 @@
     "build": "rimraf dist && rollup -c --environment NODE_ENV:production",
     "start": "cross-env DEBUG='verdaccio:*' verdaccio -c verdaccio/verdaccio.yml",
     "preview": "verdaccio -c verdaccio/verdaccio.yml",
-    "lint": "eslint --fix --ext .js,.ts .",
+    "lint": "eslint --ext .js,.ts .",
+    "lint:fix": "eslint --ext .js,.ts --fix .",
     "link:openid": "pnpm link --global verdaccio-openid",
     "unlink:openid": "pnpm rm --global verdaccio-openid",
     "prepublishOnly": "pnpm run build"
