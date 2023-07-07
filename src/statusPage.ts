@@ -32,7 +32,7 @@ a {
   .trim()
   .replace(/\s+/g, " ");
 
-export function buildStatusPage(body: string, withBackButton: boolean) {
+export function buildStatusPage(body: string, withBack: boolean) {
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -43,24 +43,24 @@ export function buildStatusPage(body: string, withBackButton: boolean) {
     <div class="wrap">
       <img src="${Logo}" class="img" alt="logo" />
       ${body}
-      ${withBackButton ? `<p><button onclick="history.back()">Go back</button></p>` : ""}
+      ${withBack ? `<p><a href="/">Go back</a></p>` : ""}
     </div>
   </body>
 </html>`;
 }
 
-export function buildErrorPage(error: any, withBackButton: boolean) {
+export function buildErrorPage(error: any, withBack: boolean) {
   return buildStatusPage(
     `<h1>Sorry :(</h1>
     <p>${error?.message || error}</p>`,
-    withBackButton
+    withBack
   );
 }
 
-export function buildAccessDeniedPage(withBackButton: boolean) {
+export function buildAccessDeniedPage(withBack: boolean) {
   return buildStatusPage(
     `<h1>Access Denied</h1>
     <p>You are not a member of the required access group.</p>`,
-    withBackButton
+    withBack
   );
 }
