@@ -1,14 +1,14 @@
 import { errorUtils } from "@verdaccio/core";
 
-import logger, { setLogger } from "@/logger";
+import { registerGlobalProxyAgent } from "@/server/proxy-agent";
 
 import { AuthCore } from "./AuthCore";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
-import { registerGlobalProxyAgent } from "./ProxyAgent";
 import { ServeStatic } from "./ServeStatic";
 import { UserWithToken, Verdaccio } from "./Verdaccio";
 import { CliFlow, WebFlow } from "../flows";
+import logger, { setLogger } from "../logger";
 import { OpenIDConnectAuthProvider } from "../openid";
 
 import type {

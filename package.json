@@ -11,7 +11,7 @@
   "description": "A UI for OIDC authentication for Verdaccio, a fork of verdaccio-github-oauth-ui",
   "main": "dist/server/index.js",
   "module": "dist/server/index.mjs",
-  "bin": "dist/cli/index.js",
+  "bin": "dist/cli/verdaccio-openid",
   "files": [
     "dist",
     "LICENSE",
@@ -19,7 +19,7 @@
   ],
   "scripts": {
     "build": "rimraf dist && rollup -c --environment NODE_ENV:production",
-    "start": "verdaccio -c verdaccio.yaml",
+    "start": "verdaccio -c verdaccio/verdaccio.yml",
     "lint": "eslint --fix --ext .js,.ts .",
     "link:openid": "yarn link && yarn link verdaccio-openid",
     "unlink:openid": "yarn unlink verdaccio-openid && yarn unlink",

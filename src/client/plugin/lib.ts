@@ -1,17 +1,3 @@
-/**
- * Returns `?a=b&c` as `{ a: b, c: true }`.
- */
-export function parseQueryParams(): Record<string, string> {
-  const p = new URLSearchParams(location.search);
-
-  const result: Record<string, string> = {};
-  p.forEach((value, key) => {
-    result[key] = value;
-  });
-
-  return result;
-}
-
 export function retry(action: () => void) {
   for (let i = 0; i < 10; i++) {
     setTimeout(() => action(), 100 * i);

@@ -1,9 +1,10 @@
 import { defaultLoggedUserRoles } from "@verdaccio/config";
 
-import logger from "@/logger";
+import { stringifyQueryParams } from "@/query-params";
 
 import { ParsedPluginConfig } from "./Config";
 import { UserWithToken, Verdaccio } from "./Verdaccio";
+import logger from "../logger";
 
 import type { RemoteUser } from "@verdaccio/types";
 
@@ -79,7 +80,7 @@ export class AuthCore {
       groups: [...defaultLoggedUserRoles, ...realGroups],
       real_groups: realGroups,
     };
-    logger.info({ user }, "Created authenticated user @{user}");
+    logger.info({ user: JSON.stringify(user) }, "created authenticated user: @{user}");
 
     return user;
   }
@@ -93,7 +94,7 @@ export class AuthCore {
     const npmToken = await this.verdaccio!.issueNpmToken(user, providerToken);
 
     const query = { username, uiToken, npmToken };
-    return `/?${new URLSearchParams(query).toString()}`;
+    return `/?${stringifyQueryParams(query)}`;
   }
 
   /**

@@ -1,7 +1,8 @@
 import { loginHref, logoutHref } from "@/constants";
+import { parseQueryParams } from "@/query-params";
 
 import { clearCredentials, Credentials, isLoggedIn, saveCredentials, validateCredentials } from "./credentials";
-import { interruptClick, parseQueryParams, retry } from "./lib";
+import { interruptClick, retry } from "./lib";
 
 /**
  * Change the current URL to only the current pathname and reload.
@@ -18,7 +19,7 @@ function saveAndRemoveQueryParams() {
     return;
   }
 
-  const credentials: Credentials = parseQueryParams() as any;
+  const credentials: Credentials = parseQueryParams(location.search) as any;
   if (!validateCredentials(credentials)) {
     return;
   }

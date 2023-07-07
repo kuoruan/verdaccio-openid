@@ -3,11 +3,7 @@
 *.log
 dist/
 node_modules/
-package/
-plugins/
-storage/
-htpasswd
-verdaccio.yaml
+/verdaccio
 .npmrc
 .yarnrc
 .history

@@ -2,10 +2,10 @@ import express from "express";
 import open from "open";
 
 import { cliPort, cliProviderId } from "@/constants";
-import { saveNpmToken } from "@/npm";
 import { getAuthorizePath } from "@/redirect";
 
 import { respondWithCliMessage } from "./cli-response";
+import { saveNpmToken } from "./npm";
 import { validateRegistry } from "./usage";
 import { respondWithWebPage } from "./web-response";
 
@@ -16,7 +16,7 @@ const server = express()
   .get("/", (req, res) => {
     let status = String(req.query.status);
     let message = String(req.query.message);
-    const token = decodeURIComponent(String(req.query.token));
+    const token = String(req.query.token);
 
     try {
       if (status === "success") {

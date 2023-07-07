@@ -3,7 +3,8 @@ import process from "process";
 import { object, string, mixed, array, AnySchema, lazy } from "yup";
 
 import { pluginKey } from "@/constants";
-import logger from "@/logger";
+
+import logger from "../logger";
 
 import type {
   Config as IncorrectVerdaccioConfig,

@@ -1,6 +1,6 @@
 import { bootstrap } from "global-agent";
 
-import logger from "@/logger";
+import logger from "./logger";
 
 declare const GLOBAL_AGENT: Record<"HTTP_PROXY" | "HTTPS_PROXY" | "NO_PROXY", string>;
 
