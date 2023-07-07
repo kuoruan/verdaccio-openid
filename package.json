@@ -31,6 +31,7 @@
     "@verdaccio/auth": "^6.0.0-6-next.42",
     "@verdaccio/config": "^6.0.0-6-next.63",
     "@verdaccio/core": "^6.0.0-6-next.63",
+    "@verdaccio/signature": "^6.0.0-6-next.2",
     "@verdaccio/url": "^11.0.0-6-next.29",
     "core-js": "^3.29.0",
     "debug": "^4.3.4",
