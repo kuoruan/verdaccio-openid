@@ -1,7 +1,7 @@
 {
   "$schema": "http://json.schemastore.org/package",
   "name": "verdaccio-openid",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": "https://github.com/kuoruan/verdaccio-openid",
   "license": "MIT",
   "author": {
