@@ -1,7 +1,9 @@
-import { cliName } from "@/constants";
+import { plugin } from "@/constants";
 import { getRegistryUrl } from "@/npm";
 
 export function getUsageInfo() {
+  const cliName = Object.keys(plugin.bin)[0];
+
   return [
     "It seems you are using the default npm registry.",
     "Please update it to your Verdaccio URL by either running:",

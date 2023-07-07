@@ -6,6 +6,6 @@ export interface AuthProvider {
   getCode(req: Request): string;
 
   getToken(code: string, callbackUrl: string): Promise<string>;
-  getUsername(token: string): Promise<string>;
-  getGroups(token: string): Promise<string[]>;
+  getUsername(providerToken: string): Promise<string>;
+  getGroups(username: string, providerToken: string): Promise<string[]>;
 }

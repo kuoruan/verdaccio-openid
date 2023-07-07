@@ -1,7 +1,9 @@
 import merge from "lodash/merge";
+import ms from "ms";
 
 import { VerdaccioConfig } from "../plugin/Config";
 
+import type { Cache } from "./Cache";
 import type { Config, IBasicAuth, JWTSignOptions, RemoteUser } from "@verdaccio/types";
 import type { NextFunction } from "express";
 
@@ -43,7 +45,7 @@ export class Verdaccio {
 
   private auth!: Auth;
 
-  constructor(private readonly config: VerdaccioConfig) {
+  constructor(private readonly config: VerdaccioConfig, private readonly cache: Cache) {
     this.security = getSecurity(this.config);
   }
 
@@ -52,28 +54,40 @@ export class Verdaccio {
     return this;
   }
 
-  async issueNpmToken(token: string, user: User) {
+  async issueNpmToken(providerToken: string, user: User) {
     const jwtSignOptions = this.security?.api?.jwt?.sign;
 
+    let npmToken;
     if (jwtSignOptions) {
-      return this.issueVerdaccio4PlusJWT(user, jwtSignOptions);
+      npmToken = await this.issueVerdaccioJWT(user, jwtSignOptions);
     } else {
-      return this.encrypt(user.name + ":" + token);
+      npmToken = this.encrypt(user.name + ":" + providerToken);
     }
+
+    let ttl;
+    try {
+      ttl = ms(jwtSignOptions?.expiresIn || "0");
+    } catch {
+      ttl = 0;
+    }
+
+    // save relationship between npm token and provider token
+    this.cache.setProviderToken(npmToken, providerToken, ttl);
+    return npmToken;
   }
 
-  async issueUiToken(user: User) {
-    const jwtSignOptions = this.security.web.sign;
+  issueUiToken(user: User): Promise<string> {
+    const jwtSignOptions = this.security?.web?.sign;
 
-    return this.issueVerdaccio4PlusJWT(user, jwtSignOptions);
+    return this.issueVerdaccioJWT(user, jwtSignOptions);
   }
 
   // https://github.com/verdaccio/verdaccio/blob/master/src/api/web/endpoint/user.ts#L31
-  private async issueVerdaccio4PlusJWT(user: User, jwtSignOptions: JWTSignOptions) {
+  private issueVerdaccioJWT(user: User, jwtSignOptions: JWTSignOptions): Promise<string> {
     return this.auth.jwtEncrypt(user, jwtSignOptions);
   }
 
-  private encrypt(text: string) {
+  private encrypt(text: string): string {
     return this.auth.aesEncrypt(Buffer.from(text)).toString("base64");
   }
 }

@@ -1,9 +1,5 @@
 import { Cache as MemoryCache } from "memory-cache";
 
-import logger from "@/logger";
-
-import { AuthProvider } from "./AuthProvider";
-
 /**
  * When installing packages, the CLI makes a burst of package requests.
  *
@@ -15,34 +11,28 @@ import { AuthProvider } from "./AuthProvider";
  * has been made for a short period.
  */
 export class Cache {
-  private readonly cache = new MemoryCache<string, string[]>();
+  private readonly groupsCache = new MemoryCache<string, string[]>();
+  private readonly providerTokenCache = new MemoryCache<string, string>();
 
-  constructor(
-    private readonly authProvider: AuthProvider,
-    private readonly cacheTTLms = 10_000 // 10s
-  ) {}
+  constructor(private readonly namespace: string) {}
 
-  private get namespace() {
-    return this.authProvider.getId();
+  private getKey(str: string): string {
+    return this.namespace + "_" + str;
   }
 
-  async getGroups(token: string): Promise<string[] | null> {
-    let groups: string[] | null = null;
+  getGroups(key: string): string[] | null {
+    return this.groupsCache.get(this.getKey(key));
+  }
 
-    try {
-      const key = [this.namespace, token].join("_");
+  setGroups(key: string, groups: string[]): void {
+    this.groupsCache.put(this.getKey(key), groups, 5 * 60 * 1000); // 5m
+  }
 
-      groups = this.cache.get(key);
+  setProviderToken(key: string, providerToken: string, ttl?: number) {
+    this.providerTokenCache.put(this.getKey(key), providerToken, ttl);
+  }
 
-      if (!groups) {
-        groups = await this.authProvider.getGroups(token);
-      }
-
-      this.cache.put(key, groups, this.cacheTTLms);
-    } catch (error) {
-      logger.error(error);
-    }
-
-    return groups;
+  getProviderToken(key: string): string | null {
+    return this.providerTokenCache.get(this.getKey(key));
   }
 }
