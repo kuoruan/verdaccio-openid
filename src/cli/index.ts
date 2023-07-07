@@ -34,5 +34,8 @@ const server = express()
     process.exit(status === "success" ? 0 : 1);
   })
   .listen(cliPort, () => {
+    console.log(`Listening on port ${cliPort}...`);
+
+    console.log(`Opening ${authorizeUrl} in your browser...`);
     open(authorizeUrl);
   });
