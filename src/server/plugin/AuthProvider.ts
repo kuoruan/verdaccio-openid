@@ -1,4 +1,24 @@
+import { PackageAccess } from "./Config";
+
 import type { Request } from "express";
+
+export interface ConfigHolder {
+  providerHost: string;
+  providerType?: string;
+  issuer?: string;
+  configurationUri?: string;
+  scope?: string;
+  usernameClaim: string;
+  groupsClaim?: string;
+  authorizationEndpoint?: string;
+  tokenEndpoint?: string;
+  userinfoEndpoint?: string;
+  jwksUri?: string;
+  clientId: string;
+  clientSecret: string;
+  urlPrefix: string;
+  packages: Record<string, PackageAccess>;
+}
 
 export interface AuthProvider {
   getId(): string;

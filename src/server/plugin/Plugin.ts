@@ -2,11 +2,10 @@ import { errorUtils } from "@verdaccio/core";
 
 import { registerGlobalProxyAgent } from "@/server/proxy-agent";
 
-import { AuthCore } from "./AuthCore";
+import { AuthCore, UserWithToken } from "./AuthCore";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
-import { UserWithToken, Verdaccio } from "./Verdaccio";
 import { CliFlow, WebFlow } from "../flows";
 import logger, { setLogger } from "../logger";
 import { OpenIDConnectAuthProvider } from "../openid";
@@ -44,9 +43,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginMiddleware
    */
   register_middlewares(app: Application, auth: any) {
-    const verdaccio = new Verdaccio(this.config, auth);
-
-    this.core.setVerdaccio(verdaccio);
+    this.core.setAuth(auth);
 
     const children = [
       new ServeStatic(),
