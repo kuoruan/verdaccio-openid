@@ -1,9 +1,8 @@
-import fs from "fs";
-
-import { staticPath, publicRoot } from "../constants";
-
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
+import fs from "fs";
+
+import { publicRoot, staticPath } from "../constants";
 
 /**
  * Injects additional static imports into the DOM with code from the client folder

@@ -4,7 +4,7 @@ module.exports = {
   env: {
     browser: true,
     node: true,
-    es2021: true,
+    es2022: true,
   },
   parser: "@typescript-eslint/parser",
   extends: [
@@ -14,21 +14,12 @@ module.exports = {
     "plugin:import/recommended",
     "plugin:import/typescript",
   ],
+  plugins: ["simple-import-sort"],
   rules: {
+    "simple-import-sort/imports": "error",
+    "simple-import-sort/exports": "error",
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
-    "import/order": [
-      "error",
-      {
-        groups: ["builtin", "external", "internal", ["sibling", "parent"], "index", "object", "type", "unknown"],
-        alphabetize: {
-          order: "asc",
-          caseInsensitive: true,
-        },
-        "newlines-between": "always",
-      },
-    ],
-    "import/dynamic-import-chunkname": "error",
   },
   settings: {
     "import/resolver": ["node", "typescript"],

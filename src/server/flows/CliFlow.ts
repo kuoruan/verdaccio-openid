@@ -1,3 +1,6 @@
+import type { IPluginMiddleware } from "@verdaccio/types";
+import type { Application, Handler } from "express";
+
 import { cliPort, cliProviderId } from "@/constants";
 import { stringifyQueryParams } from "@/query-params";
 import { getCallbackPath } from "@/redirect";
@@ -5,9 +8,6 @@ import { getCallbackPath } from "@/redirect";
 import logger from "../logger";
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
-
-import type { IPluginMiddleware } from "@verdaccio/types";
-import type { Application, Handler } from "express";
 
 const pluginCallbackeUrl = getCallbackPath(cliProviderId);
 

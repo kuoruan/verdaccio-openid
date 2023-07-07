@@ -1,17 +1,15 @@
-import process from "process";
-
-import merge from "deepmerge";
-import { object, string, mixed, array, AnySchema, lazy } from "yup";
-
-import { pluginKey } from "@/constants";
-
-import logger from "../logger";
-
 import type {
   Config as IncorrectVerdaccioConfig,
   PackageAccess as IncorrectVerdaccioPackageAccess,
   Security,
 } from "@verdaccio/types";
+import merge from "deepmerge";
+import process from "process";
+import { AnySchema, array, lazy, mixed, object, string } from "yup";
+
+import { pluginKey } from "@/constants";
+
+import logger from "../logger";
 
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.

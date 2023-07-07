@@ -1,7 +1,6 @@
 import { execSync } from "child_process";
-import { URL } from "url";
-
 import minimist from "minimist";
+import { URL } from "url";
 
 import logger from "../server/logger";
 

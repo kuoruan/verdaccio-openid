@@ -1,12 +1,12 @@
+import type { IPluginMiddleware } from "@verdaccio/types";
+import type { Application, Handler } from "express";
+
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
 import logger from "../logger";
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
-
-import type { IPluginMiddleware } from "@verdaccio/types";
-import type { Application, Handler } from "express";
 
 export class WebFlow implements IPluginMiddleware<any> {
   constructor(private readonly core: AuthCore, private readonly provider: AuthProvider) {}

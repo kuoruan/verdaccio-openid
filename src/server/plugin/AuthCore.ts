@@ -1,20 +1,19 @@
 import {
+  aesDecrypt,
   Auth,
   buildUser,
   isAESLegacy,
+  parseBasicPayload,
   signPayload,
   verifyJWTPayload,
-  aesDecrypt,
-  parseBasicPayload,
 } from "@verdaccio/auth";
 import { defaultLoggedUserRoles } from "@verdaccio/config";
+import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import { stringifyQueryParams } from "@/query-params";
 
-import { ParsedPluginConfig } from "./Config";
 import logger from "../logger";
-
-import type { RemoteUser, JWTSignOptions, Security } from "@verdaccio/types";
+import { ParsedPluginConfig } from "./Config";
 
 export type UserWithToken = RemoteUser & { token?: string; legacyToken?: boolean };
 
