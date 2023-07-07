@@ -5,7 +5,7 @@ import type {
 } from "@verdaccio/types";
 import merge from "deepmerge";
 import process from "process";
-import { AnySchema, array, lazy, mixed, object, string } from "yup";
+import { array, lazy, mixed, object, Schema, string } from "yup";
 
 import { pluginKey } from "@/constants";
 
@@ -70,7 +70,7 @@ function getEnvValue(name: any) {
   return value;
 }
 
-function getConfigValue<T>(config: Config, key: string, schema: AnySchema | ReturnType<typeof lazy>): T {
+function getConfigValue<T>(config: Config, key: string, schema: Pick<Schema, "validateSync">): T {
   const valueOrEnvName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
 
   const value = getEnvValue(valueOrEnvName) ?? valueOrEnvName;

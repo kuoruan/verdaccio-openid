@@ -3,3 +3,7 @@ interface MouseEvent {
   // https://caniuse.com/#feat=mdn-api_event_composedpath
   path?: Element[];
 }
+
+interface Window {
+  VERDACCIO_API_URL?: string;
+}
