@@ -161,6 +161,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   async getGroups(username: string, token?: string): Promise<string[]> {
+    // if token is set, get user groups from token or provider url.
     if (token) {
       const userinfo = await this.getUserinfo(token);
 
@@ -189,6 +190,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
             logger.info({ username, gitlabGroups }, `GitLab user "@{username}" has groups: "@{gitlabGroups}"`);
             return gitlabGroups;
           }
+          case "universal":
           default: {
             throw new Error("unexpected provider type");
           }

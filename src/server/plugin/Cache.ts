@@ -12,11 +12,9 @@ import TTLCache from "@isaacs/ttlcache";
  */
 export class Cache {
   private readonly groupsCache: TTLCache<string, string[]>;
-  private readonly providerTokenCache: TTLCache<string, string>;
 
   constructor(private readonly namespace: string) {
     this.groupsCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5m;
-    this.providerTokenCache = new TTLCache({ max: 1000 });
   }
 
   private getKey(str: string): string {
@@ -29,13 +27,5 @@ export class Cache {
 
   setGroups(key: string, groups: string[]): void {
     this.groupsCache.set(this.getKey(key), groups);
-  }
-
-  setProviderToken(key: string, providerToken: string, ttl?: number) {
-    this.providerTokenCache.set(this.getKey(key), providerToken, { ttl });
-  }
-
-  getProviderToken(key: string): string | null | undefined {
-    return this.providerTokenCache.get(this.getKey(key));
   }
 }

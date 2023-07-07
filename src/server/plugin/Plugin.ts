@@ -30,7 +30,6 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly parsedConfig: ParsedPluginConfig;
   private readonly provider: OpenIDConnectAuthProvider;
   private readonly cache: Cache;
-  private readonly verdaccio: Verdaccio;
   private readonly core: AuthCore;
 
   constructor(private readonly config: Config, params: { logger: Logger }) {
@@ -41,21 +40,22 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     this.parsedConfig = new ParsedPluginConfig(this.config);
     this.provider = new OpenIDConnectAuthProvider(this.parsedConfig);
     this.cache = new Cache(this.provider.getId());
-    this.verdaccio = new Verdaccio(this.config, this.cache);
-    this.core = new AuthCore(this.verdaccio, this.parsedConfig);
+    this.core = new AuthCore(this.parsedConfig);
   }
 
   /**
    * IPluginMiddleware
    */
   register_middlewares(app: Application, auth: any) {
-    this.verdaccio.setAuth(auth);
+    const verdaccio = new Verdaccio(this.config, auth);
+
+    this.core.setVerdaccio(verdaccio);
 
     const children = [
       new ServeStatic(),
       new PatchHtml(),
       new WebFlow(this.parsedConfig, this.core, this.provider),
-      new CliFlow(this.verdaccio, this.core, this.provider),
+      new CliFlow(verdaccio, this.core, this.provider),
     ];
 
     for (const child of children) {
@@ -72,16 +72,21 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       return;
     }
 
-    let groups = this.cache.getGroups(username);
+    let groups = this.cache.getGroups(token);
     if (!groups) {
-      const providerToken = this.cache.getProviderToken(token);
+      let providerToken: string | undefined;
+      try {
+        const user = this.core.verifyNpmToken(token);
 
-      if (!providerToken) {
-        return callback(errorUtils.getForbidden("invalid token"), false);
+        providerToken = user.token;
+      } catch (e: any) {
+        return callback(errorUtils.getForbidden(e.message || "invalid token"), false);
       }
 
       try {
         groups = await this.provider.getGroups(username, providerToken);
+
+        this.cache.setGroups(token, groups);
       } catch (e: any) {
         callback(errorUtils.getForbidden(e.message), false);
         return;
@@ -89,8 +94,6 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     }
 
     if (groups) {
-      this.cache.setGroups(token, groups);
-
       if (this.core.authenticate(username, groups)) {
         const user = this.core.createAuthenticatedUser(username, groups);
 
