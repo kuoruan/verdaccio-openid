@@ -82,6 +82,7 @@ export default defineConfig([
       dir: "dist/cli",
       entryFileNames: "[name].js",
       format: "cjs",
+      banner: "#!/usr/bin/env node",
     },
     plugins: getPlugins(),
   },
