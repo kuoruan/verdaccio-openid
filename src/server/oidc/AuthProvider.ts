@@ -11,8 +11,11 @@ import type { Request } from "express";
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
   private readonly state: string;
+  private host: string;
 
   constructor(private readonly config: ParsedPluginConfig) {
+    this.host = this.config.host;
+
     // not sure of a better way to do this:
     this.discoverClient();
     this.state = generators.state(32);
@@ -28,16 +31,19 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
   private async discoverClient() {
     let issuer: Issuer;
+
     if (this.config.configurationEndpoint) {
       issuer = await Issuer.discover(this.config.configurationEndpoint);
-    } else {
+    } else if (this.config.authorizationEndpoint && this.config.tokenEndpoint && this.config.userinfoEndpoint) {
       issuer = new Issuer({
-        issuer: this.config.issuer || this.config.host,
+        issuer: this.config.issuer || this.host,
         authorization_endpoint: this.config.authorizationEndpoint,
         token_endpoint: this.config.tokenEndpoint,
         userinfo_endpoint: this.config.userinfoEndpoint,
         jwks_uri: this.config.jwksUri,
       });
+    } else {
+      issuer = await Issuer.discover(this.host);
     }
 
     this.client = new issuer.Client({
@@ -141,7 +147,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
   async getGitlabGroups(token: string): Promise<string[]> {
     const group = new Groups({
-      host: this.config.host,
+      host: this.host,
       oauthToken: token,
     });
 
