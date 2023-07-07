@@ -9,7 +9,7 @@
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "Node",
-    "noEmit": false,
+    "noEmit": true,
     "noImplicitAny": false,
     "strict": true,
     "skipLibCheck": true,

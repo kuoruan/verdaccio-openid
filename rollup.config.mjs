@@ -1,3 +1,6 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 import alias from "@rollup/plugin-alias";
 import { babel } from "@rollup/plugin-babel";
 import commonjs from "@rollup/plugin-commonjs";
@@ -6,11 +9,9 @@ import json from "@rollup/plugin-json";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
-import path from "path";
 import { defineConfig } from "rollup";
 import { externals } from "rollup-plugin-node-externals";
 import shebang from "rollup-plugin-shebang-bin";
-import { fileURLToPath } from "url";
 
 function getBasePlugins(isBrowser = false) {
   const basePath = path.dirname(fileURLToPath(import.meta.url));
@@ -28,10 +29,11 @@ function getBasePlugins(isBrowser = false) {
     }),
     replace({
       preventAssignment: true,
-      values: ["NODE_ENV", "npm_package_name", "npm_package_version"].reduce((acc, key) => {
-        acc[`process.env.${key}`] = JSON.stringify(process.env[key]);
-        return acc;
-      }, {}),
+      values: {
+        "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
+        "process.env.npm_package_name": JSON.stringify(process.env.npm_package_name),
+        "process.env.npm_package_version": JSON.stringify(process.env.npm_package_version),
+      },
     }),
     json(),
     image(),
@@ -46,7 +48,7 @@ function getBasePlugins(isBrowser = false) {
             useBuiltIns: isBrowser ? "usage" : false,
             corejs: isBrowser ? "3.27" : false,
             // set to undefined to use the default browserslist config
-            targets: !isBrowser ? { node: "current" } : undefined,
+            targets: isBrowser ? undefined : { node: "current" },
             ignoreBrowserslistConfig: !isBrowser,
           },
         ],
