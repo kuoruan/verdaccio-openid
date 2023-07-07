@@ -51,8 +51,8 @@ auth:
     client-secret: CLIENT_SECRET
     authorized-group: false # false to disable login group filter
     # group-users:
-    #   tom:
-    #     - cat
-    #     - animal # optional. custom the user groups. eg. tom has cat and animal groups
+    #   animal:
+    #     - tom
+    #     - jack # optional. custom the group users. eg. animal group has user tom and jack
     # provider-type: gitlab # define this to get groups from gitlab api
 ```
