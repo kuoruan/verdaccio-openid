@@ -1,15 +1,15 @@
 {
   "$schema": "http://json.schemastore.org/package",
   "name": "verdaccio-oidc-ui",
-  "version": "1.2.1",
+  "version": "2.0.0",
   "repository": "https://github.com/kuoruan/verdaccio-oidc-ui",
   "license": "MIT",
   "author": "Xingwang Liao",
   "description": "A UI for OIDC authentication for Verdaccio, a fork of verdaccio-github-oauth-ui",
-  "main": "dist/server/index.cjs",
+  "main": "dist/server/index.js",
   "module": "dist/server/index.mjs",
   "bin": {
-    "verdaccio-oidc-ui": "dist/cli/index.cjs"
+    "verdaccio-oidc-ui": "dist/cli/index.js"
   },
   "files": [
     "dist",
@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "@gitbeaker/node": "^35.4.0",
-    "@verdaccio/core": "^6.0.0-6-next.4",
+    "@verdaccio/core": "^6.0.0-6-next.5",
+    "@verdaccio/url": "^11.0.0-6-next.9",
     "chalk": "^5.0.0",
     "core-js": "^3.21.1",
     "dotenv": "^16.0.0",
@@ -68,11 +69,11 @@
     "rollup-plugin-terser": "^7.0.2",
     "terser": "^5.12.0",
     "typescript": "~4.5.5",
-    "verdaccio": "^5.6.2",
-    "verdaccio-htpasswd": "^10.1.0"
+    "verdaccio": "^6.0.0-6-next.39",
+    "verdaccio-htpasswd": "^11.0.0-6-next.13"
   },
   "peerDependencies": {
-    "verdaccio": ">=5"
+    "verdaccio": "^6"
   },
   "engines": {
     "node": "^14||^16"
