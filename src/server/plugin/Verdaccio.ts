@@ -13,9 +13,7 @@ import { VerdaccioConfig } from "../plugin/Config";
 
 import type { JWTSignOptions, RemoteUser } from "@verdaccio/types";
 
-// Most of this is duplicated Verdaccio code because it is unfortunately not available via API.
-// https://github.com/verdaccio/verdaccio/blob/master/src/lib/auth-utils.ts#L129
-
+// https://github.com/verdaccio/verdaccio/blob/master/packages/config/src/security.ts
 const TIME_EXPIRATION_7D = "7d";
 
 const defaultSecurity = {
@@ -57,7 +55,7 @@ export class Verdaccio {
 
       return Promise.resolve(npmToken);
     } else {
-      return this.issueVerdaccioJWT(user, providerToken, jwtSignOptions);
+      return this.signJWT(user, providerToken, jwtSignOptions);
     }
   }
 
@@ -67,7 +65,7 @@ export class Verdaccio {
     if (isAESLegacy(this.security) || !jwtSignOptions) {
       return this.legacyDecrypt(token);
     } else {
-      return this.verifyVerdaccioJWT(token);
+      return this.verifyJWT(token);
     }
   }
 
@@ -75,22 +73,18 @@ export class Verdaccio {
   issueUiToken(user: RemoteUser, providerToken: string): Promise<string> {
     const jwtSignOptions = this.security?.web?.sign;
 
-    return this.issueVerdaccioJWT(user, providerToken, jwtSignOptions);
+    return this.signJWT(user, providerToken, jwtSignOptions);
   }
 
   verifyUiToken(token: string): UserWithToken {
-    return this.verifyVerdaccioJWT(token);
+    return this.verifyJWT(token);
   }
 
-  private issueVerdaccioJWT(
-    user: UserWithToken,
-    providerToken: string,
-    jwtSignOptions: JWTSignOptions
-  ): Promise<string> {
+  private signJWT(user: UserWithToken, providerToken: string, jwtSignOptions: JWTSignOptions): Promise<string> {
     return signPayload({ ...user, providerToken } as UserWithToken, this.auth.secret, jwtSignOptions);
   }
 
-  private verifyVerdaccioJWT(token: string): UserWithToken {
+  private verifyJWT(token: string): UserWithToken {
     // verifyPayload
     // use internal function to avoid error handling
     const user = verifyJWTPayload(token, this.auth.secret);

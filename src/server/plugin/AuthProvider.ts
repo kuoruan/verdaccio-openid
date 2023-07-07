@@ -6,5 +6,5 @@ export interface AuthProvider {
 
   getToken(callbackReq: Request): Promise<string>;
   getUsername(providerToken: string): Promise<string>;
-  getGroups(username: string, providerToken?: string): Promise<string[]>;
+  getGroups(providerToken: string): Promise<string[]>;
 }

@@ -3,7 +3,6 @@ import TTLCache from "@isaacs/ttlcache";
 import { getPublicUrl } from "@verdaccio/url";
 import { Issuer, generators } from "openid-client";
 
-import logger from "@/logger";
 import { getCallbackPath } from "@/redirect";
 
 import { AuthProvider } from "../plugin/AuthProvider";
@@ -15,18 +14,20 @@ import type { OpenIDCallbackChecks, Client } from "openid-client";
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
-  private host: string;
+  private providerHost: string;
   private scope: string;
 
   private readonly stateCache: TTLCache<string, string>;
   private readonly userinfoCache: TTLCache<string, Record<string, unknown>>;
+  private readonly groupsCache: TTLCache<string, string[]>;
 
   constructor(private readonly config: ParsedPluginConfig) {
-    this.host = this.config.host;
+    this.providerHost = this.config.providerHost;
     this.scope = this.initScope();
 
-    this.stateCache = new TTLCache({ ttl: 5 * 60 * 1000 }); // 5min
-    this.userinfoCache = new TTLCache({ ttl: 30 * 1000 }); // 1min
+    this.stateCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5min
+    this.userinfoCache = new TTLCache({ max: 1000, ttl: 30 * 1000 }); // 1min
+    this.groupsCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5m;
 
     this.discoverClient();
   }
@@ -58,23 +59,25 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private async discoverClient() {
     let issuer: Issuer;
 
-    if (this.config.configurationEndpoint) {
-      issuer = await Issuer.discover(this.config.configurationEndpoint);
+    if (this.config.configurationUri) {
+      issuer = await Issuer.discover(this.config.configurationUri);
     } else if (
-      this.config.authorizationEndpoint ||
-      this.config.tokenEndpoint ||
-      this.config.userinfoEndpoint ||
-      this.config.jwksUri
+      [
+        this.config.authorizationEndpoint,
+        this.config.tokenEndpoint,
+        this.config.userinfoEndpoint,
+        this.config.jwksUri,
+      ].some((endpoint) => !!endpoint)
     ) {
       issuer = new Issuer({
-        issuer: this.config.issuer || this.host,
+        issuer: this.config.issuer || this.providerHost,
         authorization_endpoint: this.config.authorizationEndpoint,
         token_endpoint: this.config.tokenEndpoint,
         userinfo_endpoint: this.config.userinfoEndpoint,
         jwks_uri: this.config.jwksUri,
       });
     } else {
-      issuer = await Issuer.discover(this.host);
+      issuer = await Issuer.discover(this.providerHost);
     }
 
     this.client = new issuer.Client({
@@ -85,7 +88,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   getId(): string {
-    return "oidc";
+    return "openid";
   }
 
   getLoginUrl(req: Request): string {
@@ -132,7 +135,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       return tokenSet.access_token;
     }
 
-    throw new Error("No access_token received in getToken callback");
+    throw new Error("No access_token received in getToken callback.");
   }
 
   private async getUserinfo(token: string): Promise<Record<string, unknown>> {
@@ -143,10 +146,6 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       this.userinfoCache.set(token, userinfo);
     }
     return userinfo;
-  }
-
-  private verifyUsername(username: string, userinfo: Record<string, unknown>): boolean {
-    return username === userinfo[this.config.usernameClaim];
   }
 
   async getUsername(token: string): Promise<string> {
@@ -160,61 +159,64 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     throw new Error(`Could not grab username using the ${this.config.usernameClaim} property`);
   }
 
-  async getGroups(username: string, token?: string): Promise<string[]> {
-    // if token is set, get user groups from token or provider url.
-    if (token) {
+  /**
+   * Get the groups for the user from the groups claim or from the oidc endpoint.
+   *
+   * @param token
+   * @returns {Promise<string[]>} The groups the user is in.
+   */
+  async getGroups(token: string): Promise<string[]> {
+    if (this.config.groupsClaim) {
       const userinfo = await this.getUserinfo(token);
+      const groups = userinfo[this.config.groupsClaim];
 
-      if (!this.verifyUsername(username, userinfo)) {
-        throw new Error(`Username did not match, expected ${username}`);
-      }
-
-      if (this.config.groupsClaim) {
-        const groups = userinfo[this.config.groupsClaim];
-
-        if (!groups) {
-          throw new Error(`Could not grab groups using the ${this.config.groupsClaim} property`);
-        } else if (Array.isArray(groups)) {
-          return groups;
-        } else if (typeof groups === "string") {
-          return [groups];
-        } else {
-          throw new Error(`Groups claim is not an array or string`);
-        }
-      }
-
-      if (this.config.providerType) {
-        switch (this.config.providerType) {
-          case "gitlab": {
-            const gitlabGroups = await this.getGitlabGroups(token);
-            logger.info({ username, gitlabGroups }, `GitLab user "@{username}" has groups: "@{gitlabGroups}"`);
-            return gitlabGroups;
-          }
-          case "universal":
-          default: {
-            throw new Error("unexpected provider type");
-          }
-        }
+      if (!groups) {
+        throw new Error(`Could not grab groups using the ${this.config.groupsClaim} property`);
+      } else if (Array.isArray(groups)) {
+        return groups;
+      } else if (typeof groups === "string") {
+        return [groups];
+      } else {
+        throw new Error(`Groups claim is not an array or string.`);
       }
     }
 
-    let groupUsers;
-    if ((groupUsers = this.config.groupUsers)) {
-      return Object.keys(groupUsers).filter((group) => {
-        return groupUsers[group].includes(username);
-      });
+    if (this.config.providerType) {
+      let groups = this.groupsCache.get(token);
+
+      if (groups) return groups;
+
+      switch (this.config.providerType) {
+        case "gitlab": {
+          groups = await this.getGitlabGroups(token);
+          break;
+        }
+        default: {
+          throw new Error("Unexpected provider type.");
+        }
+      }
+
+      this.groupsCache.set(token, groups);
+      return groups;
     }
 
-    return [];
+    throw new Error("No groups claim or provider type configured");
   }
 
+  /**
+   * Get the groups for the user from the Gitlab API.
+   *
+   * @param token
+   * @returns {Promise<string[]>} The groups the user is in.
+   */
   async getGitlabGroups(token: string): Promise<string[]> {
     const group = new Groups({
-      host: this.host,
+      host: this.providerHost,
       oauthToken: token,
     });
 
     const userGroups = await group.all();
+
     return userGroups.map((g) => g.name);
   }
 

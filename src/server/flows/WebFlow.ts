@@ -4,17 +4,12 @@ import { buildAccessDeniedPage, buildErrorPage } from "@/statusPage";
 
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
-import { ParsedPluginConfig } from "../plugin/Config";
 
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
 
 export class WebFlow implements IPluginMiddleware<any> {
-  constructor(
-    private readonly config: ParsedPluginConfig,
-    private readonly core: AuthCore,
-    private readonly provider: AuthProvider
-  ) {}
+  constructor(private readonly core: AuthCore, private readonly provider: AuthProvider) {}
 
   /**
    * IPluginMiddleware
@@ -58,7 +53,11 @@ export class WebFlow implements IPluginMiddleware<any> {
       const providerToken = await this.provider.getToken(req);
 
       const username = await this.provider.getUsername(providerToken);
-      const groups = await this.provider.getGroups(username, providerToken);
+
+      let groups = this.core.getUserGroups(username);
+      if (!groups) {
+        groups = await this.provider.getGroups(providerToken);
+      }
 
       if (this.core.authenticate(username, groups)) {
         const ui = await this.core.createUiCallbackUrl(username, providerToken, groups);
