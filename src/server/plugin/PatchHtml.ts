@@ -1,7 +1,6 @@
-import { IPluginMiddleware } from "@verdaccio/types";
-
 import { staticPath } from "@/constants";
 
+import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
 
 /**

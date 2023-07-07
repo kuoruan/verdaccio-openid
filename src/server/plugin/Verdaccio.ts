@@ -1,8 +1,8 @@
-import { Config, IBasicAuth, JWTSignOptions, RemoteUser } from "@verdaccio/types";
 import merge from "lodash/merge";
 
 import { VerdaccioConfig } from "../plugin/Config";
 
+import type { Config, IBasicAuth, JWTSignOptions, RemoteUser } from "@verdaccio/types";
 import type { NextFunction } from "express";
 
 export interface Auth extends IBasicAuth<Config> {

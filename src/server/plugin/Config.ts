@@ -1,10 +1,5 @@
 import process from "process";
 
-import {
-  Config as IncorrectVerdaccioConfig,
-  PackageAccess as IncorrectVerdaccioPackageAccess,
-  Security,
-} from "@verdaccio/types";
 import get from "lodash/get";
 import assert from "ow";
 import { PartialDeep, RemoveIndexSignature } from "type-fest";
@@ -12,6 +7,12 @@ import pkg from "verdaccio/package.json";
 
 import { pluginKey } from "@/constants";
 import logger from "@/logger";
+
+import type {
+  Config as IncorrectVerdaccioConfig,
+  PackageAccess as IncorrectVerdaccioPackageAccess,
+  Security,
+} from "@verdaccio/types";
 
 //
 // Types

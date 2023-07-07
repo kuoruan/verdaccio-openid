@@ -1,6 +1,6 @@
-import pkg from "../package.json";
+import { name, version, bin } from "../package.json";
 
-export const plugin = { name: pkg.name, version: pkg.version, bin: pkg.bin };
+export const plugin = { name, version, bin };
 
 export const cliName = Object.keys(plugin.bin)[0];
 export const pluginKey = plugin.name.replace("verdaccio-", "");
