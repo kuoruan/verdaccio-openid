@@ -1,4 +1,5 @@
 import path from "path";
+import { fileURLToPath } from "url";
 
 import alias from "@rollup/plugin-alias";
 import { babel } from "@rollup/plugin-babel";
@@ -6,13 +7,14 @@ import commonjs from "@rollup/plugin-commonjs";
 import image from "@rollup/plugin-image";
 import json from "@rollup/plugin-json";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
+import terser from "@rollup/plugin-terser";
 import { defineConfig } from "rollup";
 import { externals } from "rollup-plugin-node-externals";
-import { terser } from "rollup-plugin-terser";
 
-import pkg from "./package.json";
+import pkg from "./package.json" assert { type: "json" };
 
 function getPlugins(isBrowser = false) {
+  const basePath = path.dirname(fileURLToPath(import.meta.url));
   return [
     externals({
       deps: !isBrowser,
@@ -23,7 +25,7 @@ function getPlugins(isBrowser = false) {
       browser: isBrowser,
     }),
     alias({
-      entries: [{ find: "@", replacement: path.resolve(__dirname, "src") }],
+      entries: [{ find: "@", replacement: path.resolve(basePath, "src") }],
     }),
     json(),
     image(),

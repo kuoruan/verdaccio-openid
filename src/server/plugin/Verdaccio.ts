@@ -60,7 +60,7 @@ export class Verdaccio {
       return this.issueVerdaccioJWT(user, jwtSignOptions);
     }
 
-    const npmToken = this.encrypt(user.name + ":" + providerToken);
+    const npmToken = this.encrypt(user.name + ":" + providerToken.slice(0, 6));
 
     // save relationship between npm token and provider token
     this.cache.setProviderToken(npmToken, providerToken);
