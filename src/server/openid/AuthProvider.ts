@@ -92,7 +92,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   getLoginUrl(req: Request): string {
-    const redirectUrl = this.getRedirectUrl(req);
+    const baseUrl = this.getBaseUrl(req);
+    const redirectUrl = baseUrl + getCallbackPath(req.params.id);
 
     const state = generators.state(32);
     const nonce = generators.nonce();
@@ -108,8 +109,6 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   async getToken(callbackReq: Request): Promise<string> {
-    const redirectUrl = this.getRedirectUrl(callbackReq);
-
     const params = this.discoveredClient.callbackParams(callbackReq.url);
 
     const state = params.state;
@@ -129,6 +128,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       nonce,
       scope: this.scope,
     };
+
+    const baseUrl = this.getBaseUrl(callbackReq);
+    const redirectUrl = baseUrl + callbackReq.path;
+
     const tokenSet = await this.discoveredClient.callback(redirectUrl, params, checks);
 
     if (tokenSet.access_token !== undefined) {
@@ -220,10 +223,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     return userGroups.map((g) => g.name);
   }
 
-  private getRedirectUrl(req: Request): string {
-    const baseUrl = getPublicUrl(this.config.url_prefix, req as RequestOptions).replace(/\/$/, "");
-    const path = getCallbackPath(req.params.id);
-
-    return baseUrl + path;
+  public getBaseUrl(req: Request): string {
+    return getPublicUrl(this.config.url_prefix, req as RequestOptions).replace(/\/$/, "");
   }
 }
