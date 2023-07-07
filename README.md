@@ -38,21 +38,22 @@ middlewares:
 
 auth:
   oidc-ui:
-    configuration-endpoint: https://example.com/.well-known/openid-configuration
-    # issuer: https://example.com
-    # authorization-endpoint: https://example.com/oauth/authorize
-    # token-endpoint: https://example.com/oauth/token
-    # userinfo-endpoint: https://example.com/oauth/userinfo
-    # jwks-uri: https://example.com/oauth/jwks
+    host: https://example.com # required, the host of oidc provider
+    configuration-endpoint: https://example.com/.well-known/openid-configuration # optional
+    # issuer: https://example.com # optional, jwt issuer, use 'host' when empty
+    # authorization-endpoint: https://example.com/oauth/authorize # optional
+    # token-endpoint: https://example.com/oauth/token # optional
+    # userinfo-endpoint: https://example.com/oauth/userinfo # optional
+    # jwks-uri: https://example.com/oauth/jwks # optional
     # scope: openid email groups # optional. custom scope
-    username-claim: name
+    username-claim: name # optional. default is sub
     groups-claim: groups # optional. claim to get groups from
-    client-id: CLIENT_ID
-    client-secret: CLIENT_SECRET
-    authorized-group: false # false to disable login group filter
-    # group-users:
+    client-id: CLIENT_ID # required
+    client-secret: CLIENT_SECRET # required
+    authorized-group: false # optional. user in group name is allowed to login, or false to disable
+    # group-users: # optional. custom the group users. eg. animal group has user tom and jack
     #   animal:
     #     - tom
-    #     - jack # optional. custom the group users. eg. animal group has user tom and jack
-    # provider-type: gitlab # define this to get groups from gitlab api
+    #     - jack
+    # provider-type: gitlab # optional. define this to get groups from gitlab api
 ```
