@@ -11,8 +11,9 @@ import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
 import { defineConfig } from "rollup";
 import { externals } from "rollup-plugin-node-externals";
+import shebang from "rollup-plugin-shebang-bin";
 
-function getPlugins(isBrowser = false) {
+function getBasePlugins(isBrowser = false) {
   const basePath = path.dirname(fileURLToPath(import.meta.url));
   return [
     externals({
@@ -54,13 +55,12 @@ function getPlugins(isBrowser = false) {
       ],
       exclude: [/core-js/],
     }),
-    isBrowser && terser(),
   ].filter(Boolean);
 }
 
 export default defineConfig([
   {
-    input: "src/server/index.ts",
+    input: "./src/server/index.ts",
     output: [
       {
         dir: "dist/server",
@@ -74,25 +74,30 @@ export default defineConfig([
         format: "es",
       },
     ],
-    plugins: getPlugins(),
+    plugins: getBasePlugins(),
   },
   {
-    input: "src/cli/index.ts",
+    input: "./src/cli/index.ts",
     output: {
       dir: "dist/cli",
-      entryFileNames: "[name].js",
+      entryFileNames: process.env.npm_package_name,
       format: "cjs",
-      banner: "#!/usr/bin/env node",
     },
-    plugins: getPlugins(),
+    plugins: [
+      ...getBasePlugins(),
+      shebang({
+        include: ["**/*.js", "**/*.ts"],
+        executable: true,
+      }),
+    ],
   },
   {
-    input: "src/client/verdaccio.ts",
+    input: "./src/client/verdaccio.ts",
     output: {
       dir: "dist/client",
       entryFileNames: "[name].[hash].js",
       format: "iife",
     },
-    plugins: getPlugins(true),
+    plugins: [...getBasePlugins(true), terser()],
   },
 ]);
