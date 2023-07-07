@@ -1,6 +1,7 @@
+import fs from "node:fs";
+
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
-import fs from "fs";
 
 import { publicRoot, staticPath } from "../constants";
 

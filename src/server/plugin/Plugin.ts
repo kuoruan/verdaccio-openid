@@ -16,6 +16,7 @@ import { CliFlow, WebFlow } from "../flows";
 import logger, { debug, setLogger } from "../logger";
 import { OpenIDConnectAuthProvider } from "../openid";
 import { AuthCore, User } from "./AuthCore";
+import type { AuthProvider } from "./AuthProvider";
 import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
@@ -25,7 +26,7 @@ import { ServeStatic } from "./ServeStatic";
  */
 export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly parsedConfig: ParsedPluginConfig;
-  private readonly provider: OpenIDConnectAuthProvider;
+  private readonly provider: AuthProvider;
   private readonly core: AuthCore;
 
   constructor(private readonly config: Config, params: { logger: Logger }) {
@@ -65,28 +66,35 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    */
   async authenticate(username: string, token: string, callback: AuthCallback): Promise<void> {
     if (!username || !token) {
+      debug("username or token is empty, skip authentication");
+
       // set error to null, next auth plugin will be called
-      return callback(null, false);
+      callback(null, false);
+      return;
     }
 
     debug("authenticating user, username: %s, token: %s", username, token);
 
-    let user: User;
+    let user: User | boolean;
     try {
       user = await this.core.verifyNpmToken(token);
-
-      debug("user: %o", user);
     } catch (e: any) {
       debug(`%s. user: "%s", token: "%s"`, e.message, username, token);
 
       // the token is not valid by us, let the next auth plugin to handle it
-      return callback(null, false);
+      callback(null, false);
+      return;
     }
 
-    if (!user.name) {
-      debug(`invalid token: %s. user: "%s"`, token, username);
-      return callback(null, false);
+    /**
+     * the result is false, means the token is not authenticated
+     */
+    if (user === false) {
+      callback(errorUtils.getForbidden(`User "${username}" are not authenticated.`), false);
+      return;
     }
+
+    debug("user: %j", user);
 
     if (username !== user.name) {
       logger.warn(
@@ -94,38 +102,18 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
         `invalid username: expected "@{expected}", actual "@{actual}"`
       );
 
-      return callback(errorUtils.getForbidden("Invalid username."), false);
+      callback(errorUtils.getForbidden("Invalid username."), false);
+      return;
     }
 
-    let groups: string[] | undefined;
-    if (Array.isArray(user.real_groups)) {
-      groups = user.real_groups;
-    }
-
-    if (!groups) {
-      groups = this.core.getUserGroups(username);
-    }
-
-    if (!groups && user.token) {
-      try {
-        groups = await this.provider.getGroups(user.token);
-      } catch (e: any) {
-        return callback(errorUtils.getForbidden(e.message), false);
-      }
-    }
-
-    if (this.core.authenticate(username, groups)) {
-      return callback(null, groups || []);
-    } else {
-      return callback(errorUtils.getForbidden(`User "${username}" are not authenticated.`), false);
-    }
+    callback(null, user.realGroups);
   }
 
   /**
    * IPluginAuth
    */
   allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    debug("check access: %s (%o) -> %s", user.name, user.real_groups, config.name);
+    debug("check access: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.access);
     if (!grant) {
@@ -138,7 +126,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    debug("check publish: %s (%o) -> %s", user.name, user.real_groups, config.name);
+    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.publish || config.access);
 
@@ -156,7 +144,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
    * IPluginAuth
    */
   allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
-    debug("check publish: %s (%o) -> %s", user.name, user.real_groups, config.name);
+    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.unpublish || config.access);
 
@@ -174,22 +162,26 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       return true;
     }
 
-    let userGroups: string[];
-
-    // check if user is authenticated
-    if (this.core.authenticate(user.name, user.real_groups)) {
-      const authUser = this.core.createAuthenticatedUser(user.name as string, user.real_groups);
-      userGroups = authUser.groups;
-    } else {
-      // usually, user groups is empty with our jwt
-      // but with lagacy token, user groups is not empty
-      if (user.groups && user.groups.length > 0) {
-        userGroups = user.groups;
+    let groups: string[];
+    if (user.name) {
+      // check if user is authenticated
+      // the authenticated groups may change after user login
+      if (this.core.authenticate(user.name, user.real_groups)) {
+        groups = this.core.getLoggedUserGroups(user);
       } else {
-        const unauthUser = this.core.createAnonymousUser();
-        userGroups = unauthUser.groups;
+        logger.warn(
+          { username: user.name, groups: JSON.stringify(user.real_groups) },
+          `"@{username}" with groups @{groups} is not authenticated for now, use non-authenticated groups instead.`
+        );
+        groups = this.core.getNonLoggedUserGroups(user);
       }
+    } else {
+      // anonymous user
+      groups = user.groups;
     }
-    return requiredGroups.some((group) => userGroups.includes(group));
+
+    debug("user: %o, required groups: %j, actual groups: %j", user.name, requiredGroups, groups);
+
+    return requiredGroups.some((group) => groups.includes(group));
   }
 }

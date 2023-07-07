@@ -1,15 +1,18 @@
 export function respondWithCliMessage(status: string, message: string) {
   switch (status) {
-    case "success":
+    case "success": {
       console.log("All done! We've updated your npm configuration.");
       break;
+    }
 
-    case "denied":
+    case "denied": {
       console.warn("You are not a member of the required access group.");
       break;
+    }
 
-    default:
+    default: {
       console.error(message);
       break;
+    }
   }
 }

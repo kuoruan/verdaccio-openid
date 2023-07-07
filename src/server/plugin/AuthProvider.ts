@@ -7,7 +7,7 @@ export interface ConfigHolder {
   providerType?: string;
   issuer?: string;
   configurationUri?: string;
-  scope?: string;
+  scope: string;
   usernameClaim: string;
   groupsClaim?: string;
   authorizationEndpoint?: string;
@@ -20,11 +20,26 @@ export interface ConfigHolder {
   packages: Record<string, PackageAccess>;
 }
 
+export type TokenSet = {
+  accessToken: string;
+  idToken?: string;
+  // We not use the expires_in field
+  // because it is only accurate when the access token response is received
+  expiresAt?: number;
+};
+
+// when token is string, it is a access token
+export type Token = TokenSet | string;
+
+export type ProviderUser = {
+  name: string;
+  groups?: string[];
+};
+
 export interface AuthProvider {
   getId(): string;
-  getLoginUrl(req: Request): string;
+  getLoginUrl(request: Request): string;
 
-  getToken(callbackReq: Request): Promise<string>;
-  getUsername(providerToken: string): Promise<string>;
-  getGroups(providerToken: string): Promise<string[]>;
+  getToken(callbackRequest: Request): Promise<Token>;
+  getUserinfo(providerToken: Token): Promise<ProviderUser>;
 }

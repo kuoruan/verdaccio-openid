@@ -1,6 +1,7 @@
-import { execSync } from "child_process";
+import { execSync } from "node:child_process";
+import { URL } from "node:url";
+
 import minimist from "minimist";
-import { URL } from "url";
 
 import logger from "../server/logger";
 
@@ -49,5 +50,7 @@ export function saveNpmToken(token: string) {
   const registry = getRegistryUrl();
   const commands = getNpmSaveCommands(registry, token);
 
-  commands.forEach((command) => runCommand(command));
+  for (const command of commands) {
+    runCommand(command);
+  }
 }

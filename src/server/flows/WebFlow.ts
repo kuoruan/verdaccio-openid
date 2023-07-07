@@ -54,24 +54,22 @@ export class WebFlow implements IPluginMiddleware<any> {
       const providerToken = await this.provider.getToken(req);
       debug(`provider auth success, token: "%s"`, providerToken);
 
-      const username = await this.provider.getUsername(providerToken);
+      const userinfo = await this.provider.getUserinfo(providerToken);
 
-      let groups = this.core.getUserGroups(username);
+      let groups = this.core.getUserGroups(userinfo.name);
       if (!groups) {
-        groups = await this.provider.getGroups(providerToken);
+        groups = userinfo.groups;
       }
 
-      if (this.core.authenticate(username, groups)) {
-        const realGroups = this.core.filterRealGroups(username, groups);
+      if (this.core.authenticate(userinfo.name, groups)) {
+        const realGroups = this.core.filterRealGroups(userinfo.name, groups);
 
-        debug(`user authenticated, name: "%s", groups: "%o"`, username, realGroups);
+        debug(`user authenticated, name: "%s", groups: "%j"`, userinfo.name, realGroups);
 
-        const user = this.core.createAuthenticatedUser(username, realGroups);
+        const uiToken = await this.core.issueUiToken(userinfo.name, realGroups);
+        const npmToken = await this.core.issueNpmToken(userinfo.name, realGroups, providerToken);
 
-        const uiToken = await this.core.issueUiToken(user, providerToken);
-        const npmToken = await this.core.issueNpmToken(user, providerToken);
-
-        const params = { username: user.name!, uiToken, npmToken };
+        const params = { username: userinfo.name, uiToken, npmToken };
 
         const redirectUrl = `/?${stringifyQueryParams(params)}`;
 

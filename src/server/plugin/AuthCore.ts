@@ -1,27 +1,48 @@
 import { Auth, buildUser, isAESLegacy } from "@verdaccio/auth";
-import { createAnonymousRemoteUser, createRemoteUser } from "@verdaccio/config";
-import { aesDecrypt, aesEncrypt, parseBasicPayload, signPayload, verifyPayload } from "@verdaccio/signature";
+import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
+import { verifyPayload } from "@verdaccio/signature";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
-import logger from "../logger";
-import { AuthProvider } from "./AuthProvider";
-import { ParsedPluginConfig } from "./Config";
+import { debug } from "../logger";
+import type { AuthProvider, Token, TokenSet } from "./AuthProvider";
+import type { PackageAccess, ParsedPluginConfig } from "./Config";
+import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
-export type User = Omit<RemoteUser, "groups"> & {
-  token?: string;
+export type User = {
+  name: string;
+  realGroups: string[];
 };
 
+export type LegacyUser = (User & Required<Pick<TokenSet, "expiresAt">>) | Pick<TokenSet, "accessToken">;
+
+function accessTokenOnly(u: LegacyUser): u is Pick<TokenSet, "accessToken"> {
+  return !!(u as any).accessToken;
+}
+
 export class AuthCore {
+  private readonly provider: AuthProvider;
+
+  private readonly configSecret: string;
+
   private readonly security: Security;
+
+  private readonly groupUsers: Record<string, string[]> | undefined;
+
+  private readonly configuredGroups: string[];
+
+  private readonly authenticatedGroups: string[] | boolean;
 
   private auth?: Auth;
 
-  private readonly configuredGroups: Record<string, true>;
+  constructor(config: ParsedPluginConfig, provider: AuthProvider) {
+    this.provider = provider;
 
-  constructor(private readonly parsedConfig: ParsedPluginConfig, private readonly provider: AuthProvider) {
-    this.security = this.parsedConfig.security;
+    this.configSecret = config.secret;
+    this.security = config.security;
+    this.groupUsers = config.groupUsers;
 
-    this.configuredGroups = this.getConfiguredGroups();
+    this.configuredGroups = this.initConfiguredGroups(config.packages);
+    this.authenticatedGroups = this.initAuthenticatedGroups(config.authorizedGroups);
   }
 
   setAuth(auth: Auth) {
@@ -29,27 +50,63 @@ export class AuthCore {
   }
 
   private get secret(): string {
-    return this.auth ? this.auth.secret : this.parsedConfig.secret;
+    return this.auth ? this.auth.secret : this.configSecret;
+  }
+
+  private initAuthenticatedGroups(val: unknown): string[] | boolean {
+    switch (typeof val) {
+      case "boolean": {
+        return val;
+      }
+      case "string": {
+        return [val].filter(Boolean);
+      }
+      case "object": {
+        return Array.isArray(val) ? val.filter(Boolean) : false;
+      }
+      default: {
+        return false;
+      }
+    }
   }
 
   /**
    * Returns all permission groups used in the Verdacio config.
    */
-  getConfiguredGroups() {
-    const configuredGroups: Record<string, true> = {};
-    Object.values(this.parsedConfig.packages || {}).forEach((packageConfig) => {
-      ["access", "publish", "unpublish"]
-        .flatMap((key) => packageConfig[key])
-        .filter(Boolean)
-        .forEach((group: string) => {
-          configuredGroups[group] = true;
-        });
-    });
-    return configuredGroups;
+  private initConfiguredGroups(packages: Record<string, PackageAccess> = {}): string[] {
+    const s = new Set<string>();
+
+    for (const packageConfig of Object.values(packages)) {
+      const groups = ["access", "publish", "unpublish"].flatMap((key) => packageConfig[key]).filter(Boolean);
+
+      for (const group of groups) {
+        s.add(group);
+      }
+    }
+
+    return [...s];
   }
 
-  private get requiredGroup(): string | null {
-    return this.parsedConfig.authorizedGroup ? this.parsedConfig.authorizedGroup : null;
+  /**
+   * Get the logged user's full groups
+   *
+   * Our JWT do not contain the user's full groups, so we need to get them from the config.
+   *
+   * @param user
+   * @returns
+   */
+  getLoggedUserGroups(user: RemoteUser): string[] {
+    return [...user.real_groups, ...defaultLoggedUserRoles];
+  }
+
+  /**
+   * Get the non-logged user's full groups
+   *
+   * @param user
+   * @returns
+   */
+  getNonLoggedUserGroups(user: RemoteUser): string[] {
+    return [...user.real_groups, ...defaultNonLoggedUserRoles];
   }
 
   /**
@@ -60,7 +117,7 @@ export class AuthCore {
    */
   getUserGroups(username: string): string[] | undefined {
     let groupUsers;
-    if ((groupUsers = this.parsedConfig.groupUsers)) {
+    if ((groupUsers = this.groupUsers)) {
       return Object.keys(groupUsers).filter((group) => {
         return groupUsers[group].includes(username);
       });
@@ -68,25 +125,19 @@ export class AuthCore {
   }
 
   // get unique and sorted groups
-  filterRealGroups(username: string, groups: string[]): string[] {
-    const relevantGroups = groups.filter((group) => group in this.configuredGroups);
+  filterRealGroups(username: string, groups: string[] = []): string[] {
+    const authenticatedGroups = typeof this.authenticatedGroups === "boolean" ? [] : this.authenticatedGroups;
 
+    const relevantGroups = groups.filter(
+      (group) => this.configuredGroups.includes(group) || authenticatedGroups.includes(group)
+    );
+
+    /**
+     * add the user to the groups
+     */
     relevantGroups.push(username);
 
-    // put required group at the end
-    if (this.requiredGroup) {
-      relevantGroups.push(this.requiredGroup);
-    }
-
-    return relevantGroups.filter((val, index, self) => self.indexOf(val) === index).sort();
-  }
-
-  createAuthenticatedUser(username: string, realGroups: string[]): RemoteUser {
-    return createRemoteUser(username, realGroups);
-  }
-
-  createAnonymousUser(): RemoteUser {
-    return createAnonymousRemoteUser();
+    return relevantGroups.filter((value, index, self) => self.indexOf(value) === index).sort();
   }
 
   /**
@@ -96,138 +147,157 @@ export class AuthCore {
    * @param groups
    * @returns true if the user is allowed to access the registry
    */
-  authenticate(username: string | void, groups: string[] = []): boolean {
+  authenticate(username: string, groups: string[] = []): boolean {
     if (!username) return false;
 
-    if (this.requiredGroup) {
-      if (username !== this.requiredGroup && !groups.includes(this.requiredGroup)) {
-        logger.error(
-          { username, requiredGroup: this.requiredGroup },
-          `access denied: User "@{username}" is not a member of "@{requiredGroup}"`
-        );
-        return false;
-      }
+    debug("authenticate user %s with groups %j, required groups: %j", username, groups, this.authenticatedGroups);
+
+    let authenticated: boolean;
+
+    if (this.authenticatedGroups === true) {
+      authenticated = groups.length > 0;
+    } else if (this.authenticatedGroups === false) {
+      authenticated = true;
+    } else {
+      /**
+       * if authenticatedGroups is an array, the user must be in one of the groups
+       */
+      authenticated = this.authenticatedGroups.some((group) => username === group || groups.includes(group));
     }
 
-    // empty group is allowed
-    return true;
+    return authenticated;
   }
 
-  issueNpmToken(user: RemoteUser, providerToken: string): Promise<string> {
+  issueNpmToken(username: string, realGroups: string[], providerToken: Token): Promise<string> {
     const jwtSignOptions = this.security.api.jwt?.sign;
 
     if (isAESLegacy(this.security) || !jwtSignOptions) {
-      const npmToken = this.legacyEncrypt(user, providerToken);
+      const npmToken = this.legacyEncrypt(username, realGroups, providerToken);
       if (!npmToken) {
-        throw new Error("Failed to encrypt npm token");
+        throw new Error("Internal server error, failed to encrypt npm token");
       }
 
       return Promise.resolve(npmToken);
     } else {
-      return this.signJWT(user, providerToken, jwtSignOptions);
+      return this.signJWT(username, realGroups, jwtSignOptions);
     }
   }
 
-  async verifyNpmToken(token: string): Promise<User> {
+  /**
+   * Verify the npm token
+   *
+   * @param token
+   * @returns
+   */
+  async verifyNpmToken(token: string): Promise<User | false> {
     const jwtSignOptions = this.security.api.jwt?.sign;
 
     // if jwt is not enabled, use legacy encryption
     // the token is the password in basic auth
     // decode it and get the token from the payload
     if (isAESLegacy(this.security) || !jwtSignOptions) {
-      const payload = this.legacyDecode(token);
+      const legacyUser = this.legacyDecode(token);
+      if (accessTokenOnly(legacyUser)) {
+        const { accessToken } = legacyUser;
 
-      if (!payload.token) {
-        throw new Error("Invalid payload token");
+        const { name, groups } = await this.provider.getUserinfo(accessToken);
+        if (!this.authenticate(name, groups)) {
+          return false;
+        }
+
+        return { name: name, realGroups: this.filterRealGroups(name, groups) };
+      } else {
+        if (!isNowBefore(legacyUser.expiresAt)) {
+          return false;
+        }
+
+        return { name: legacyUser.name, realGroups: legacyUser.realGroups };
       }
-
-      const name = await this.provider.getUsername(payload.token);
-
-      return { ...payload, name };
     } else {
       return this.verifyJWT(token);
     }
   }
 
   // The ui token of verdaccio is always a JWT token.
-  issueUiToken(user: RemoteUser, providerToken: string): Promise<string> {
+  issueUiToken(username: string, realGroups: string[]): Promise<string> {
     const jwtSignOptions = this.security.web.sign;
 
-    return this.signJWT(user, providerToken, jwtSignOptions);
+    return this.signJWT(username, realGroups, jwtSignOptions);
   }
 
   verifyUiToken(token: string): User {
     return this.verifyJWT(token);
   }
 
-  private signJWT(user: RemoteUser, providerToken: string, jwtSignOptions: JWTSignOptions): Promise<string> {
+  private signJWT(username: string, realGroups: string[], jwtSignOptions: JWTSignOptions): Promise<string> {
+    if (!this.auth) {
+      throw new ReferenceError("Unexpected error, auth is not initialized");
+    }
+
     // providerToken is not needed in the token, we use jwt to check the expiration
     // remove groups from the user, so that the token is smaller
-    const cleanedUser: RemoteUser = { ...user, groups: [] };
-    return signPayload(cleanedUser, this.secret, jwtSignOptions);
+    const remoteUser: RemoteUser = {
+      name: username,
+      real_groups: [...realGroups],
+      groups: [],
+    };
+    return this.auth.jwtEncrypt(remoteUser, jwtSignOptions);
   }
 
   private verifyJWT(token: string): User {
     // verifyPayload
     // use internal function to avoid error handling
-    return verifyPayload(token, this.secret) as User;
+    const remoteUser = verifyPayload(token, this.secret);
+
+    return {
+      name: remoteUser.name as string,
+      realGroups: [...remoteUser.real_groups],
+    };
   }
 
-  private legacyEncrypt(user: RemoteUser, providerToken: string): string {
-    // encode the user info to get a token
-    // save it to the final token, so that we can get the user info from aes token.
-    const payloadToken = this.legacyEncode(user, providerToken);
+  private legacyEncrypt(username: string, realGroups: string[], providerToken: Token): string {
+    if (!this.auth) {
+      throw new ReferenceError("Unexpected error, auth is not initialized");
+    }
+
+    // encode the user info as a token, save it to the final token.
+    let u: LegacyUser;
+
+    if (typeof providerToken === "string") {
+      u = {
+        accessToken: providerToken,
+      };
+    } else {
+      // legacy token does not have a expiration time
+      // we use the provider expire time or token to check if the token is still valid
+      u = providerToken.expiresAt
+        ? {
+            name: username,
+            realGroups: [...realGroups],
+            expiresAt: providerToken.expiresAt,
+          }
+        : {
+            accessToken: providerToken.accessToken,
+          };
+    }
+    const payloadToken = this.legacyEncode(u);
 
     // use internal function to encrypt token
-    const token = aesEncrypt(buildUser(user.name as string, payloadToken), this.secret);
+    const token = this.auth.aesEncrypt(buildUser(username, payloadToken));
 
     if (!token) {
-      throw new Error("Failed to encrypt token");
+      throw new Error("Internal server error, failed to encrypt token");
     }
 
     // the return value in verdaccio 5 is a buffer, we need to convert it to a string
-    return typeof token === "string" ? token : Buffer.from(token).toString("base64");
+    return typeof providerToken === "string" ? token : base64Encode(token);
   }
 
-  // decode the legacy token
-  private legacyDecrypt(value: string): User {
-    const payload = aesDecrypt(value, this.secret);
-    if (!payload) {
-      throw new Error("Failed to decrypt token");
-    }
-
-    const res = parseBasicPayload(payload);
-    if (!res) {
-      throw new Error("Failed to parse token");
-    }
-
-    let u: Omit<User, "name">;
-    try {
-      u = JSON.parse(Buffer.from(res.password, "base64").toString("utf8"));
-    } catch {
-      u = {
-        real_groups: [],
-      };
-    }
-
-    return { name: res.user, real_groups: u.real_groups ?? [], token: u.token };
+  private legacyEncode(user: LegacyUser): string {
+    return base64Encode(JSON.stringify(user));
   }
 
-  private legacyEncode(user: RemoteUser, providerToken: string): string {
-    // legacy token does not have a expiration time
-    // we use the provider token to check if the token is still valid
-    // remove name and groups from user, to reduce token size
-    const u: Omit<User, "name"> = {
-      real_groups: user.real_groups,
-      token: providerToken,
-    };
-
-    // save groups and token in password field
-    return Buffer.from(JSON.stringify(u)).toString("base64");
-  }
-
-  private legacyDecode(payloadToken: string): Omit<User, "name"> {
-    const u: Omit<User, "name"> = JSON.parse(Buffer.from(payloadToken, "base64").toString("utf8"));
-    return { real_groups: u.real_groups ?? [], token: u.token };
+  private legacyDecode(payloadToken: string): LegacyUser {
+    return JSON.parse(base64Decode(payloadToken));
   }
 }
