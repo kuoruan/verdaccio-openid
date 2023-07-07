@@ -1,5 +1,4 @@
 import merge from "lodash/merge";
-import ms from "ms";
 
 import { VerdaccioConfig } from "../plugin/Config";
 
@@ -54,26 +53,18 @@ export class Verdaccio {
     return this;
   }
 
-  async issueNpmToken(providerToken: string, user: User) {
+  issueNpmToken(providerToken: string, user: User): Promise<string> {
     const jwtSignOptions = this.security?.api?.jwt?.sign;
 
-    let npmToken;
     if (jwtSignOptions) {
-      npmToken = await this.issueVerdaccioJWT(user, jwtSignOptions);
-    } else {
-      npmToken = this.encrypt(user.name + ":" + providerToken);
+      return this.issueVerdaccioJWT(user, jwtSignOptions);
     }
 
-    let ttl;
-    try {
-      ttl = ms(jwtSignOptions?.expiresIn || "0");
-    } catch {
-      ttl = 0;
-    }
+    const npmToken = this.encrypt(user.name + ":" + providerToken);
 
     // save relationship between npm token and provider token
-    this.cache.setProviderToken(npmToken, providerToken, ttl);
-    return npmToken;
+    this.cache.setProviderToken(npmToken, providerToken);
+    return Promise.resolve(npmToken);
   }
 
   issueUiToken(user: User): Promise<string> {

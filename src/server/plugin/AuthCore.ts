@@ -43,10 +43,12 @@ export class AuthCore {
       relevantGroups.push(this.requiredGroup);
     }
 
+    const realGroups = uniq(relevantGroups.filter(Boolean).sort());
+
     const user: User = {
       name: username,
-      groups: [...authenticatedUserGroups],
-      real_groups: uniq(relevantGroups.filter(Boolean).sort()),
+      groups: [...authenticatedUserGroups, ...realGroups],
+      real_groups: realGroups,
     };
     logger.info({ user }, "Created authenticated user @{user}");
 
