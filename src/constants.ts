@@ -1,5 +1,3 @@
-import { constants } from "@verdaccio/core";
-
 import { name, version } from "../package.json";
 
 export const plugin = {
