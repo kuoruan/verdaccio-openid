@@ -113,26 +113,31 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
         throw new Error(`Could not grab groups using the ${this.config.groupsClaim} property`);
       }
       return groups;
-    } else if (this.config.providerType) {
+    }
+
+    const username = userinfo[this.config.usernameClaim];
+
+    if (this.config.providerType) {
       switch (this.config.providerType) {
         case "gitlab": {
-          logger.debug("Get user groups from GitLab");
-          return this.getGitlabGroups(token);
+          const gitlabGroups = await this.getGitlabGroups(token);
+          logger.info({ username, gitlabGroups }, "GitLab user @{username} has groups: @{gitlabGroups}");
+          return gitlabGroups;
         }
         default: {
           throw new Error("unexpected provider type");
         }
       }
-    } else {
-      let groupUsers, username;
-      if ((groupUsers = this.config.groupUsers) && (username = userinfo[this.config.usernameClaim])) {
-        return Object.keys(groupUsers).filter((group) => {
-          return groupUsers[group].includes(username);
-        });
-      }
-
-      return [];
     }
+
+    let groupUsers;
+    if ((groupUsers = this.config.groupUsers) && username) {
+      return Object.keys(groupUsers).filter((group) => {
+        return groupUsers[group].includes(username);
+      });
+    }
+
+    return [];
   }
 
   async getGitlabGroups(token: string): Promise<string[]> {
