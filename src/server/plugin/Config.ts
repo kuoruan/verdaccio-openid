@@ -1,3 +1,5 @@
+import process from "process";
+
 import {
   Config as IncorrectVerdaccioConfig,
   PackageAccess as IncorrectVerdaccioPackageAccess,
@@ -5,11 +7,11 @@ import {
 } from "@verdaccio/types";
 import get from "lodash/get";
 import assert from "ow";
-import process from "process";
 import { PartialDeep, RemoveIndexSignature } from "type-fest";
-import { pluginKey } from "../../constants";
-import { logger } from "../../logger";
 import pkg from "verdaccio/package.json";
+
+import { pluginKey } from "@/constants";
+import logger from "@/logger";
 
 //
 // Types
@@ -95,7 +97,8 @@ function getConfigValue<T>(config: Config, key: string, predicate: any): T {
     assert(value, predicate);
   } catch (error: any) {
     logger.error(
-      `Invalid configuration at "auth.${pluginKey}.${key}": ${error.message} — Please check your verdaccio config.`
+      { pluginKey, key, message: error.message },
+      'Invalid configuration at "auth.@{pluginKey}.@{key}": @{error.message} — Please check your verdaccio config.'
     );
     process.exit(1);
   }

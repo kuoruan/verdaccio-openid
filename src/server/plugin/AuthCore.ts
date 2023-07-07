@@ -1,9 +1,11 @@
 import uniq from "lodash/uniq";
-import { authenticatedUserGroups } from "../../constants";
-import { logger } from "../../logger";
+import qs from "qs";
+
+import { authenticatedUserGroups } from "@/constants";
+import logger from "@/logger";
+
 import { ParsedPluginConfig } from "./Config";
 import { User, Verdaccio } from "./Verdaccio";
-import qs from "qs";
 
 export class AuthCore {
   private readonly configuredGroups: Record<string, true>;
@@ -46,7 +48,7 @@ export class AuthCore {
       groups: [...authenticatedUserGroups],
       real_groups: uniq(relevantGroups.filter(Boolean).sort()),
     };
-    logger.log("Created authenticated user", user);
+    logger.info({ user }, "Created authenticated user @{user}");
 
     return user;
   }

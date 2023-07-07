@@ -1,6 +1,5 @@
-import { cliName } from "../constants";
-import { logger } from "../logger";
-import { getRegistryUrl } from "../npm";
+import { cliName } from "@/constants";
+import { getRegistryUrl } from "@/npm";
 
 export function getUsageInfo() {
   return [
@@ -16,7 +15,7 @@ export function getUsageInfo() {
 }
 
 export function printUsage() {
-  getUsageInfo().forEach((line) => logger.log(line));
+  getUsageInfo().forEach((line) => console.log(line));
 }
 
 export function validateRegistry() {

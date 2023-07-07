@@ -1,13 +1,15 @@
 import { IPluginMiddleware } from "@verdaccio/types";
-import { Application, Handler, Request } from "express";
 import { getPublicUrl } from "verdaccio/build/lib/utils";
 
-import { logger } from "../../logger";
-import { getAuthorizePath, getCallbackPath } from "../../redirect";
-import { buildAccessDeniedPage, buildErrorPage } from "../../statusPage";
+import logger from "@/logger";
+import { getAuthorizePath, getCallbackPath } from "@/redirect";
+import { buildAccessDeniedPage, buildErrorPage } from "@/statusPage";
+
 import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 import { ParsedPluginConfig } from "../plugin/Config";
+
+import type { Application, Handler, Request } from "express";
 
 export class WebFlow implements IPluginMiddleware<any> {
   constructor(

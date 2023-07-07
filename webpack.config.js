@@ -1,4 +1,5 @@
 const path = require("path");
+
 const nodeExternals = require("webpack-node-externals");
 
 /** @type {import("webpack").Configuration[]} */
@@ -7,6 +8,9 @@ module.exports = [
     mode: "production",
     target: "node",
     resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "src"),
+      },
       extensions: [".ts", ".js"],
     },
     entry: {
@@ -27,6 +31,10 @@ module.exports = [
           test: /\.ts$/,
           use: "babel-loader",
         },
+        {
+          test: /\.json$/,
+          loader: "webpack-json-access-optimizer",
+        },
       ],
     },
   },
@@ -37,6 +45,9 @@ module.exports = [
       "verdaccio-5": path.resolve(__dirname, "src/client/verdaccio-5.ts"),
     },
     resolve: {
+      alias: {
+        "@": path.resolve(__dirname, "src"),
+      },
       extensions: [".ts", ".js"],
     },
     output: {

@@ -1,7 +1,7 @@
-import { Response } from "express";
-import { getNpmConfigFile } from "../npm";
+import { getNpmConfigFile } from "@/npm";
+import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "@/statusPage";
 
-import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "../statusPage";
+import type { Response } from "express";
 
 const withBackButton = false;
 

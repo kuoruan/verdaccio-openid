@@ -1,11 +1,11 @@
-import plugin from "../package.json";
+import pkg from "../package.json";
 
-export { plugin };
+export const plugin = { name: pkg.name, version: pkg.version, bin: pkg.bin };
 
 export const cliName = Object.keys(plugin.bin)[0];
 export const pluginKey = plugin.name.replace("verdaccio-", "");
 export const publicRoot = __dirname + "/../client";
-export const staticPath = "/-/static/" + pluginKey;
+export const staticPath = `/-/static/${pluginKey}`;
 export const authorizePath = "/-/oauth/authorize";
 export const callbackPath = "/-/oauth/callback";
 export const loginHref = authorizePath;

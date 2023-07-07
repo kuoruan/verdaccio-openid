@@ -7,10 +7,31 @@ module.exports = {
     es2022: true,
   },
   parser: "@typescript-eslint/parser",
-  extends: ["eslint:recommended", "plugin:@typescript-eslint/recommended", "plugin:prettier/recommended"],
+  extends: [
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
+    "plugin:prettier/recommended",
+    "plugin:import/recommended",
+    "plugin:import/typescript",
+  ],
   rules: {
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-non-null-assertion": "off",
+    "import/order": [
+      "error",
+      {
+        groups: ["builtin", "external", "internal", ["sibling", "parent"], "index", "object", "type", "unknown"],
+        alphabetize: {
+          order: "asc",
+          caseInsensitive: true,
+        },
+        "newlines-between": "always",
+      },
+    ],
+    "import/dynamic-import-chunkname": "error",
+  },
+  settings: {
+    "import/resolver": ["node", "typescript"],
   },
   overrides: [
     {

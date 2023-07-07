@@ -5,8 +5,11 @@ import {
   IPluginAuth,
   IPluginMiddleware,
   RemoteUser,
+  Logger,
 } from "@verdaccio/types";
-import { Application } from "express";
+
+import { setLogger } from "@/logger";
+
 import { CliFlow, WebFlow } from "../flows";
 import { OpenIDConnectAuthProvider } from "../oidc";
 import { AuthCore } from "./AuthCore";
@@ -16,6 +19,8 @@ import { PatchHtml } from "./PatchHtml";
 import { registerGlobalProxyAgent } from "./ProxyAgent";
 import { ServeStatic } from "./ServeStatic";
 import { Auth, Verdaccio } from "./Verdaccio";
+
+import type { Application } from "express";
 
 /**
  * Implements the verdaccio plugin interfaces.
@@ -27,7 +32,9 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly verdaccio: Verdaccio;
   private readonly core: AuthCore;
 
-  constructor(private readonly config: Config) {
+  constructor(private readonly config: Config, { logger }: { logger: Logger }) {
+    setLogger(logger);
+
     registerGlobalProxyAgent();
 
     this.parsedConfig = new ParsedPluginConfig(this.config);
