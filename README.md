@@ -2,10 +2,6 @@
 
 ## About
 
-This plugin integrates with Verdaccio and re-exposes a new authentication plugin API that makes authentication more extensible and combinable, including suppport for modications to the default UI.
-
-The result is a more consistent login experience and support for long-requested authentication features, such as: configurable setup instructions, multiple authentication methods, fine-grained permissions, reverse proxy authentication, 2FA, WebAuthn, and more.
-
 This is a Verdaccio plugin that offers OIDC OAuth integration for both the browser and the command line.
 
 ### Compatibility
@@ -13,8 +9,6 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 - Verdaccio 5
 - Node 14, 16
 - Chrome, Firefox, Firefox ESR, Edge, Safari
-
-If you would like to use this with Verdaccio 3-4, Node.js 10-13, or IE you can use version 2 of the plugin.
 
 ## Setup
 
