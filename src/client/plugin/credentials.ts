@@ -26,6 +26,6 @@ export function isLoggedIn() {
   return true && !!localStorage.getItem("username") && !!localStorage.getItem("token") && !!localStorage.getItem("npm");
 }
 
-export function validateCredentials(credentials: Credentials) {
+export function validateCredentials(credentials: Partial<Credentials>) {
   return true && credentials.username && credentials.uiToken && credentials.npmToken;
 }

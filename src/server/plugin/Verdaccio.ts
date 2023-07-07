@@ -1,4 +1,4 @@
-import merge from "lodash/merge";
+import merge from "deepmerge";
 
 import { VerdaccioConfig } from "../plugin/Config";
 
@@ -24,7 +24,7 @@ const defaultSecurity = {
 };
 
 function getSecurity(config: VerdaccioConfig) {
-  return merge({}, defaultSecurity, config.security);
+  return merge(defaultSecurity, config.security);
 }
 
 /**

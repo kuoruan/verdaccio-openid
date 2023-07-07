@@ -1,6 +1,9 @@
+import { name, version, bin } from "../package.json";
+
 export const plugin = {
-  name: process.env.npm_package_name!,
-  version: process.env.npm_package_version,
+  name,
+  version,
+  bin,
 };
 
 export const pluginKey = plugin.name.replace("verdaccio-", "");

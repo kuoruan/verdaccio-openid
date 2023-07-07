@@ -1,6 +1,5 @@
 import process from "process";
 
-import get from "lodash/get";
 import assert from "ow";
 
 import { pluginKey } from "@/constants";
@@ -11,7 +10,6 @@ import type {
   PackageAccess as IncorrectVerdaccioPackageAccess,
   Security,
 } from "@verdaccio/types";
-import type { PartialDeep, OmitIndexSignature } from "type-fest";
 
 //
 // Types
@@ -19,13 +17,11 @@ import type { PartialDeep, OmitIndexSignature } from "type-fest";
 
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.
-export interface PackageAccess extends IncorrectVerdaccioPackageAccess {
-  unpublish?: string[];
-}
+export type PackageAccess = Partial<IncorrectVerdaccioPackageAccess>;
 
-export type VerdaccioConfig = Omit<OmitIndexSignature<IncorrectVerdaccioConfig>, "packages" | "security"> & {
+export type VerdaccioConfig = IncorrectVerdaccioConfig & {
   packages?: Record<string, PackageAccess>;
-  security?: PartialDeep<Security>;
+  security?: Partial<Security>;
 };
 
 type ProviderType = "gitlab";
@@ -56,12 +52,10 @@ export interface Config extends VerdaccioConfig {
 //
 // Validation
 //
+function validatePluginEnabled(config: Config, node: keyof Config) {
+  const obj = config.node?.[pluginKey];
 
-function validateNodeExists(config: Config, node: keyof Config) {
-  const path = `[${node}][${pluginKey}]`;
-  const obj = get(config, path, {});
-
-  if (!Object.keys(obj).length) {
+  if (!obj) {
     throw new Error(`"${node}.${pluginKey}" must be enabled`);
   }
 }
@@ -75,7 +69,7 @@ function getEnvValue(name: any) {
 }
 
 function getConfigValue<T>(config: Config, key: string, predicate: any): T {
-  const valueOrEnvName = get(config, ["auth", pluginKey, key]) ?? get(config, ["middlewares", pluginKey, key]);
+  const valueOrEnvName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
 
   const value = getEnvValue(valueOrEnvName) ?? valueOrEnvName;
 
@@ -178,7 +172,7 @@ export class ParsedPluginConfig {
   }
 
   constructor(public readonly config: Config) {
-    validateNodeExists(config, "middlewares");
-    validateNodeExists(config, "auth");
+    validatePluginEnabled(config, "middlewares");
+    validatePluginEnabled(config, "auth");
   }
 }

@@ -28,9 +28,7 @@ a {
   width: 100px;
   height: 100px;
 }
-`
-  .trim()
-  .replace(/\s+/g, " ");
+`;
 
 export function buildStatusPage(body: string, withBack: boolean) {
   return `<!DOCTYPE html>
