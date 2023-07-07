@@ -7,11 +7,10 @@ import commonjs from "@rollup/plugin-commonjs";
 import image from "@rollup/plugin-image";
 import json from "@rollup/plugin-json";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
+import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
 import { defineConfig } from "rollup";
 import { externals } from "rollup-plugin-node-externals";
-
-import pkg from "./package.json" assert { type: "json" };
 
 function getPlugins(isBrowser = false) {
   const basePath = path.dirname(fileURLToPath(import.meta.url));
@@ -27,6 +26,13 @@ function getPlugins(isBrowser = false) {
     alias({
       entries: [{ find: "@", replacement: path.resolve(basePath, "src") }],
     }),
+    replace({
+      preventAssignment: true,
+      values: ["NODE_ENV", "npm_package_name", "npm_package_version"].reduce((acc, key) => {
+        acc[`process.env.${key}`] = JSON.stringify(process.env[key]);
+        return acc;
+      }, {}),
+    }),
     json(),
     image(),
     commonjs(),
@@ -38,8 +44,9 @@ function getPlugins(isBrowser = false) {
           "@babel/preset-env",
           {
             useBuiltIns: isBrowser ? "usage" : false,
-            corejs: isBrowser ? "3" : false,
-            targets: isBrowser ? pkg.browserslist : { node: "current" },
+            corejs: isBrowser ? "3.27" : false,
+            targets: !isBrowser ? { node: "current" } : undefined,
+            ignoreBrowserslistConfig: !isBrowser,
           },
         ],
         "@babel/preset-typescript",
@@ -55,12 +62,14 @@ export default defineConfig([
     input: "src/server/index.ts",
     output: [
       {
-        file: pkg.main,
+        dir: "dist/server",
+        entryFileNames: "[name].js",
         exports: "named", // change to "default" or "auto" will cause verdaccio error
         format: "cjs",
       },
       {
-        file: pkg.module,
+        dir: "dist/server",
+        entryFileNames: "[name].mjs",
         format: "es",
       },
     ],
@@ -69,7 +78,8 @@ export default defineConfig([
   {
     input: "src/cli/index.ts",
     output: {
-      file: Object.values(pkg.bin)[0],
+      dir: "dist/cli",
+      entryFileNames: "[name].js",
       format: "cjs",
     },
     plugins: getPlugins(),
@@ -77,7 +87,8 @@ export default defineConfig([
   {
     input: "src/client/verdaccio-6.ts",
     output: {
-      file: "dist/client/verdaccio-6.js",
+      dir: "dist/client",
+      entryFileNames: "[name].js",
       format: "iife",
     },
     plugins: getPlugins(true),

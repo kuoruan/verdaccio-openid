@@ -1,6 +1,7 @@
-import { name, version, bin } from "../package.json";
-
-export const plugin = { name, version, bin };
+export const plugin = {
+  name: process.env.npm_package_name!,
+  version: process.env.npm_package_version,
+};
 
 export const pluginKey = plugin.name.replace("verdaccio-", "");
 export const authorizePath = "/-/oauth/authorize";
