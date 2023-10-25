@@ -50,7 +50,7 @@ export function buildErrorPage(error: any, withBack: boolean) {
   return buildStatusPage(
     `<h1>Sorry :(</h1>
     <p>${error?.message || error}</p>`,
-    withBack
+    withBack,
   );
 }
 
@@ -58,6 +58,6 @@ export function buildAccessDeniedPage(withBack: boolean) {
   return buildStatusPage(
     `<h1>Access Denied</h1>
     <p>You are not a member of the required access group.</p>`,
-    withBack
+    withBack,
   );
 }

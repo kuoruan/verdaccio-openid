@@ -29,7 +29,10 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly provider: AuthProvider;
   private readonly core: AuthCore;
 
-  constructor(private readonly config: Config, params: { logger: Logger }) {
+  constructor(
+    private readonly config: Config,
+    params: { logger: Logger },
+  ) {
     setLogger(params.logger);
 
     registerGlobalProxy({
@@ -99,7 +102,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     if (username !== user.name) {
       logger.warn(
         { expected: user.name, actual: username },
-        `invalid username: expected "@{expected}", actual "@{actual}"`
+        `invalid username: expected "@{expected}", actual "@{actual}"`,
       );
 
       callback(errorUtils.getForbidden("Invalid username."), false);
@@ -133,7 +136,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     if (!grant) {
       logger.warn(
         { username: user.name, package: config.name },
-        `"@{username}" is not allowed to unpublish "@{package}"`
+        `"@{username}" is not allowed to unpublish "@{package}"`,
       );
     }
 
@@ -151,7 +154,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     if (!grant) {
       logger.warn(
         { username: user.name, package: config.name },
-        `"@{username}" is not allowed to unpublish "@{package}"`
+        `"@{username}" is not allowed to unpublish "@{package}"`,
       );
     }
     callback(null, grant);
@@ -171,7 +174,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       } else {
         logger.warn(
           { username: user.name, groups: JSON.stringify(user.real_groups) },
-          `"@{username}" with groups @{groups} is not authenticated for now, use non-authenticated groups instead.`
+          `"@{username}" with groups @{groups} is not authenticated for now, use non-authenticated groups instead.`,
         );
         groups = this.core.getNonLoggedUserGroups(user);
       }

@@ -12,7 +12,10 @@ import { AuthProvider } from "../plugin/AuthProvider";
 const pluginCallbackeUrl = getCallbackPath(cliProviderId);
 
 export class CliFlow implements IPluginMiddleware<any> {
-  constructor(private readonly core: AuthCore, private readonly provider: AuthProvider) {}
+  constructor(
+    private readonly core: AuthCore,
+    private readonly provider: AuthProvider,
+  ) {}
 
   /**
    * IPluginMiddleware

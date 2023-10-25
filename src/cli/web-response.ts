@@ -9,7 +9,7 @@ const successPage = buildStatusPage(
   `<h1>All done!</h1>
   <p>We've updated your npm configuration.</p>
   <p><code>${getNpmConfigFile()}</code></p>`,
-  withBack
+  withBack,
 );
 
 export function respondWithWebPage(status: string, message: string, res: Response) {

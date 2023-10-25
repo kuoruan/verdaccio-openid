@@ -10,7 +10,10 @@ import { AuthCore } from "../plugin/AuthCore";
 import { AuthProvider } from "../plugin/AuthProvider";
 
 export class WebFlow implements IPluginMiddleware<any> {
-  constructor(private readonly core: AuthCore, private readonly provider: AuthProvider) {}
+  constructor(
+    private readonly core: AuthCore,
+    private readonly provider: AuthProvider,
+  ) {}
 
   /**
    * IPluginMiddleware

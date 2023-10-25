@@ -7,7 +7,7 @@ bootstrap({
 });
 
 export function registerGlobalProxy(
-  proxyConfig: Record<"http_proxy" | "https_proxy" | "no_proxy", string | undefined>
+  proxyConfig: Record<"http_proxy" | "https_proxy" | "no_proxy", string | undefined>,
 ) {
   for (const [key, value] of Object.entries(proxyConfig)) {
     if (value) {

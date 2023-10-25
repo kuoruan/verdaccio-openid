@@ -129,7 +129,7 @@ export class AuthCore {
     const authenticatedGroups = typeof this.authenticatedGroups === "boolean" ? [] : this.authenticatedGroups;
 
     const relevantGroups = groups.filter(
-      (group) => this.configuredGroups.includes(group) || authenticatedGroups.includes(group)
+      (group) => this.configuredGroups.includes(group) || authenticatedGroups.includes(group),
     );
 
     /**
