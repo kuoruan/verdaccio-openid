@@ -2,10 +2,8 @@
 // Replace the default npm usage info and displays the authToken that needs
 // to be configured.
 //
-
-export function getUsageInfo() {
-  const username = localStorage.getItem("username");
-  if (!username) {
+export function getUsageInfo(isLoggedIn: boolean): string {
+  if (!isLoggedIn) {
     return "Click the login button to authenticate with OIDC.";
   }
 

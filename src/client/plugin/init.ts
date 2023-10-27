@@ -1,7 +1,7 @@
 import { loginHref, logoutHref } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
-import { clearCredentials, Credentials, isLoggedIn, saveCredentials, validateCredentials } from "./credentials";
+import { clearCredentials, Credentials, saveCredentials, validateCredentials } from "./credentials";
 import { interruptClick, retry } from "./lib";
 
 /**
@@ -11,27 +11,25 @@ import { interruptClick, retry } from "./lib";
  */
 function reloadToPathname() {
   history.replaceState(null, "", location.pathname);
+
+  // reload the page to refetch the packages
   location.reload();
 }
 
-function saveAndRemoveQueryParams() {
-  if (isLoggedIn()) {
-    return;
-  }
-
-  const credentials: Credentials = parseQueryParams(location.search) as any;
+function saveAndRemoveQueryParams(): boolean {
+  const credentials: Credentials = parseQueryParams(location.search);
   if (!validateCredentials(credentials)) {
-    return;
+    return false;
   }
 
   saveCredentials(credentials);
-  reloadToPathname();
+
+  return true;
 }
 
 //
 // Shared API
 //
-
 export interface InitOptions {
   loginButton: string;
   logoutButton: string;
@@ -42,11 +40,12 @@ export interface InitOptions {
 // By default the login button opens a form that asks the user to submit credentials.
 // We replace this behaviour and instead redirect to the route that handles OAuth.
 //
-
-export function init(options: InitOptions) {
-  saveAndRemoveQueryParams();
-
-  const { loginButton, logoutButton, updateUsageInfo } = options;
+export function init({ loginButton, logoutButton, updateUsageInfo }: InitOptions): void {
+  if (saveAndRemoveQueryParams()) {
+    // If we are new logged in, reload the page to remove the query params
+    reloadToPathname();
+    return;
+  }
 
   interruptClick(loginButton, () => {
     location.href = loginHref;
@@ -54,9 +53,11 @@ export function init(options: InitOptions) {
 
   interruptClick(logoutButton, () => {
     clearCredentials();
+
     location.href = logoutHref;
   });
 
   document.addEventListener("click", () => retry(updateUsageInfo));
+
   retry(updateUsageInfo);
 }

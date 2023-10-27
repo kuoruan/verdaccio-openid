@@ -4,9 +4,13 @@
 // thinks we are logged in.
 //
 
-export type Credentials = Record<"username" | "uiToken" | "npmToken", string>;
+export type Credentials = {
+  username?: string;
+  uiToken?: string;
+  npmToken?: string;
+};
 
-export function saveCredentials(credentials: Credentials) {
+export function saveCredentials(credentials: Required<Credentials>) {
   // username and token are required for verdaccio to think we are logged in
   localStorage.setItem("username", credentials.username);
   localStorage.setItem("token", credentials.uiToken);
@@ -19,10 +23,22 @@ export function clearCredentials() {
   localStorage.removeItem("npm");
 }
 
-export function isLoggedIn() {
-  return true && !!localStorage.getItem("username") && !!localStorage.getItem("token") && !!localStorage.getItem("npm");
+export function isLoggedIn(): boolean {
+  for (const key of ["username", "token", "npm"]) {
+    if (!localStorage.getItem(key)) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
-export function validateCredentials(credentials: Partial<Credentials>) {
-  return true && credentials.username && credentials.uiToken && credentials.npmToken;
+export function validateCredentials(credentials: Partial<Credentials>): credentials is Required<Credentials> {
+  for (const key of ["username", "uiToken", "npmToken"]) {
+    if (!credentials[key]) {
+      return false;
+    }
+  }
+
+  return true;
 }
