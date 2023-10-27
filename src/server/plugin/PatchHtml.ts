@@ -3,6 +3,8 @@ import fs from "node:fs";
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
 
+import { plugin } from "@/constants";
+
 import { publicRoot, staticPath } from "../constants";
 
 /**
@@ -19,7 +21,7 @@ export class PatchHtml implements IPluginMiddleware<any> {
       throw new Error("Could not find script to inject");
     }
 
-    this.scriptTag = `<script src="${staticPath}/${scriptName}"></script>`;
+    this.scriptTag = `<script defer src="${staticPath}/${scriptName}"></script>`;
   }
 
   private getScriptName(): string | undefined {
@@ -45,11 +47,19 @@ export class PatchHtml implements IPluginMiddleware<any> {
     next();
   };
 
-  private insertTags = (html: string | Buffer): string => {
+  private insertTags(html: string | Buffer): string {
     html = String(html);
     if (!html.includes("__VERDACCIO_BASENAME_UI_OPTIONS")) {
       return html;
     }
-    return html.replace(/<\/body>/, [this.scriptTag, "</body>"].join(""));
-  };
+    return html.replace(
+      /<\/body>/,
+      [
+        `<!-- inject start, ${plugin.name}: ${plugin.version} -->`,
+        this.scriptTag,
+        "<!-- inject end -->",
+        "</body>",
+      ].join(""),
+    );
+  }
 }
