@@ -1,6 +1,5 @@
-import { IPluginMiddleware } from "@verdaccio/types";
-import type { Application } from "express";
-import { static as expressServeStatic } from "express";
+import type { IPluginMiddleware } from "@verdaccio/types";
+import { type Application, static as expressServeStatic } from "express";
 
 import { publicRoot, staticPath } from "../constants";
 

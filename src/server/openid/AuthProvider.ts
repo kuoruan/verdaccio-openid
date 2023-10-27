@@ -2,8 +2,7 @@ import { Groups } from "@gitbeaker/node";
 import TTLCache from "@isaacs/ttlcache";
 import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
-import type { Client, OpenIDCallbackChecks } from "openid-client";
-import { generators, Issuer } from "openid-client";
+import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
 

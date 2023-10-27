@@ -1,7 +1,7 @@
 import { loginHref, logoutHref } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
-import { clearCredentials, Credentials, saveCredentials, validateCredentials } from "./credentials";
+import { clearCredentials, type Credentials, saveCredentials, validateCredentials } from "./credentials";
 import { interruptClick, retry } from "./lib";
 
 /**
@@ -17,7 +17,7 @@ function reloadToPathname() {
 }
 
 function saveAndRemoveQueryParams(): boolean {
-  const credentials: Credentials = parseQueryParams(location.search);
+  const credentials: Partial<Credentials> = parseQueryParams(location.search);
   if (!validateCredentials(credentials)) {
     return false;
   }

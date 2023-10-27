@@ -1,5 +1,5 @@
 import type { IPluginMiddleware } from "@verdaccio/types";
-import { Application, Handler } from "express";
+import type { Application, Handler } from "express";
 
 import { cliPort, cliProviderId } from "@/constants";
 import { stringifyQueryParams } from "@/query-params";

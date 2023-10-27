@@ -1,4 +1,4 @@
-import { Token } from "./AuthProvider";
+import type { Token } from "./AuthProvider";
 
 /**
  * Encode a string to base64

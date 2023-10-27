@@ -1,6 +1,6 @@
 import type { Request } from "express";
 
-import { PackageAccess } from "./Config";
+import type { PackageAccess } from "./Config";
 
 export interface ConfigHolder {
   providerHost: string;
