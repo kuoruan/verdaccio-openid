@@ -15,9 +15,9 @@ import { registerGlobalProxy } from "@/server/proxy-agent";
 import { CliFlow, WebFlow } from "../flows";
 import logger, { debug, setLogger } from "../logger";
 import { OpenIDConnectAuthProvider } from "../openid";
-import { AuthCore, User } from "./AuthCore";
+import { AuthCore, type User } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
-import { Config, PackageAccess, ParsedPluginConfig } from "./Config";
+import { type Config, type PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
 
@@ -25,14 +25,11 @@ import { ServeStatic } from "./ServeStatic";
  * Implements the verdaccio plugin interfaces.
  */
 export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
-  private readonly parsedConfig: ParsedPluginConfig;
+  private readonly config: ParsedPluginConfig;
   private readonly provider: AuthProvider;
   private readonly core: AuthCore;
 
-  constructor(
-    private readonly config: Config,
-    params: { logger: Logger },
-  ) {
+  constructor(config: Config, params: { logger: Logger }) {
     setLogger(params.logger);
 
     registerGlobalProxy({
@@ -41,9 +38,9 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
       no_proxy: config.no_proxy,
     });
 
-    this.parsedConfig = new ParsedPluginConfig(this.config);
-    this.provider = new OpenIDConnectAuthProvider(this.parsedConfig);
-    this.core = new AuthCore(this.parsedConfig, this.provider);
+    this.config = new ParsedPluginConfig(config);
+    this.provider = new OpenIDConnectAuthProvider(this.config);
+    this.core = new AuthCore(this.config, this.provider);
   }
 
   /**
@@ -54,8 +51,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     const children = [
       new ServeStatic(),
-      new PatchHtml(),
-      new WebFlow(this.core, this.provider),
+      new PatchHtml(this.config),
+      new WebFlow(this.config, this.core, this.provider),
       new CliFlow(this.core, this.provider),
     ];
 

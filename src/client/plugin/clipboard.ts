@@ -3,6 +3,6 @@
  *
  * @param text the text to copy to the clipboard
  */
-export async function copyToClipboard(text: string) {
-  await navigator.clipboard.writeText(text);
+export function copyToClipboard(text: string): Promise<void> {
+  return navigator.clipboard.writeText(text);
 }

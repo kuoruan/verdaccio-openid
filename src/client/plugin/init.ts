@@ -2,7 +2,7 @@ import { loginHref, logoutHref } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
 import { clearCredentials, type Credentials, saveCredentials, validateCredentials } from "./credentials";
-import { interruptClick, retry } from "./lib";
+import { getBaseUrl, interruptClick, retry } from "./lib";
 
 /**
  * Change the current URL to only the current pathname and reload.
@@ -47,14 +47,16 @@ export function init({ loginButton, logoutButton, updateUsageInfo }: InitOptions
     return;
   }
 
+  const baseUrl = getBaseUrl(true);
+
   interruptClick(loginButton, () => {
-    location.href = loginHref;
+    location.href = baseUrl + loginHref;
   });
 
   interruptClick(logoutButton, () => {
     clearCredentials();
 
-    location.href = logoutHref;
+    location.href = baseUrl + logoutHref;
   });
 
   document.addEventListener("click", () => retry(updateUsageInfo));

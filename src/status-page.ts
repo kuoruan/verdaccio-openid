@@ -29,7 +29,7 @@ a {
 }
 `;
 
-export function buildStatusPage(body: string, withBack: boolean) {
+export function buildStatusPage(body: string, withBack: boolean, backUrl: string = "/"): string {
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -40,24 +40,26 @@ export function buildStatusPage(body: string, withBack: boolean) {
     <div class="wrap">
       <img src="${Logo}" class="img" alt="logo" />
       ${body}
-      ${withBack ? `<p><a href="/">Go back</a></p>` : ""}
+      ${withBack ? `<p><a href="${backUrl}">Go back</a></p>` : ""}
     </div>
   </body>
 </html>`;
 }
 
-export function buildErrorPage(error: any, withBack: boolean) {
+export function buildErrorPage(error: any, withBack: boolean, backUrl?: string) {
   return buildStatusPage(
     `<h1>Sorry :(</h1>
     <p>${error?.message || error}</p>`,
     withBack,
+    backUrl,
   );
 }
 
-export function buildAccessDeniedPage(withBack: boolean) {
+export function buildAccessDeniedPage(withBack: boolean, backUrl?: string) {
   return buildStatusPage(
     `<h1>Access Denied</h1>
     <p>You are not a member of the required access group.</p>`,
     withBack,
+    backUrl,
   );
 }

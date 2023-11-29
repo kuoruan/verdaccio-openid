@@ -1,7 +1,7 @@
 import type { Logger } from "@verdaccio/types";
 import buildDebug from "debug";
 
-import { plugin, pluginKey } from "../constants";
+import { plugin, pluginKey } from "@/constants";
 
 function noop() {
   /* noop */

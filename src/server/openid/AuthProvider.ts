@@ -1,14 +1,12 @@
 import { Groups } from "@gitbeaker/node";
 import TTLCache from "@isaacs/ttlcache";
-import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
 import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
-
-import { debug } from "../logger";
-import type { AuthProvider, ConfigHolder, ProviderUser, Token, TokenSet } from "../plugin/AuthProvider";
-import { extractAccessToken, getClaimsFromIdToken, hashToken } from "../plugin/utils";
+import { debug } from "@/server/logger";
+import type { AuthProvider, ConfigHolder, ProviderUser, Token, TokenSet } from "@/server/plugin/AuthProvider";
+import { extractAccessToken, getBaseUrl, getClaimsFromIdToken, hashToken } from "@/server/plugin/utils";
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
@@ -74,7 +72,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   getLoginUrl(request: Request): string {
-    const baseUrl = this.getBaseUrl(request);
+    const baseUrl = getBaseUrl(this.config.urlPrefix, request, true);
     const redirectUrl = baseUrl + getCallbackPath(request.params.id);
 
     const state = generators.state(32);
@@ -99,6 +97,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   async getToken(callbackRequest: Request): Promise<TokenSet> {
     const parameters = this.discoveredClient.callbackParams(callbackRequest.url);
 
+    debug("Receive callback parameters, %j", parameters);
+
     const state = parameters.state;
     if (!state) {
       throw new URIError("No state parameter found in callback request");
@@ -117,7 +117,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       scope: this.scope,
     };
 
-    const baseUrl = this.getBaseUrl(callbackRequest);
+    const baseUrl = getBaseUrl(this.config.urlPrefix, callbackRequest, true);
     const redirectUrl = baseUrl + callbackRequest.path;
 
     const tokens = await this.discoveredClient.callback(redirectUrl, parameters, checks);
@@ -286,22 +286,5 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     const userGroups = await group.all();
 
     return userGroups.map((g) => g.name);
-  }
-
-  /**
-   * Get the base url from the request.
-   *
-   * @param request
-   * @returns
-   */
-  public getBaseUrl(req: Request): string {
-    const headers: Record<string, string> = {};
-
-    // transform headers value to string
-    for (const [key, value] of Object.entries(req.headers)) {
-      headers[key] = value?.toString() || "";
-    }
-
-    return getPublicUrl(this.config.urlPrefix, { ...req, headers }).replace(/\/$/, "");
   }
 }

@@ -6,4 +6,5 @@ declare interface MouseEvent {
 
 declare interface Window {
   VERDACCIO_API_URL?: string;
+  __VERDACCIO_BASENAME_UI_OPTIONS?: Record<string, string>;
 }

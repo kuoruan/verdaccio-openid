@@ -3,14 +3,15 @@ import type { Application, Handler } from "express";
 
 import { stringifyQueryParams } from "@/query-params";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
+import logger, { debug } from "@/server/logger";
+import { AuthCore } from "@/server/plugin/AuthCore";
+import { type AuthProvider, type ConfigHolder } from "@/server/plugin/AuthProvider";
+import { getBaseUrl } from "@/server/plugin/utils";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
-
-import logger, { debug } from "../logger";
-import { AuthCore } from "../plugin/AuthCore";
-import { AuthProvider } from "../plugin/AuthProvider";
 
 export class WebFlow implements IPluginMiddleware<any> {
   constructor(
+    private readonly config: ConfigHolder,
     private readonly core: AuthCore,
     private readonly provider: AuthProvider,
   ) {}
@@ -53,6 +54,8 @@ export class WebFlow implements IPluginMiddleware<any> {
   callback: Handler = async (req, res) => {
     const withBackButton = true;
 
+    const baseUrl = getBaseUrl(this.config.urlPrefix, req);
+
     try {
       const providerToken = await this.provider.getToken(req);
       debug(`provider auth success, token: "%s"`, providerToken);
@@ -74,16 +77,16 @@ export class WebFlow implements IPluginMiddleware<any> {
 
         const params = { username: userinfo.name, uiToken, npmToken };
 
-        const redirectUrl = `/?${stringifyQueryParams(params)}`;
+        const redirectUrl = `${baseUrl}?${stringifyQueryParams(params)}`;
 
         res.redirect(redirectUrl);
       } else {
-        res.status(401).send(buildAccessDeniedPage(withBackButton));
+        res.status(401).send(buildAccessDeniedPage(withBackButton, baseUrl));
       }
     } catch (e: any) {
       logger.error({ message: e.message || e }, "auth error: @{message}");
 
-      res.status(500).send(buildErrorPage(e, withBackButton));
+      res.status(500).send(buildErrorPage(e, withBackButton, baseUrl));
     }
   };
 }

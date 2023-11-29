@@ -1,6 +1,7 @@
 import type { Response } from "express";
 
-import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "../status-page";
+import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "@/status-page";
+
 import { getNpmConfigFile } from "./npm";
 
 const withBack = false;

@@ -3,7 +3,7 @@ import { URL } from "node:url";
 
 import minimist from "minimist";
 
-import logger from "../server/logger";
+import logger from "@/server/logger";
 
 let npmConfig: any;
 
@@ -41,7 +41,11 @@ export function getNpmConfigFile() {
 
 export function getNpmSaveCommands(registry: string, token: string): string[] {
   const url = new URL(registry);
-  const baseUrl = `${url.host}/`;
+
+  let baseUrl = `${url.host}${url.pathname}`;
+  if (!baseUrl.endsWith("/")) {
+    baseUrl = `${baseUrl}/`;
+  }
 
   return [`npm config set //${baseUrl}:_authToken "${token}"`];
 }

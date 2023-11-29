@@ -8,6 +8,7 @@
     "esModuleInterop": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
     "moduleResolution": "Node",
     "noEmit": true,
     "noImplicitAny": false,

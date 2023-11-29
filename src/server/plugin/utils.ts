@@ -1,3 +1,7 @@
+import type { RequestOptions } from "@verdaccio/url";
+import { getPublicUrl } from "@verdaccio/url";
+import type { Request } from "express";
+
 import type { Token } from "./AuthProvider";
 
 /**
@@ -71,4 +75,27 @@ export function getClaimsFromIdToken(idToken: string): Record<string, unknown> {
 export function isNowBefore(expireAt: number): boolean {
   const now = Math.floor(Date.now() / 1000);
   return now < expireAt;
+}
+
+/**
+ * Get the base url from the request
+ *
+ * @param urlPrefix The url prefix.
+ * @param req The request.
+ * @param noTrailingSlash Whether to include a trailing slash.
+ * @returns
+ */
+export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = false): string {
+  const headers: Record<string, string> = {};
+
+  // transform headers value to string
+  for (const [key, value] of Object.entries(req.headers)) {
+    headers[key] = value?.toString() ?? "";
+  }
+
+  const options: RequestOptions = { host: req.hostname, protocol: req.protocol, remoteAddress: req.ip, headers };
+
+  const base = getPublicUrl(urlPrefix, options);
+
+  return noTrailingSlash ? base.replace(/\/$/, "") : base;
 }

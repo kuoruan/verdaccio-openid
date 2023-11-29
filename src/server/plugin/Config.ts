@@ -9,8 +9,7 @@ import merge from "deepmerge";
 import { array, lazy, mixed, object, Schema, string } from "yup";
 
 import { pluginKey } from "@/constants";
-
-import logger from "../logger";
+import logger from "@/server/logger";
 
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.
