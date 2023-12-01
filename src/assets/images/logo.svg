@@ -1,38 +1,29 @@
-
-<?xml version="1.0" encoding="UTF-8"?>
-<svg width="100px" height="100px" viewBox="0 0 100 100" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <!-- Generator: Sketch 47.1 (45422) - http://www.bohemiancoding.com/sketch -->
-    <title>Logo-Black</title>
-    <desc>Created with Sketch.</desc>
-    <defs>
-        <polygon id="path-1" points="48 17.6 32.8 48 24 48 0.4 0.8 15.6 0.8 28.4 26.4 32.8 17.6 48 17.6"></polygon>
-        <filter x="-20.0%" y="-11.7%" width="139.9%" height="140.3%" filterUnits="objectBoundingBox" id="filter-2">
-            <feOffset dx="0" dy="4" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
-            <feGaussianBlur stdDeviation="2.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
-            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
-            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0906646286 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
-        </filter>
-        <path d="M40.810519,12 L50.8,12 L50.8,12 L56.4,0.8 L47.610519,0.8 L36.4,0.8 L36.4,3.2 L40,3.2 L39.2,4.8 L32.4,4.8 L32.4,7.2 L38,7.2 L36.8,9.6 L28.4,9.6 L28.4,12 L40.810519,12 Z" id="path-3"></path>
-        <filter x="-33.9%" y="-49.1%" width="167.9%" height="269.6%" filterUnits="objectBoundingBox" id="filter-4">
-            <feOffset dx="0" dy="4" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
-            <feGaussianBlur stdDeviation="2.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
-            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0906646286 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
-        </filter>
-    </defs>
-    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
-        <g id="Verdaccio-BlackWhite">
-            <rect id="BG" fill="#000000" x="0" y="0" width="100" height="100" rx="37"></rect>
-            <g id="Group" transform="translate(22.000000, 29.000000)">
-                <g id="Combined-Shape">
-                    <use fill="black" fill-opacity="1" filter="url(#filter-2)" xlink:href="#path-1"></use>
-                    <use fill-opacity="0.6" fill="#FFFFFF" fill-rule="evenodd" xlink:href="#path-1"></use>
-                </g>
-                <g id="Combined-Shape">
-                    <use fill="black" fill-opacity="1" filter="url(#filter-4)" xlink:href="#path-3"></use>
-                    <use fill="#FFFFFF" fill-rule="evenodd" xlink:href="#path-3"></use>
-                </g>
-                <polygon id="Combined-Shape" fill="#FFFFFF" points="32.8 48 24 48 0.4 0.8 15.6 0.8 35.9772662 41.6908081"></polygon>
-            </g>
-        </g>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100" viewBox="0 0 100 100">
+  <defs>
+    <filter id="a" width="139.6%" height="140.4%" x="-19.8%" y="-11.7%" filterUnits="objectBoundingBox">
+      <feOffset dy="4" in="SourceAlpha" result="shadowOffsetOuter1"/>
+      <feGaussianBlur in="shadowOffsetOuter1" result="shadowBlurOuter1" stdDeviation="2.5"/>
+      <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"/>
+      <feColorMatrix in="shadowBlurOuter1" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.0906646286 0"/>
+    </filter>
+    <filter id="c" width="167.9%" height="272.7%" x="-33.9%" y="-50%" filterUnits="objectBoundingBox">
+      <feOffset dy="4" in="SourceAlpha" result="shadowOffsetOuter1"/>
+      <feGaussianBlur in="shadowOffsetOuter1" result="shadowBlurOuter1" stdDeviation="2.5"/>
+      <feColorMatrix in="shadowBlurOuter1" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.0906646286 0"/>
+    </filter>
+    <path id="b" d="M48 16.729 32.672 47h-8.874L0 0h15.328l12.907 25.492 4.437-8.763H48z"/>
+    <path id="d" d="M35.2 11H28V8.643h8.4l1.2-2.357H32V3.929h6.8l.8-1.572H36V0h20l-5.6 11H35.2Z"/>
+  </defs>
+  <g fill="none" fill-rule="evenodd">
+    <rect width="100" height="100" fill="#000" rx="37"/>
+    <g transform="translate(22 30)">
+      <use xlink:href="#b" fill="#000" filter="url(#a)"/>
+      <use xlink:href="#b" fill="#FFF" fill-opacity=".6"/>
     </g>
+    <g transform="translate(22 30)">
+      <use xlink:href="#d" fill="#000" filter="url(#c)"/>
+      <use xlink:href="#d" fill="#FFF"/>
+    </g>
+    <path fill="#FFF" d="M54.785 77H45.88L22 30h15.381L58 70.718z"/>
+  </g>
 </svg>
