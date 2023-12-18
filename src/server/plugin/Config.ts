@@ -1,5 +1,6 @@
 import process from "node:process";
 
+import { defaultSecurity } from "@verdaccio/config";
 import type {
   Config as IncorrectVerdaccioConfig,
   PackageAccess as IncorrectVerdaccioPackageAccess,
@@ -7,7 +8,7 @@ import type {
 } from "@verdaccio/types";
 import merge from "deepmerge";
 import { array, lazy, mixed, object, Schema, string } from "yup";
-import { defaultSecurity } from "@verdaccio/config"
+
 import { pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
