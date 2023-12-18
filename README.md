@@ -72,6 +72,20 @@ auth:
 
 Now you can use the openid-connect auth in the webUI.
 
+To set the token expiration time, follow the instructions in the [Verdaccio docs](https://verdaccio.org/docs/configuration#security).
+
+
+```yml
+security:
+  api:
+    jwt:
+      sign:
+        expiresIn: 7d # npm token expiration
+  web:
+    sign:
+      expiresIn: 7d # webUI token expiration
+```
+
 ## OpenID Callback URL
 
 * Web UI: https://your-registry.com/-/oauth/callback

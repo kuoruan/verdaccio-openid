@@ -7,7 +7,7 @@ import type {
 } from "@verdaccio/types";
 import merge from "deepmerge";
 import { array, lazy, mixed, object, Schema, string } from "yup";
-
+import { defaultSecurity } from "@verdaccio/config"
 import { pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
@@ -46,21 +46,6 @@ export interface Config extends VerdaccioConfig {
   middlewares: { [key: string]: PluginConfig };
   auth: { [key: string]: PluginConfig };
 }
-
-// https://github.com/verdaccio/verdaccio/blob/master/packages/config/src/security.ts
-const TIME_EXPIRATION_7D = "7d";
-
-const defaultSecurity = {
-  api: {
-    legacy: true,
-  },
-  web: {
-    sign: {
-      expiresIn: TIME_EXPIRATION_7D,
-    },
-    verify: {},
-  },
-};
 
 function getEnvironmentValue(name: any) {
   const value = process.env[String(name)];
