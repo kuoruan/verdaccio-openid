@@ -1,4 +1,3 @@
-import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import alias from "@rollup/plugin-alias";
@@ -14,7 +13,6 @@ import { externals } from "rollup-plugin-node-externals";
 import shebang from "rollup-plugin-shebang-bin";
 
 function getBasePlugins(isBrowser = false) {
-  const basePath = path.dirname(fileURLToPath(import.meta.url));
   return [
     externals({
       deps: !isBrowser,
@@ -25,7 +23,7 @@ function getBasePlugins(isBrowser = false) {
       browser: isBrowser,
     }),
     alias({
-      entries: [{ find: "@", replacement: path.resolve(basePath, "src") }],
+      entries: [{ find: "@", replacement: fileURLToPath(new URL("src", import.meta.url)) }],
     }),
     replace({
       preventAssignment: true,
@@ -46,10 +44,8 @@ function getBasePlugins(isBrowser = false) {
           "@babel/preset-env",
           {
             useBuiltIns: isBrowser ? "usage" : false,
-            corejs: isBrowser ? "3.27" : false,
-            // set to undefined to use the default browserslist config
-            targets: isBrowser ? undefined : { node: "current" },
-            ignoreBrowserslistConfig: !isBrowser,
+            corejs: isBrowser ? "3.35" : false,
+            browserslistEnv: isBrowser ? "browser" : "node",
           },
         ],
         "@babel/preset-typescript",

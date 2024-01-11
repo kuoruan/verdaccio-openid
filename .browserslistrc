@@ -1,6 +1,5 @@
-last 2 chrome versions
-last 2 firefox versions
-last 2 edge versions
-last 2 safari versions
-last 2 node versions
-firefox esr
+[browser]
+supports es5
+
+[node]
+node >= 16
