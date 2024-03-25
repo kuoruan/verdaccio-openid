@@ -35,8 +35,8 @@ export interface PluginConfig {
   "token-endpoint"?: string;
   "jwks-uri"?: string;
   scope?: string;
-  "client-id": string;
-  "client-secret": string;
+  "client-id"?: string;
+  "client-secret"?: string;
   "username-claim"?: string;
   "groups-claim"?: string;
   "authorized-group"?: string | false;
@@ -149,11 +149,24 @@ export class ParsedPluginConfig {
   }
 
   public get clientId() {
-    return getConfigValue<string>(this.config, "client-id", string().required());
+    const envClientId = process.env.VERDACCIO_OPENID_CLIENT_ID;
+
+    const schema: Schema = string();
+    return (
+      getConfigValue<string>(this.config, "client-id", envClientId ? schema.optional() : schema.required()) ??
+      envClientId
+    );
   }
 
   public get clientSecret() {
-    return getConfigValue<string>(this.config, "client-secret", string().required());
+    const envClientSecret = process.env.VERDACCIO_OPENID_CLIENT_SECRET;
+
+    const schema: Schema = string();
+
+    return (
+      getConfigValue<string>(this.config, "client-secret", envClientSecret ? schema.optional() : schema.required()) ??
+      envClientSecret
+    );
   }
 
   public get usernameClaim() {

@@ -57,8 +57,8 @@ auth:
     # userinfo-endpoint: https://example.com/oauth/userinfo # optional
     # jwks-uri: https://example.com/oauth/jwks # optional
     # scope: openid email groups # optional. custom scope, default is openid
-    client-id: CLIENT_ID # required
-    client-secret: CLIENT_SECRET # required
+    client-id: CLIENT_ID # optional, you can set it with environment variable 'VERDACCIO_OPENID_CLIENT_ID'
+    client-secret: CLIENT_SECRET # optional, you can set it with environment variable 'VERDACCIO_OPENID_CLIENT_SECRET'
     username-claim: name # optional. username claim in openid, or key to get username in userinfo endpoint response, default is sub
     groups-claim: groups # optional. claim to get groups from
     # provider-type: gitlab # optional. define this to get groups from gitlab api
@@ -71,6 +71,16 @@ auth:
 ```
 
 Now you can use the openid-connect auth in the webUI.
+
+### Environment Variables
+
+| Name | Description |
+| --- | --- |
+| `VERDACCIO_OPENID_CLIENT_ID` | OIDC client ID |
+| `VERDACCIO_OPENID_CLIENT_SECRET` | OIDC client secret |
+
+
+### Token Expiration
 
 To set the token expiration time, follow the instructions in the [Verdaccio docs](https://verdaccio.org/docs/configuration#security).
 
