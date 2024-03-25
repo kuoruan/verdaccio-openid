@@ -9,12 +9,12 @@ import { nodeResolve } from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
 import { defineConfig } from "rollup";
-import { externals } from "rollup-plugin-node-externals";
+import { nodeExternals } from "rollup-plugin-node-externals";
 import shebang from "rollup-plugin-shebang-bin";
 
 function getBasePlugins(isBrowser = false) {
   return [
-    externals({
+    nodeExternals({
       deps: !isBrowser,
       devDeps: true,
     }),
