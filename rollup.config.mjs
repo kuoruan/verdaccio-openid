@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import alias from "@rollup/plugin-alias";
@@ -10,7 +12,6 @@ import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
 import { defineConfig } from "rollup";
 import { nodeExternals } from "rollup-plugin-node-externals";
-import shebang from "rollup-plugin-shebang-bin";
 
 function getBasePlugins(isBrowser = false) {
   return [
@@ -82,10 +83,17 @@ export default defineConfig([
     },
     plugins: [
       ...getBasePlugins(),
-      shebang({
-        include: ["**/*.js", "**/*.ts"],
-        executable: true,
-      }),
+      {
+        name: "executable",
+        writeBundle: (options, output) => {
+          for (const bundle of Object.values(output)) {
+            if (bundle.isEntry) {
+              const filePath = path.join(options.dir, bundle.fileName);
+              fs.promises.chmod(filePath, "755");
+            }
+          }
+        },
+      },
     ],
   },
   {

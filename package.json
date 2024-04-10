@@ -89,10 +89,9 @@
     "rimraf": "^5.0.5",
     "rollup": "^4.14.1",
     "rollup-plugin-node-externals": "^7.1.1",
-    "rollup-plugin-shebang-bin": "^0.0.6",
     "typescript": "^5.4.4",
     "verdaccio": "6.0.0-beta.2",
-    "verdaccio-htpasswd": "11.0.0-alpha.6"
+    "verdaccio-htpasswd": "11.0.0-6-next.46"
   },
   "peerDependencies": {
     "verdaccio": "^5.0.0||>=6.0.0-beta.0"

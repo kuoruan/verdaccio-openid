@@ -151,9 +151,6 @@ devDependencies:
   rollup-plugin-node-externals:
     specifier: ^7.1.1
     version: 7.1.1(rollup@4.14.1)
-  rollup-plugin-shebang-bin:
-    specifier: ^0.0.6
-    version: 0.0.6(rollup@4.14.1)
   typescript:
     specifier: ^5.4.4
     version: 5.4.4
@@ -161,8 +158,8 @@ devDependencies:
     specifier: 6.0.0-beta.2
     version: 6.0.0-beta.2(typanion@3.14.0)
   verdaccio-htpasswd:
-    specifier: 11.0.0-alpha.6
-    version: 11.0.0-alpha.6
+    specifier: 11.0.0-6-next.46
+    version: 11.0.0-6-next.46
 
 packages:
 
@@ -2159,14 +2156,6 @@ packages:
       - supports-color
     dev: true
 
-  /@verdaccio/commons-api@11.0.0-alpha.3:
-    resolution: {integrity: sha512-VWObMqmBJjQ8p94qfSdc7RKIu7G2pJLFsvCRrV2tEJqYgeGpnpr2wn1cDUD9h3cIolG01sWpZ4p7zNX+3ea7pA==}
-    engines: {node: '>=10', npm: '>=6'}
-    dependencies:
-      http-errors: 1.8.0
-      http-status-codes: 2.1.4
-    dev: true
-
   /@verdaccio/config@6.0.0-6-next.76:
     resolution: {integrity: sha512-iWmmi+8pDedpwbRw43K19+Ky+DBYwcQ3L9hQNkG4KrhGdJsy7it6bpcjmxrh4xX39jQ00bqyq6Hb4cCGl7zlRQ==}
     engines: {node: '>=12'}
@@ -2207,7 +2196,6 @@ packages:
       http-status-codes: 2.2.0
       process-warning: 1.0.0
       semver: 7.5.4
-    dev: false
 
   /@verdaccio/core@7.0.0-next-7.12:
     resolution: {integrity: sha512-5jwaq//N3h1/Ky27+CJ+S9uM3c3QJnjenpxyfCOq1axjcmK+i5CsOqFFgTAB5vou5rP9DdGMGzpuJAtrQEznJg==}
@@ -2245,14 +2233,6 @@ packages:
     engines: {node: '>=12'}
     dependencies:
       lockfile: 1.0.4
-    dev: false
-
-  /@verdaccio/file-locking@11.0.0-alpha.3:
-    resolution: {integrity: sha512-fe7M8vlncF2qUpxiNebjYFHwGtEXQWRCrg/u1ixKn2RBC1El7JNlRAUbag1J8HwGXkta0tTPuFK1ILK9XU1Mcg==}
-    engines: {node: '>=10', npm: '>=6'}
-    dependencies:
-      lockfile: 1.0.4
-    dev: true
 
   /@verdaccio/file-locking@12.0.0-next.1:
     resolution: {integrity: sha512-Zb5G2HEhVRB0jCq4z7QA4dqTdRv/2kIsw2Nkm3j2HqC1OeJRxas3MJAF/OxzbAb1IN32lbg1zycMSk6NcbQkgQ==}
@@ -2606,11 +2586,6 @@ packages:
   /ansi-styles@6.2.1:
     resolution: {integrity: sha512-bN798gFfQX+viw3R7yrGWRqnrN2oRkEkUjjl4JNn4E8GxxbjtG3FbrEIIY3l8/hrwUwIeCZvi4QuOTP4MErVug==}
     engines: {node: '>=12'}
-    dev: true
-
-  /apache-md5@1.1.7:
-    resolution: {integrity: sha512-JtHjzZmJxtzfTSjsCyHgPR155HBe5WGyUyHTaEkfy46qhwCFKx1Epm6nAxgUG3WfUZP1dWhGqj9Z2NOBeZ+uBw==}
-    engines: {node: '>=8'}
     dev: true
 
   /apache-md5@1.1.8:
@@ -3225,11 +3200,6 @@ packages:
     resolution: {integrity: sha512-ZySD7Nf91aLB0RxL4KGrKHBXl7Eds1DAmEdcoVawXnLD7SDhpNgtuII2aAkg7a7QS41jxPSZ17p4VdGnMHk3MQ==}
     engines: {node: '>=0.4.0'}
     dev: false
-
-  /depd@1.1.2:
-    resolution: {integrity: sha512-7emPTl6Dpo6JRXOXjLRxck+FlLRX5847cLKEn00PLAgc3g2hTZZgr+e4c2v6QpSmLeFP3n5yUo7ft6avBK/5jQ==}
-    engines: {node: '>= 0.6'}
-    dev: true
 
   /depd@2.0.0:
     resolution: {integrity: sha512-g7nH6P6dyDioJogAAGprGpCtVImJhpPk/roCzdb3fIh61/s/nPsfR6onyMwkCAR/OlC3yBC0lESvUoQEAssIrw==}
@@ -4209,17 +4179,6 @@ packages:
   /http-cache-semantics@4.1.1:
     resolution: {integrity: sha512-er295DKPVsV82j5kw1Gjt+ADA/XYHsajl82cGNQG2eyoPkvgUhX+nDIyelzhIWbbsXP39EHcI6l5tYs2FYqYXQ==}
 
-  /http-errors@1.8.0:
-    resolution: {integrity: sha512-4I8r0C5JDhT5VkvI47QktDW75rNlGVsUf/8hzjCC/wkWI/jdTRmBb9aI7erSG82r1bjKY3F6k28WnsVxB1C73A==}
-    engines: {node: '>= 0.6'}
-    dependencies:
-      depd: 1.1.2
-      inherits: 2.0.4
-      setprototypeof: 1.2.0
-      statuses: 1.5.0
-      toidentifier: 1.0.0
-    dev: true
-
   /http-errors@2.0.0:
     resolution: {integrity: sha512-FtwrG/euBzaEjYeRqOgly7G0qviiXoJWnvEH2Z1plBdXgbyjv34pHTSb9zoeHMyDy33+DWy5Wt9Wo+TURtOYSQ==}
     engines: {node: '>= 0.8'}
@@ -4229,10 +4188,6 @@ packages:
       setprototypeof: 1.2.0
       statuses: 2.0.1
       toidentifier: 1.0.1
-
-  /http-status-codes@2.1.4:
-    resolution: {integrity: sha512-MZVIsLKGVOVE1KEnldppe6Ij+vmemMuApDfjhVSLzyYP+td0bREEYyAoIw9yFePoBXManCuBqmiNP5FqJS5Xkg==}
-    dev: true
 
   /http-status-codes@2.2.0:
     resolution: {integrity: sha512-feERVo9iWxvnejp3SEfm/+oNG517npqL2/PIA8ORjyOZjGC7TwCRQsZylciLS64i6pJ0wRYz3rkXLRwbtFa8Ng==}
@@ -5514,17 +5469,6 @@ packages:
       rollup: 4.14.1
     dev: true
 
-  /rollup-plugin-shebang-bin@0.0.6(rollup@4.14.1):
-    resolution: {integrity: sha512-ZrpC5i5OvEjkpkp4D/iGVVPU722I5UZRXEZw1scqCf4a9aYH32rxNGSqWS7opT7T6qg07zGxiH3tFIFoSicBJQ==}
-    engines: {node: '>= 14.18'}
-    peerDependencies:
-      rollup: ^2 || ^3 || ^4
-    dependencies:
-      '@rollup/pluginutils': 5.1.0(rollup@4.14.1)
-      magic-string: 0.30.9
-      rollup: 4.14.1
-    dev: true
-
   /rollup@4.14.1:
     resolution: {integrity: sha512-4LnHSdd3QK2pa1J6dFbfm1HN0D7vSK/ZuZTsdyUAlA6Rr1yTouUTL13HaDOGJVgby461AhrNGBS7sCGXXtT+SA==}
     engines: {node: '>=18.0.0', npm: '>=8.0.0'}
@@ -5790,11 +5734,6 @@ packages:
     resolution: {integrity: sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==}
     dev: false
 
-  /statuses@1.5.0:
-    resolution: {integrity: sha512-OpZ3zP+jT1PI7I8nemJX4AKmAX070ZkYPVWV/AaKTJl+tXCTGyVdC1a4SL8RUQYEwk/f34ZX8UTykN68FwrqAA==}
-    engines: {node: '>= 0.6'}
-    dev: true
-
   /statuses@2.0.1:
     resolution: {integrity: sha512-RwNA9Z/7PrK06rYLIzFMlaF+l73iwpzsqRIFgbMLbTcLD6cOao82TaWefPXQvB2fOC4AjuYSEndS7N/mTCbkdQ==}
     engines: {node: '>= 0.8'}
@@ -5961,11 +5900,6 @@ packages:
     engines: {node: '>=8.0'}
     dependencies:
       is-number: 7.0.0
-    dev: true
-
-  /toidentifier@1.0.0:
-    resolution: {integrity: sha512-yaOH/Pk/VEhBWWTlhI+qXxDFXlejDGcQipMlyxda9nthulaxLZUNcUqFxokp0vcYnvteJln5FNQDRrxj3YcbVw==}
-    engines: {node: '>=0.6'}
     dev: true
 
   /toidentifier@1.0.1:
@@ -6213,19 +6147,6 @@ packages:
       unix-crypt-td-js: 1.1.4
     transitivePeerDependencies:
       - supports-color
-    dev: false
-
-  /verdaccio-htpasswd@11.0.0-alpha.6:
-    resolution: {integrity: sha512-0UFZGO4gdyK/fJS4dDMPxqz1P9rXpjxv9nYrBBkywxFXtWtCUoGMKwKUNGXUAR+LFNK2Yz4hSUbnIIceFGZ3PQ==}
-    engines: {node: '>=10', npm: '>=6'}
-    dependencies:
-      '@verdaccio/commons-api': 11.0.0-alpha.3
-      '@verdaccio/file-locking': 11.0.0-alpha.3
-      apache-md5: 1.1.7
-      bcryptjs: 2.4.3
-      http-errors: 1.8.0
-      unix-crypt-td-js: 1.1.4
-    dev: true
 
   /verdaccio-htpasswd@12.0.0-next-7.12:
     resolution: {integrity: sha512-4Y+cWeU0g8fcQoLm24w8dsrDWNAO4y4kPKhKENdaw+ubjtVstLXmU5w3XmLX2xV419UAvTEOqth4g74x7oddlQ==}
