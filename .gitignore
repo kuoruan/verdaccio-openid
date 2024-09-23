@@ -3,7 +3,7 @@
 *.log
 dist/
 node_modules/
-/verdaccio
+/verdaccio*
 .npmrc
 .yarnrc
 .history
