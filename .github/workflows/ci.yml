@@ -15,7 +15,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        node-version: [16.x, 18.x]
+        include:
+          - node-version: 16
+            pnpm-version: 8
+          - node-version: 18
+            pnpm-version: latest
 
     steps:
       - name: Checkout repository
@@ -26,7 +30,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v3
         with:
-          version: latest
+          version: ${{ matrix.pnpm-version }}
           run_install: false
 
       - name: Install Node.js ${{ matrix.node-version }}
