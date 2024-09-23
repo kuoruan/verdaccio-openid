@@ -1,4 +1,4 @@
-import { Groups } from "@gitbeaker/node";
+import { Groups } from "@gitbeaker/rest";
 import TTLCache from "@isaacs/ttlcache";
 import type { Request } from "express";
 import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
