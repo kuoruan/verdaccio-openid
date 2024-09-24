@@ -6,6 +6,10 @@ export const plugin = {
 };
 
 export const pluginKey = plugin.name.replace("verdaccio-", "");
+
+export const replacedAttrKey = `data-${pluginKey}`;
+export const replacedAttrValue = "1";
+
 export const authorizePath = "/-/oauth/authorize";
 export const callbackPath = "/-/oauth/callback";
 export const loginHref = authorizePath;

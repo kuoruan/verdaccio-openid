@@ -163,7 +163,7 @@ importers:
         specifier: 13.0.0-next-8.1
         version: 13.0.0-next-8.1
       verdaccio-openid:
-        specifier: file:.
+        specifier: 'file:'
         version: file:(verdaccio@6.0.0(typanion@3.14.0))
       verdaccio5:
         specifier: npm:verdaccio@5.0.0

@@ -4,6 +4,8 @@
 // thinks we are logged in.
 //
 
+import { parseJwt } from "./lib";
+
 export type Credentials = {
   username: string;
   uiToken: string;
@@ -24,7 +26,7 @@ export function clearCredentials() {
 }
 
 export function isLoggedIn(): boolean {
-  for (const key of ["username", "token", "npm"]) {
+  for (const key of ["username", "token", "npm"] as const) {
     if (!localStorage.getItem(key)) {
       return false;
     }
@@ -33,8 +35,21 @@ export function isLoggedIn(): boolean {
   return true;
 }
 
+export function isTokenExpired() {
+  const token = localStorage.getItem("token");
+  if (!token) return true;
+
+  const payload = parseJwt(token);
+  if (!payload) return true;
+
+  // Report as expired before (real expiry - 30s)
+  const jsTimestamp = payload.exp * 1000 - 30_000;
+
+  return Date.now() >= jsTimestamp;
+}
+
 export function validateCredentials(credentials: Partial<Credentials>): credentials is Credentials {
-  for (const key of ["username", "uiToken", "npmToken"]) {
+  for (const key of ["username", "uiToken", "npmToken"] as const) {
     if (!credentials[key]) {
       return false;
     }
