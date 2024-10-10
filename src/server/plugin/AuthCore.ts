@@ -286,7 +286,7 @@ export class AuthCore {
     }
 
     // the return value in verdaccio 5 is a buffer, we need to convert it to a string
-    return typeof providerToken === "string" ? token : base64Encode(token);
+    return typeof token === "string" ? token : base64Encode(token);
   }
 
   private legacyEncode(user: LegacyUser): string {
