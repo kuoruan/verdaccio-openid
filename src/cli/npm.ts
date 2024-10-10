@@ -2,8 +2,9 @@ import { execSync } from "node:child_process";
 import { URL } from "node:url";
 
 import minimist from "minimist";
+import colors from "picocolors";
 
-import logger from "@/server/logger";
+import logger from "./logger";
 
 let npmConfig: Record<string, unknown>;
 
@@ -12,7 +13,8 @@ function parseCliArgs() {
 }
 
 function runCommand(command: string): string {
-  logger.info({ command }, "running command: @{command}");
+  logger.info(`Running command:`, colors.cyan(command));
+
   return execSync(command).toString();
 }
 

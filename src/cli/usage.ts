@@ -1,23 +1,26 @@
 import { cliName } from "@/constants";
 
+import logger from "./logger";
 import { getRegistryUrl } from "./npm";
 
 export function getUsageInfo() {
   return [
+    "========================= Usage =========================",
     "It seems you are using the default npm registry.",
     "Please update it to your Verdaccio URL by either running:",
     "",
     "npm config set registry <URL>",
     "",
-    "or by using the registry argument",
+    "Or by using the registry argument:",
     "",
     `npx ${cliName} --registry <URL>`,
+    "========================================================",
   ];
 }
 
 export function printUsage() {
   for (const line of getUsageInfo()) {
-    console.log(line);
+    logger.info(line);
   }
 }
 

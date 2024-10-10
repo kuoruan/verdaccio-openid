@@ -7,6 +7,7 @@ import { cliPort, cliProviderId } from "@/constants";
 import { getAuthorizePath } from "@/redirect";
 
 import { respondWithCliMessage } from "./cli-response";
+import logger from "./logger";
 import { saveNpmToken } from "./npm";
 import { validateRegistry } from "./usage";
 import { respondWithWebPage } from "./web-response";
@@ -37,9 +38,12 @@ const server = express()
     process.exit(status === "success" ? 0 : 1);
   })
   .listen(cliPort, () => {
-    console.log(`Listening on port ${cliPort}...`);
+    logger.info(`Listening on port ${cliPort}...`);
+    logger.info(`Opening ${authorizeUrl} in your browser...`);
 
-    console.log(`Opening ${authorizeUrl} in your browser...`);
-
-    void open(authorizeUrl);
+    open(authorizeUrl).catch(() => {
+      logger.error("Failed to open browser window.");
+      logger.warn("Please visit the following URL manually:");
+      logger.info(authorizeUrl);
+    });
   });
