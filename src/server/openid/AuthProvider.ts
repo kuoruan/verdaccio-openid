@@ -222,12 +222,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       throw new Error(`Could not get username with claim: "${this.config.usernameClaim}"`);
     }
 
-    if (!groups) {
-      if (this.config.providerType) {
-        groups = await this.getGroupsWithProviderType(token, this.config.providerType);
-      } else if (this.config.groupsClaim) {
-        throw new Error(`Could not get groups with claim: "${this.config.groupsClaim}"`);
-      }
+    if (!groups && this.config.providerType) {
+      groups = await this.getGroupsWithProviderType(token, this.config.providerType);
     }
 
     if (groups) {
