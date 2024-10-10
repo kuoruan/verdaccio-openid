@@ -11,14 +11,16 @@ function parseCliArgs() {
   return minimist(process.argv.slice(2));
 }
 
-function runCommand(command: string) {
+function runCommand(command: string): string {
   logger.info({ command }, "running command: @{command}");
-  return execSync(command);
+  return execSync(command).toString();
 }
 
 function getNpmConfig(): Record<string, unknown> {
   if (!npmConfig) {
-    npmConfig = JSON.parse(runCommand("npm config list --json").toString());
+    const npmConfigJson = runCommand("npm config list --json");
+
+    npmConfig = JSON.parse(npmConfigJson);
   }
   return npmConfig;
 }
@@ -39,7 +41,7 @@ export function getNpmConfigFile(): string {
   return getNpmConfig().userconfig as string;
 }
 
-export function getNpmSaveCommands(registry: string, token: string): string[] {
+export function getNpmSaveCommand(registry: string, token: string): string {
   const url = new URL(registry);
 
   let baseUrl = `${url.host}${url.pathname}`;
@@ -47,14 +49,12 @@ export function getNpmSaveCommands(registry: string, token: string): string[] {
     baseUrl = `${baseUrl}/`;
   }
 
-  return [`npm config set //${baseUrl}:_authToken "${token}"`];
+  return `npm config set //${baseUrl}:_authToken "${token}"`;
 }
 
 export function saveNpmToken(token: string) {
   const registry = getRegistryUrl();
-  const commands = getNpmSaveCommands(registry, token);
+  const command = getNpmSaveCommand(registry, token);
 
-  for (const command of commands) {
-    runCommand(command);
-  }
+  runCommand(command);
 }
