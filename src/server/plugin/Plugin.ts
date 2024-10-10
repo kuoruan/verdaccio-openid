@@ -89,7 +89,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     /**
      * the result is false, means the token is not authenticated
      */
-    if (user === false) {
+    if (user === false || user.name === undefined) {
       callback(errorUtils.getForbidden(`User "${username}" are not authenticated.`), false);
       return;
     }
@@ -117,7 +117,10 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     const grant = this.checkPackageAccess(user, config.access);
     if (!grant) {
-      debug(`"%s" is not allowed to access "%s"`, user.name, config.name);
+      logger.info(
+        { username: user.name, package: config.name },
+        `user "@{username}" is not allowed to access "@{package}"`,
+      );
     }
     callback(null, grant);
   }

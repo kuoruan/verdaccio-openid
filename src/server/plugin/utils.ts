@@ -1,5 +1,6 @@
-import type { RequestOptions } from "@verdaccio/url";
-import { getPublicUrl } from "@verdaccio/url";
+import { createHash } from "node:crypto";
+
+import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
 
 import type { Token } from "./AuthProvider";
@@ -11,10 +12,7 @@ import type { Token } from "./AuthProvider";
  * @returns
  */
 export function base64Encode(str: string): string {
-  if (Buffer.isEncoding("base64url")) {
-    return Buffer.from(str, "utf8").toString("base64url");
-  }
-  return Buffer.from(str, "utf8").toString("base64").replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
+  return Buffer.from(str, "utf8").toString("base64url");
 }
 
 /**
@@ -36,7 +34,9 @@ export function base64Decode(str: string): string {
 export function hashToken(token: Token): string {
   if (typeof token === "string") return token;
 
-  return base64Encode(JSON.stringify(token)).slice(0, 16);
+  const str = JSON.stringify(token);
+
+  return createHash("sha256").update(str).digest("hex");
 }
 
 /**

@@ -1,6 +1,5 @@
-import { Auth, buildUser, isAESLegacy } from "@verdaccio/auth";
+import { Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
 import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
-import { verifyPayload } from "@verdaccio/signature";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import { debug } from "../logger";
@@ -9,14 +8,17 @@ import type { PackageAccess, ParsedPluginConfig } from "./Config";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
 export type User = {
-  name: string;
+  name?: string;
   realGroups: string[];
 };
 
-export type LegacyUser = (User & Required<Pick<TokenSet, "expiresAt">>) | Pick<TokenSet, "accessToken">;
+type UserPayload = User & { expiresAt: number };
+type AccessTokenPayload = Pick<TokenSet, "accessToken">;
 
-function accessTokenOnly(u: LegacyUser): u is Pick<TokenSet, "accessToken"> {
-  return !!(u as any).accessToken;
+type LegacyPayload = UserPayload | AccessTokenPayload;
+
+function accessTokenOnly(u: LegacyPayload): u is AccessTokenPayload {
+  return !!(u as AccessTokenPayload).accessToken;
 }
 
 export class AuthCore {
@@ -165,9 +167,9 @@ export class AuthCore {
   }
 
   issueNpmToken(username: string, realGroups: string[], providerToken: Token): Promise<string> {
-    const jwtSignOptions = this.security.api.jwt?.sign;
+    if (isAESLegacy(this.security)) {
+      debug("using legacy encryption for npm token");
 
-    if (isAESLegacy(this.security) || !jwtSignOptions) {
       const npmToken = this.legacyEncrypt(username, realGroups, providerToken);
       if (!npmToken) {
         throw new Error("Internal server error, failed to encrypt npm token");
@@ -175,7 +177,7 @@ export class AuthCore {
 
       return Promise.resolve(npmToken);
     } else {
-      return this.signJWT(username, realGroups, jwtSignOptions);
+      return this.signJWT(username, realGroups, this.security.api.jwt!.sign);
     }
   }
 
@@ -186,15 +188,18 @@ export class AuthCore {
    * @returns
    */
   async verifyNpmToken(token: string): Promise<User | false> {
-    const jwtSignOptions = this.security.api.jwt?.sign;
-
     // if jwt is not enabled, use legacy encryption
     // the token is the password in basic auth
     // decode it and get the token from the payload
-    if (isAESLegacy(this.security) || !jwtSignOptions) {
-      const legacyUser = this.legacyDecode(token);
-      if (accessTokenOnly(legacyUser)) {
-        const { accessToken } = legacyUser;
+    if (isAESLegacy(this.security)) {
+      debug("verifying npm token using legacy encryption");
+
+      const legacyPayload = this.legacyDecode(token);
+
+      debug("legacy payload: %j", legacyPayload);
+
+      if (accessTokenOnly(legacyPayload)) {
+        const { accessToken } = legacyPayload;
 
         const { name, groups } = await this.provider.getUserinfo(accessToken);
         if (!this.authenticate(name, groups)) {
@@ -203,11 +208,11 @@ export class AuthCore {
 
         return { name: name, realGroups: this.filterRealGroups(name, groups) };
       } else {
-        if (!isNowBefore(legacyUser.expiresAt)) {
+        if (!isNowBefore(legacyPayload.expiresAt)) {
           return false;
         }
 
-        return { name: legacyUser.name, realGroups: legacyUser.realGroups };
+        return { name: legacyPayload.name, realGroups: legacyPayload.realGroups };
       }
     } else {
       return this.verifyJWT(token);
@@ -243,10 +248,10 @@ export class AuthCore {
   private verifyJWT(token: string): User {
     // verifyPayload
     // use internal function to avoid error handling
-    const remoteUser = verifyPayload(token, this.secret);
+    const remoteUser = verifyJWTPayload(token, this.secret);
 
     return {
-      name: remoteUser.name as string,
+      name: remoteUser.name as string | undefined,
       realGroups: [...remoteUser.real_groups],
     };
   }
@@ -257,7 +262,7 @@ export class AuthCore {
     }
 
     // encode the user info as a token, save it to the final token.
-    let u: LegacyUser;
+    let u: LegacyPayload;
 
     if (typeof providerToken === "string") {
       u = {
@@ -289,11 +294,11 @@ export class AuthCore {
     return typeof token === "string" ? token : base64Encode(token);
   }
 
-  private legacyEncode(user: LegacyUser): string {
-    return base64Encode(JSON.stringify(user));
+  private legacyEncode(payload: LegacyPayload): string {
+    return base64Encode(JSON.stringify(payload));
   }
 
-  private legacyDecode(payloadToken: string): LegacyUser {
+  private legacyDecode(payloadToken: string): LegacyPayload {
     return JSON.parse(base64Decode(payloadToken));
   }
 }

@@ -40,7 +40,6 @@
     "@verdaccio/auth": "8.0.0-next-8.1",
     "@verdaccio/config": "8.0.0-next-8.1",
     "@verdaccio/core": "8.0.0-next-8.1",
-    "@verdaccio/signature": "8.0.0-next-8.0",
     "@verdaccio/url": "13.0.0-next-8.1",
     "debug": "^4.3.7",
     "deepmerge": "^4.3.1",

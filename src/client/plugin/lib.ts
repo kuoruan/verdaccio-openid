@@ -1,5 +1,7 @@
 /* eslint-disable unicorn/prefer-spread, unicorn/prefer-code-point */
 
+import { wrapPrefix } from "@verdaccio/url";
+
 // This parseJWT implementation is taken from https://stackoverflow.com/a/38552302/1935971
 export function parseJwt(token: string): Record<string, any> | null {
   // JWT has 3 parts separated by ".", the payload is the base64url-encoded part in the middle
@@ -70,26 +72,6 @@ export function interruptClick(selector: string, callback: () => void): void {
   };
   const capture = true;
   document.addEventListener("click", handleClick, capture);
-}
-
-/**
- * Copy from @verdaccio/url#wrapPrefix
- *
- * @param prefix
- * @returns
- */
-export function wrapPrefix(prefix: string | void): string {
-  if (prefix === "" || prefix === undefined || prefix === null) {
-    return "";
-  } else if (!prefix.startsWith("/") && prefix.endsWith("/")) {
-    return `/${prefix}`;
-  } else if (!prefix.startsWith("/") && !prefix.endsWith("/")) {
-    return `/${prefix}/`;
-  } else if (prefix.startsWith("/") && !prefix.endsWith("/")) {
-    return `${prefix}/`;
-  } else {
-    return prefix;
-  }
 }
 
 /**

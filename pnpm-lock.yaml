@@ -23,9 +23,6 @@ importers:
       '@verdaccio/core':
         specifier: 8.0.0-next-8.1
         version: 8.0.0-next-8.1
-      '@verdaccio/signature':
-        specifier: 8.0.0-next-8.0
-        version: 8.0.0-next-8.0
       '@verdaccio/url':
         specifier: 13.0.0-next-8.1
         version: 13.0.0-next-8.1
@@ -8373,7 +8370,6 @@ snapshots:
       '@verdaccio/auth': 8.0.0-next-8.1
       '@verdaccio/config': 8.0.0-next-8.1
       '@verdaccio/core': 8.0.0-next-8.1
-      '@verdaccio/signature': 8.0.0-next-8.0
       '@verdaccio/url': 13.0.0-next-8.1
       debug: 4.3.7
       deepmerge: 4.3.1
