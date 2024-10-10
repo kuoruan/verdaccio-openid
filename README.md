@@ -11,7 +11,7 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 ## Compatibility
 
 - Verdaccio 5, 6
-- Node 16, 18
+- Node >=18
 - Chrome, Firefox, Firefox ESR, Edge, Safari
 
 ## Setup
