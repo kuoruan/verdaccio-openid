@@ -79,7 +79,6 @@ function getConfigValue<T>(config: Config, key: string, schema: Pick<Schema, "va
       'invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.',
     );
 
-    // eslint-disable-next-line unicorn/no-process-exit
     process.exit(1);
   }
 

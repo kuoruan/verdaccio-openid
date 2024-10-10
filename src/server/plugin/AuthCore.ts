@@ -74,17 +74,13 @@ export class AuthCore {
    * Returns all permission groups used in the Verdacio config.
    */
   private initConfiguredGroups(packages: Record<string, PackageAccess> = {}): string[] {
-    const s = new Set<string>();
-
     for (const packageConfig of Object.values(packages)) {
       const groups = ["access", "publish", "unpublish"].flatMap((key) => packageConfig[key]).filter(Boolean);
 
-      for (const group of groups) {
-        s.add(group);
-      }
+      return [...new Set(groups)];
     }
 
-    return [...s];
+    return [];
   }
 
   /**

@@ -33,7 +33,7 @@ const server = express()
     respondWithCliMessage(status, message);
 
     server.close();
-    // eslint-disable-next-line unicorn/no-process-exit
+
     process.exit(status === "success" ? 0 : 1);
   })
   .listen(cliPort, () => {

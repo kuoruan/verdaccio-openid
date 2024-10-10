@@ -1,6 +1,6 @@
-import dotenv from "dotenv";
+import { config } from "dotenv";
 
-dotenv.config();
+config();
 
 // plugins must be a default export
 export { Plugin as default } from "./plugin/Plugin";
