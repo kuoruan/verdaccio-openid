@@ -4,7 +4,8 @@ import type { Application, Handler } from "express";
 import { cliPort, cliProviderId } from "@/constants";
 import { stringifyQueryParams } from "@/query-params";
 import { getCallbackPath } from "@/redirect";
-import logger, { debug } from "@/server/logger";
+import { debug } from "@/server/debugger";
+import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 

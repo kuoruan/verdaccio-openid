@@ -3,7 +3,8 @@ import type { Application, Handler } from "express";
 
 import { stringifyQueryParams } from "@/query-params";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
-import logger, { debug } from "@/server/logger";
+import { debug } from "@/server/debugger";
+import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider, ConfigHolder } from "@/server/plugin/AuthProvider";
 import { getBaseUrl } from "@/server/plugin/utils";

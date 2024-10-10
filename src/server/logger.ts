@@ -1,7 +1,6 @@
 import type { Logger } from "@verdaccio/types";
-import buildDebug from "debug";
 
-import { plugin, pluginKey } from "@/constants";
+import { plugin } from "@/constants";
 
 function noop() {
   /* noop */
@@ -25,5 +24,3 @@ export function setLogger(l: Logger) {
 }
 
 export default logger;
-
-export const debug = buildDebug(`verdaccio:plugin:${pluginKey}`);

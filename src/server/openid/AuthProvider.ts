@@ -4,7 +4,8 @@ import type { Request } from "express";
 import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
-import logger, { debug } from "@/server/logger";
+import { debug } from "@/server/debugger";
+import logger from "@/server/logger";
 import type { AuthProvider, ConfigHolder, ProviderUser, Token, TokenSet } from "@/server/plugin/AuthProvider";
 import { extractAccessToken, getBaseUrl, getClaimsFromIdToken, hashToken } from "@/server/plugin/utils";
 

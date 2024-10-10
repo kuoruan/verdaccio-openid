@@ -2,7 +2,8 @@ import { Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth"
 import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
-import { debug } from "../logger";
+import { debug } from "@/server/debugger";
+
 import type { AuthProvider, Token, TokenSet } from "./AuthProvider";
 import type { PackageAccess, ParsedPluginConfig } from "./Config";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";

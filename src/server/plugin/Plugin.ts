@@ -11,11 +11,12 @@ import type {
 } from "@verdaccio/types";
 import type { Application } from "express";
 
+import { debug } from "@/server/debugger";
+import { CliFlow, WebFlow } from "@/server/flows";
+import logger, { setLogger } from "@/server/logger";
+import { OpenIDConnectAuthProvider } from "@/server/openid";
 import { registerGlobalProxy } from "@/server/proxy-agent";
 
-import { CliFlow, WebFlow } from "../flows";
-import logger, { debug, setLogger } from "../logger";
-import { OpenIDConnectAuthProvider } from "../openid";
 import { AuthCore, type User } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
 import { type Config, type PackageAccess, ParsedPluginConfig } from "./Config";
