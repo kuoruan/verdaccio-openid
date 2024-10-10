@@ -1,4 +1,3 @@
-// @ts-check
 import eslint from "@eslint/js";
 import pluginImportX from "eslint-plugin-import-x";
 import pluginPrettierRecommended from "eslint-plugin-prettier/recommended";
@@ -13,7 +12,8 @@ export default tseslint.config(
   pluginUnicorn.configs["flat/recommended"],
   pluginImportX.flatConfigs.recommended,
   pluginImportX.flatConfigs.typescript,
-  ...configs.recommended,
+  ...configs.recommendedTypeChecked,
+  ...configs.stylisticTypeChecked,
   {
     ignores: ["node_modules/", "dist/", ".history/"],
   },
@@ -28,6 +28,7 @@ export default tseslint.config(
         ecmaVersion: "latest",
         sourceType: "module",
         warnOnUnsupportedTypeScriptVersion: false,
+        projectService: true,
       },
     },
     plugins: {
@@ -48,6 +49,15 @@ export default tseslint.config(
       "@typescript-eslint/no-var-requires": "off",
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-argument": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-misused-promises": [
+        "error",
+        {
+          checksVoidReturn: false,
+        },
+      ],
       "@typescript-eslint/no-import-type-side-effects": "error",
     },
     settings: {
@@ -57,6 +67,16 @@ export default tseslint.config(
           project: "./tsconfig.json",
         },
       },
+    },
+  },
+  {
+    files: ["*.mjs", "*.js"],
+    ...configs.disableTypeChecked,
+  },
+  {
+    files: ["src/client/**/*.ts"],
+    rules: {
+      "@typescript-eslint/prefer-nullish-coalescing": "off",
     },
   },
 );

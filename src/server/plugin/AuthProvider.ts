@@ -20,21 +20,21 @@ export interface ConfigHolder {
   packages: Record<string, PackageAccess>;
 }
 
-export type TokenSet = {
+export interface TokenSet {
   accessToken: string;
   idToken?: string;
   // We not use the expires_in field
   // because it is only accurate when the access token response is received
   expiresAt?: number;
-};
+}
 
 // when token is string, it is a access token
 export type Token = TokenSet | string;
 
-export type ProviderUser = {
+export interface ProviderUser {
   name: string;
   groups?: string[];
-};
+}
 
 export interface AuthProvider {
   getId(): string;

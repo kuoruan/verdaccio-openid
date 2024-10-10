@@ -1,3 +1,4 @@
+import type { Auth } from "@verdaccio/auth";
 import { errorUtils } from "@verdaccio/core";
 import type {
   AllowAccess,
@@ -46,8 +47,8 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   /**
    * IPluginMiddleware
    */
-  register_middlewares(app: Application, auth: any) {
-    this.core.setAuth(auth);
+  register_middlewares(app: Application, auth) {
+    this.core.setAuth(auth as Auth);
 
     const children = [
       new ServeStatic(),
@@ -131,7 +132,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
     debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
-    const grant = this.checkPackageAccess(user, config.publish || config.access);
+    const grant = this.checkPackageAccess(user, config.publish ?? config.access);
 
     if (!grant) {
       logger.warn(
@@ -149,7 +150,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
     debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
-    const grant = this.checkPackageAccess(user, config.unpublish || config.access);
+    const grant = this.checkPackageAccess(user, config.unpublish ?? config.access);
 
     if (!grant) {
       logger.warn(

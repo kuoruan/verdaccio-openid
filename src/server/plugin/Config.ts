@@ -43,10 +43,12 @@ export interface PluginConfig {
   "group-users"?: Record<string, string[]>;
 }
 
-export interface Config extends VerdaccioConfig {
-  middlewares: { [key: string]: PluginConfig };
-  auth: { [key: string]: PluginConfig };
+export interface OpenIdConfig {
+  middlewares: Record<"openid", PluginConfig>;
+  auth: Record<"openid", PluginConfig>;
 }
+
+export type Config = OpenIdConfig & VerdaccioConfig;
 
 function getEnvironmentValue(name: any) {
   const value = process.env[String(name)];
@@ -56,7 +58,7 @@ function getEnvironmentValue(name: any) {
   return value;
 }
 
-function getConfigValue<T>(config: Config, key: string, schema: Pick<Schema, "validateSync">): T {
+function getConfigValue<T>(config: OpenIdConfig, key: string, schema: Pick<Schema, "validateSync">): T {
   const valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
 
   const value = getEnvironmentValue(valueOrEnvironmentName) ?? valueOrEnvironmentName;

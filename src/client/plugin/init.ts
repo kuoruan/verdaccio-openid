@@ -50,7 +50,7 @@ function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: b
     e.preventDefault();
     e.stopPropagation();
 
-    copyToClipboard(info);
+    void copyToClipboard(info);
   });
 
   command.parentElement!.append(cloned);

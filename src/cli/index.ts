@@ -40,5 +40,6 @@ const server = express()
     console.log(`Listening on port ${cliPort}...`);
 
     console.log(`Opening ${authorizeUrl} in your browser...`);
-    open(authorizeUrl);
+
+    void open(authorizeUrl);
   });

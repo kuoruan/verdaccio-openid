@@ -27,7 +27,7 @@ export class WebFlow implements IPluginMiddleware<any> {
   /**
    * Initiates the auth flow by redirecting to the provider's login URL.
    */
-  authorize: Handler = async (req, res, next) => {
+  authorize: Handler = (req, res, next) => {
     try {
       const url = this.provider.getLoginUrl(req);
       res.redirect(url);

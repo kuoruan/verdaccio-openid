@@ -29,7 +29,7 @@ a {
 }
 `;
 
-export function buildStatusPage(body: string, withBack: boolean, backUrl: string = "/"): string {
+export function buildStatusPage(body: string, withBack: boolean, backUrl = "/"): string {
   return `<!DOCTYPE html>
 <html lang="en">
   <head>

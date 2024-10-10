@@ -4,7 +4,7 @@ import type { Request } from "express";
 import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
-import { debug } from "@/server/logger";
+import logger, { debug } from "@/server/logger";
 import type { AuthProvider, ConfigHolder, ProviderUser, Token, TokenSet } from "@/server/plugin/AuthProvider";
 import { extractAccessToken, getBaseUrl, getClaimsFromIdToken, hashToken } from "@/server/plugin/utils";
 
@@ -25,7 +25,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     this.userinfoCache = new TTLCache({ max: 1000, ttl: 30 * 1000 }); // 1min
     this.groupsCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5m;
 
-    this.discoverClient();
+    this.discoverClient().catch((e) => {
+      logger.error({ message: e.message }, "Could not discover client: @{message}");
+    });
   }
 
   private get discoveredClient(): Client {
@@ -50,7 +52,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       ].some((endpoint) => !!endpoint)
     ) {
       issuer = new Issuer({
-        issuer: this.config.issuer || this.providerHost,
+        issuer: this.config.issuer ?? this.providerHost,
         authorization_endpoint: this.config.authorizationEndpoint,
         token_endpoint: this.config.tokenEndpoint,
         userinfo_endpoint: this.config.userinfoEndpoint,

@@ -7,10 +7,10 @@ import type { AuthProvider, Token, TokenSet } from "./AuthProvider";
 import type { PackageAccess, ParsedPluginConfig } from "./Config";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
-export type User = {
+export interface User {
   name?: string;
   realGroups: string[];
-};
+}
 
 type UserPayload = User & { expiresAt: number };
 type AccessTokenPayload = Pick<TokenSet, "accessToken">;
@@ -77,7 +77,9 @@ export class AuthCore {
    */
   private initConfiguredGroups(packages: Record<string, PackageAccess> = {}): string[] {
     for (const packageConfig of Object.values(packages)) {
-      const groups = ["access", "publish", "unpublish"].flatMap((key) => packageConfig[key]).filter(Boolean);
+      const groups = ["access", "publish", "unpublish"]
+        .flatMap((key) => packageConfig[key] as string[])
+        .filter(Boolean);
 
       return [...new Set(groups)];
     }
@@ -114,12 +116,11 @@ export class AuthCore {
    * @returns groups or undefined
    */
   getUserGroups(username: string): string[] | undefined {
-    let groupUsers;
-    if ((groupUsers = this.groupUsers)) {
-      return Object.keys(groupUsers).filter((group) => {
-        return groupUsers[group].includes(username);
-      });
-    }
+    const groupUsers = { ...this.groupUsers };
+
+    return Object.keys(groupUsers).filter((group) => {
+      return groupUsers[group].includes(username);
+    });
   }
 
   // get unique and sorted groups
@@ -299,6 +300,6 @@ export class AuthCore {
   }
 
   private legacyDecode(payloadToken: string): LegacyPayload {
-    return JSON.parse(base64Decode(payloadToken));
+    return JSON.parse(base64Decode(payloadToken)) as LegacyPayload;
   }
 }

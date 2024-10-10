@@ -5,7 +5,7 @@ import minimist from "minimist";
 
 import logger from "@/server/logger";
 
-let npmConfig: any;
+let npmConfig: Record<string, unknown>;
 
 function parseCliArgs() {
   return minimist(process.argv.slice(2));
@@ -16,27 +16,27 @@ function runCommand(command: string) {
   return execSync(command);
 }
 
-function getNpmConfig() {
+function getNpmConfig(): Record<string, unknown> {
   if (!npmConfig) {
     npmConfig = JSON.parse(runCommand("npm config list --json").toString());
   }
   return npmConfig;
 }
 
-function removeTrailingSlash(input: string) {
+function removeTrailingSlash(input: string): string {
   return input.trim().replace(/\/?$/, "");
 }
 
-export function getRegistryUrl() {
+export function getRegistryUrl(): string {
   const cliArgs = parseCliArgs();
 
   const registry = cliArgs.registry || getNpmConfig().registry;
 
-  return removeTrailingSlash(registry);
+  return removeTrailingSlash(registry as string);
 }
 
-export function getNpmConfigFile() {
-  return getNpmConfig().userconfig;
+export function getNpmConfigFile(): string {
+  return getNpmConfig().userconfig as string;
 }
 
 export function getNpmSaveCommands(registry: string, token: string): string[] {

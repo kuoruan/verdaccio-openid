@@ -6,11 +6,11 @@
 
 import { parseJwt } from "./lib";
 
-export type Credentials = {
+export interface Credentials {
   username: string;
   uiToken: string;
   npmToken: string;
-};
+}
 
 export function saveCredentials(credentials: Credentials) {
   // username and token are required for verdaccio to think we are logged in
@@ -49,7 +49,7 @@ export function isTokenExpired() {
 }
 
 export function validateCredentials(credentials: Partial<Credentials>): credentials is Credentials {
-  for (const key of ["username", "uiToken", "npmToken"] as const) {
+  for (const key of ["username", "uiToken", "npmToken"] satisfies (keyof Credentials)[]) {
     if (!credentials[key]) {
       return false;
     }

@@ -63,7 +63,7 @@ export function getClaimsFromIdToken(idToken: string): Record<string, unknown> {
     throw new TypeError("Invalid id token");
   }
 
-  return JSON.parse(base64Decode(splits[1]));
+  return JSON.parse(base64Decode(splits[1])) as Record<string, unknown>;
 }
 
 /**
