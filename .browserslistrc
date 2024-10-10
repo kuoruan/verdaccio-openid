@@ -2,4 +2,4 @@
 supports es5
 
 [node]
-node >= 16
+node >= 18
