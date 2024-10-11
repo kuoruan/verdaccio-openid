@@ -6,7 +6,8 @@ import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "open
 import { getCallbackPath } from "@/redirect";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
-import type { AuthProvider, ConfigHolder, ProviderUser, Token, TokenSet } from "@/server/plugin/AuthProvider";
+import type { AuthProvider, ProviderUser, Token, TokenSet } from "@/server/plugin/AuthProvider";
+import type { ConfigHolder } from "@/server/plugin/Config";
 import { extractAccessToken, getBaseUrl, getClaimsFromIdToken, hashToken } from "@/server/plugin/utils";
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
@@ -42,25 +43,32 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private async discoverClient() {
     let issuer: Issuer;
 
-    if (this.config.configurationUri) {
-      issuer = await Issuer.discover(this.config.configurationUri);
-    } else if (
-      [
-        this.config.authorizationEndpoint,
-        this.config.tokenEndpoint,
-        this.config.userinfoEndpoint,
-        this.config.jwksUri,
-      ].some((endpoint) => !!endpoint)
-    ) {
-      issuer = new Issuer({
-        issuer: this.config.issuer ?? this.providerHost,
-        authorization_endpoint: this.config.authorizationEndpoint,
-        token_endpoint: this.config.tokenEndpoint,
-        userinfo_endpoint: this.config.userinfoEndpoint,
-        jwks_uri: this.config.jwksUri,
-      });
+    const configurationUri = this.config.configurationUri;
+
+    if (configurationUri) {
+      issuer = await Issuer.discover(configurationUri);
     } else {
-      issuer = await Issuer.discover(this.providerHost);
+      const providerHost = this.providerHost;
+
+      const authorizationEndpoint = this.config.authorizationEndpoint;
+      const tokenEndpoint = this.config.tokenEndpoint;
+      const userinfoEndpoint = this.config.userinfoEndpoint;
+      const jwksUri = this.config.jwksUri;
+
+      if ([authorizationEndpoint, tokenEndpoint, userinfoEndpoint, jwksUri].some((endpoint) => !!endpoint)) {
+        issuer = new Issuer({
+          issuer: this.config.issuer ?? providerHost,
+          authorization_endpoint: authorizationEndpoint,
+          token_endpoint: tokenEndpoint,
+          userinfo_endpoint: userinfoEndpoint,
+          jwks_uri: jwksUri,
+        });
+      } else {
+        if (!providerHost) {
+          throw new ReferenceError("Provider host is not set");
+        }
+        issuer = await Issuer.discover(providerHost);
+      }
     }
 
     this.client = new issuer.Client({

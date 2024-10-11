@@ -12,7 +12,7 @@ import { mixed, object, Schema, string } from "yup";
 import { plugin, pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
-import type { ConfigHolder } from "./AuthProvider";
+import { debug } from "../debugger";
 
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.
@@ -41,8 +41,8 @@ export interface PluginConfig {
   "client-secret"?: string;
   "username-claim"?: string;
   "groups-claim"?: string;
-  "authorized-groups"?: string[] | boolean;
-  "group-users"?: Record<string, string[]>;
+  "authorized-groups"?: string | string[] | boolean;
+  "group-users"?: string | Record<string, string[]>;
 }
 
 export interface OpenIdConfig {
@@ -52,16 +52,34 @@ export interface OpenIdConfig {
 
 export type Config = OpenIdConfig & VerdaccioConfig;
 
+export interface ConfigHolder {
+  providerHost: string;
+  providerType?: string;
+  issuer?: string;
+  configurationUri?: string;
+  scope: string;
+  usernameClaim: string;
+  groupsClaim?: string;
+  authorizationEndpoint?: string;
+  tokenEndpoint?: string;
+  userinfoEndpoint?: string;
+  jwksUri?: string;
+  clientId: string;
+  clientSecret: string;
+  urlPrefix: string;
+  packages: Record<string, PackageAccess>;
+}
+
 /**
  * Get the value of an environment variable.
  *
  * @param name - The name of the environment variable.
  * @returns
  */
-function getEnvironmentValue(name: unknown): unknown {
-  const value = process.env[String(name)];
+function getEnvironmentValue(name: string): unknown {
+  const value = process.env[name];
 
-  if (!value) return value;
+  if (value === undefined || value === null) return value;
 
   if (value === "true" || value === "false") {
     return value === "true";
@@ -90,26 +108,25 @@ function handleValidationError(error: any, key: string) {
   process.exit(1);
 }
 
-function getOpenIdConfigValue<T>(
-  config: OpenIdConfig,
-  key: keyof PluginConfig,
-  schema: Pick<Schema, "validateSync">,
-): T {
-  let valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
+function getOpenIdConfigValue<T>(config: OpenIdConfig, key: keyof PluginConfig, schema: Schema): T {
+  const valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
 
-  if (!valueOrEnvironmentName) {
-    /**
-     * If the value is not defined in the config, use the plugin name and key as the environment variable name.
-     *
-     * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
-     */
-    valueOrEnvironmentName = `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
-  }
+  /**
+   * If the value is not defined in the config, use the plugin name and key as the environment variable name.
+   *
+   * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
+   */
+  const environmentName: string =
+    typeof valueOrEnvironmentName === "string" && !!valueOrEnvironmentName
+      ? valueOrEnvironmentName
+      : `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
 
   /**
    * Allow environment variables to be used as values.
    */
-  const value = getEnvironmentValue(valueOrEnvironmentName) ?? valueOrEnvironmentName;
+  const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
+
+  debug(`"${key}" = ${value}`, environmentName);
 
   try {
     schema.validateSync(value);
@@ -146,16 +163,21 @@ export class ParsedPluginConfig implements ConfigHolder {
     return this.config.url_prefix ?? "";
   }
 
-  private getConfigValue<T>(key: keyof PluginConfig, schema: Pick<Schema, "validateSync">): T {
+  private getConfigValue<T>(key: keyof PluginConfig, schema: Schema): T {
     return getOpenIdConfigValue<T>(this.config, key, schema);
   }
 
   public get providerHost() {
-    return this.getConfigValue<string>("provider-host", string().required());
+    return this.getConfigValue<string>("provider-host", string().url().required());
   }
 
   public get providerType() {
-    return this.getConfigValue<ProviderType | undefined>("provider-type", mixed().oneOf(["gitlab"]).optional());
+    return this.getConfigValue<ProviderType | undefined>(
+      "provider-type",
+      string()
+        .oneOf(["gitlab"] satisfies ProviderType[])
+        .optional(),
+    );
   }
 
   public get configurationUri() {
@@ -207,11 +229,16 @@ export class ParsedPluginConfig implements ConfigHolder {
       this.getConfigValue<unknown>(
         "authorized-groups",
         mixed()
-          .test("is-string-array-or-boolean", "Must be a string[] or a boolean", (value) => {
-            if (Array.isArray(value)) {
-              return value.every((item) => typeof item === "string");
-            }
-            return typeof value === "boolean";
+          .test({
+            name: "is-string-array-or-boolean",
+            skipAbsent: true,
+            message: "must be a string[] or a boolean",
+            test: (value) => {
+              if (Array.isArray(value)) {
+                return value.every((item) => typeof item === "string");
+              }
+              return typeof value === "boolean";
+            },
           })
           .optional(),
       ) ?? false
@@ -222,13 +249,18 @@ export class ParsedPluginConfig implements ConfigHolder {
     return this.getConfigValue<Record<string, string[]> | undefined>(
       "group-users",
       object()
-        .test("is-record-of-string-arrays", "Must be a Record<string, string[]>", (value) => {
-          if (typeof value !== "object" || value === null) {
-            return false;
-          }
-          return Object.values(value).every(
-            (item) => Array.isArray(item) && item.every((subItem) => typeof subItem === "string"),
-          );
+        .test({
+          name: "is-record-of-string-arrays",
+          skipAbsent: true,
+          message: "must be a Record<string, string[]>",
+          test: (value) => {
+            if (typeof value !== "object" || value === null) {
+              return false;
+            }
+            return Object.values(value).every(
+              (item) => Array.isArray(item) && item.every((subItem) => typeof subItem === "string"),
+            );
+          },
         })
         .optional(),
     );

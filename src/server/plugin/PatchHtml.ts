@@ -6,7 +6,7 @@ import type { Application, Handler, Request } from "express";
 import { plugin } from "@/constants";
 import { publicRoot, staticPath } from "@/server/constants";
 
-import type { ConfigHolder } from "./AuthProvider";
+import type { ConfigHolder } from "./Config";
 import { getBaseUrl } from "./utils";
 
 /**
