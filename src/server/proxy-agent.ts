@@ -5,7 +5,7 @@ import logger from "./logger";
 
 bootstrap({
   environmentVariableNamespace: "",
-  socketConnectionTimeout: 10_000,
+  socketConnectionTimeout: 60_000,
 });
 
 /**
