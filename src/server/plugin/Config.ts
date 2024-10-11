@@ -12,8 +12,6 @@ import { mixed, object, Schema, string } from "yup";
 import { plugin, pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
-import { debug } from "../debugger";
-
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.
 export type PackageAccess = IncorrectVerdaccioPackageAccess & {
@@ -125,8 +123,6 @@ function getOpenIdConfigValue<T>(config: OpenIdConfig, key: keyof PluginConfig, 
    * Allow environment variables to be used as values.
    */
   const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
-
-  debug(`"${key}" = ${value}`, environmentName);
 
   try {
     schema.validateSync(value);
