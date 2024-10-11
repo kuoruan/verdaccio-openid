@@ -12,6 +12,8 @@ import { mixed, object, Schema, string } from "yup";
 import { plugin, pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
+import type { ConfigHolder } from "./AuthProvider";
+
 // Verdaccio incorrectly types some of these as string arrays
 // although they are all strings.
 export type PackageAccess = IncorrectVerdaccioPackageAccess & {
@@ -118,7 +120,7 @@ function getOpenIdConfigValue<T>(
   return value as T;
 }
 
-export class ParsedPluginConfig {
+export class ParsedPluginConfig implements ConfigHolder {
   constructor(public readonly config: Config) {
     for (const node of ["middlewares", "auth"] satisfies (keyof OpenIdConfig)[]) {
       const object_ = config[node]?.[pluginKey];
