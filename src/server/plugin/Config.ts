@@ -66,10 +66,17 @@ function getEnvironmentValue(name: unknown): unknown {
   }
 
   try {
-    return JSON.parse(value);
+    const v = JSON.parse(value);
+
+    // Only return the parsed value if it is an object.
+    if (typeof v === "object" && v !== null) {
+      return v;
+    }
   } catch {
-    return value;
+    // Do nothing
   }
+
+  return value;
 }
 
 function handleValidationError(error: any, key: string) {
