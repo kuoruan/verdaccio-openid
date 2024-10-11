@@ -1,16 +1,15 @@
 import { loginHref, logoutHref, replacedAttrKey, replacedAttrValue } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
-import { copyToClipboard } from "./clipboard";
 import {
   clearCredentials,
   type Credentials,
   isLoggedIn,
-  isTokenExpired,
+  isUITokenExpired,
   saveCredentials,
   validateCredentials,
 } from "./credentials";
-import { getBaseUrl, interruptClick, retry } from "./lib";
+import { copyToClipboard, getBaseUrl, interruptClick, retry } from "./lib";
 import { getUsageInfo } from "./usage-info";
 
 /**
@@ -50,7 +49,7 @@ function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: b
     e.preventDefault();
     e.stopPropagation();
 
-    void copyToClipboard(info);
+    copyToClipboard(info).catch((e) => console.warn(e));
   });
 
   command.parentElement!.append(cloned);
@@ -112,7 +111,7 @@ export function init({ loginButton, logoutButton, usageTabs }: InitOptions): voi
     return;
   }
 
-  if (isTokenExpired()) {
+  if (isUITokenExpired()) {
     clearCredentials();
   }
 

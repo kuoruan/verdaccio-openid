@@ -12,31 +12,35 @@ export interface Credentials {
   npmToken: string;
 }
 
+const LOCAL_STORAGE_KEYS = {
+  USERNAME: "username",
+  UI_TOKEN: "token",
+  NPM_TOKEN: "npm",
+} as const;
+
 export function saveCredentials(credentials: Credentials) {
-  // username and token are required for verdaccio to think we are logged in
-  localStorage.setItem("username", credentials.username);
-  localStorage.setItem("token", credentials.uiToken);
-  localStorage.setItem("npm", credentials.npmToken);
+  // username and ui token are required for verdaccio to think we are logged in
+  localStorage.setItem(LOCAL_STORAGE_KEYS.USERNAME, credentials.username);
+  localStorage.setItem(LOCAL_STORAGE_KEYS.UI_TOKEN, credentials.uiToken);
+  localStorage.setItem(LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken);
 }
 
 export function clearCredentials() {
-  localStorage.removeItem("username");
-  localStorage.removeItem("token");
-  localStorage.removeItem("npm");
+  for (const key of Object.values(LOCAL_STORAGE_KEYS)) {
+    localStorage.removeItem(key);
+  }
 }
 
 export function isLoggedIn(): boolean {
-  for (const key of ["username", "token", "npm"] as const) {
-    if (!localStorage.getItem(key)) {
-      return false;
-    }
-  }
-
-  return true;
+  return Object.values(LOCAL_STORAGE_KEYS).every((key) => !!localStorage.getItem(key));
 }
 
-export function isTokenExpired() {
-  const token = localStorage.getItem("token");
+export function getNPMToken(): string | null {
+  return localStorage.getItem(LOCAL_STORAGE_KEYS.NPM_TOKEN);
+}
+
+export function isUITokenExpired() {
+  const token = localStorage.getItem(LOCAL_STORAGE_KEYS.UI_TOKEN);
   if (!token) return true;
 
   const payload = parseJwt(token);
@@ -49,11 +53,5 @@ export function isTokenExpired() {
 }
 
 export function validateCredentials(credentials: Partial<Credentials>): credentials is Credentials {
-  for (const key of ["username", "uiToken", "npmToken"] satisfies (keyof Credentials)[]) {
-    if (!credentials[key]) {
-      return false;
-    }
-  }
-
-  return true;
+  return (["username", "uiToken", "npmToken"] satisfies (keyof Credentials)[]).every((key) => !!credentials[key]);
 }
