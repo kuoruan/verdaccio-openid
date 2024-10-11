@@ -45,13 +45,12 @@ function getBasePlugins(isBrowser = false) {
           "@babel/preset-env",
           {
             useBuiltIns: isBrowser ? "usage" : false,
-            corejs: isBrowser ? "3.38" : false,
+            corejs: isBrowser ? { version: "3.38", proposals: true } : false,
             browserslistEnv: isBrowser ? "browser" : "node",
           },
         ],
         "@babel/preset-typescript",
       ],
-      exclude: [/core-js/],
     }),
   ].filter(Boolean);
 }
