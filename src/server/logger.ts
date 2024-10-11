@@ -18,7 +18,9 @@ const dummyLogger: Logger = {
 
 let logger: Logger = dummyLogger;
 
-export function setLogger(l: Logger) {
+export function setLogger(l?: Logger) {
+  if (!l) return;
+
   logger = l.child({ plugin: { name: plugin.name } });
   logger?.info(plugin, "plugin loading: @{name}@@{version}");
 }
