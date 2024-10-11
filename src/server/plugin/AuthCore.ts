@@ -164,6 +164,10 @@ export class AuthCore {
 
     let authenticated: boolean;
 
+    /**
+     * - if authenticatedGroups is true, the user must be in at least one group
+     * - if authenticatedGroups is false, no group authentication is required
+     */
     if (this.authenticatedGroups === true) {
       authenticated = groups.length > 0;
     } else if (this.authenticatedGroups === false) {

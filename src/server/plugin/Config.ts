@@ -7,9 +7,9 @@ import type {
   Security,
 } from "@verdaccio/types";
 import merge from "deepmerge";
-import { array, lazy, mixed, object, Schema, string } from "yup";
+import { mixed, object, Schema, string } from "yup";
 
-import { pluginKey } from "@/constants";
+import { plugin, pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
 // Verdaccio incorrectly types some of these as string arrays
@@ -39,7 +39,7 @@ export interface PluginConfig {
   "client-secret"?: string;
   "username-claim"?: string;
   "groups-claim"?: string;
-  "authorized-group"?: string | false;
+  "authorized-groups"?: string[] | boolean;
   "group-users"?: Record<string, string[]>;
 }
 
@@ -50,38 +50,62 @@ export interface OpenIdConfig {
 
 export type Config = OpenIdConfig & VerdaccioConfig;
 
-function getEnvironmentValue(name: any) {
+/**
+ * Get the value of an environment variable.
+ *
+ * @param name - The name of the environment variable.
+ * @returns
+ */
+function getEnvironmentValue(name: unknown): unknown {
   const value = process.env[String(name)];
+
+  if (!value) return value;
+
   if (value === "true" || value === "false") {
     return value === "true";
   }
-  return value;
+
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
 }
 
-function getConfigValue<T>(config: OpenIdConfig, key: string, schema: Pick<Schema, "validateSync">): T {
-  const valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
+function handleValidationError(error: any, key: string) {
+  const message = error.errors ? error.errors[0] : error.message || error;
+  logger.error(
+    { pluginKey, key, message },
+    `invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.`,
+  );
+  process.exit(1);
+}
 
+function getOpenIdConfigValue<T>(
+  config: OpenIdConfig,
+  key: keyof PluginConfig,
+  schema: Pick<Schema, "validateSync">,
+): T {
+  let valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
+
+  if (!valueOrEnvironmentName) {
+    /**
+     * If the value is not defined in the config, use the plugin name and key as the environment variable name.
+     *
+     * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
+     */
+    valueOrEnvironmentName = `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
+  }
+
+  /**
+   * Allow environment variables to be used as values.
+   */
   const value = getEnvironmentValue(valueOrEnvironmentName) ?? valueOrEnvironmentName;
 
   try {
     schema.validateSync(value);
   } catch (error: any) {
-    let message: string;
-
-    // eslint-disable-next-line unicorn/prefer-ternary
-    if (error.errors) {
-      // ValidationError
-      message = error.errors[0];
-    } else {
-      message = error.message || error;
-    }
-
-    logger.error(
-      { pluginKey, key, message },
-      'invalid configuration at "auth.@{pluginKey}.@{key}": @{message} — Please check your verdaccio config.',
-    );
-
-    process.exit(1);
+    handleValidationError(error, key);
   }
 
   return value as T;
@@ -89,11 +113,11 @@ function getConfigValue<T>(config: OpenIdConfig, key: string, schema: Pick<Schem
 
 export class ParsedPluginConfig {
   constructor(public readonly config: Config) {
-    for (const node of ["middlewares", "auth"]) {
+    for (const node of ["middlewares", "auth"] satisfies (keyof OpenIdConfig)[]) {
       const object_ = config[node]?.[pluginKey];
 
       if (!object_) {
-        throw new Error(`"${node}.${pluginKey}" must be enabled`);
+        throw new Error(`"${node}.${pluginKey}" must be defined in the verdaccio config.`);
       }
     }
   }
@@ -109,95 +133,95 @@ export class ParsedPluginConfig {
   public get packages() {
     return this.config.packages ?? {};
   }
-  public get urlPrefix() {
+  public get urlPrefix(): string {
     return this.config.url_prefix ?? "";
   }
 
+  private getConfigValue<T>(key: keyof PluginConfig, schema: Pick<Schema, "validateSync">): T {
+    return getOpenIdConfigValue<T>(this.config, key, schema);
+  }
+
   public get providerHost() {
-    return getConfigValue<string>(this.config, "provider-host", string().required());
+    return this.getConfigValue<string>("provider-host", string().required());
   }
 
   public get providerType() {
-    return getConfigValue<ProviderType | undefined>(this.config, "provider-type", mixed().oneOf(["gitlab"]).optional());
+    return this.getConfigValue<ProviderType | undefined>("provider-type", mixed().oneOf(["gitlab"]).optional());
   }
 
   public get configurationUri() {
-    return getConfigValue<string | undefined>(this.config, "configuration-uri", string().url().optional());
+    return this.getConfigValue<string | undefined>("configuration-uri", string().url().optional());
   }
 
   public get issuer() {
-    return getConfigValue<string | undefined>(this.config, "issuer", string().url().optional());
+    return this.getConfigValue<string | undefined>("issuer", string().url().optional());
   }
 
   public get authorizationEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "authorization-endpoint", string().url().optional());
+    return this.getConfigValue<string | undefined>("authorization-endpoint", string().url().optional());
   }
 
   public get tokenEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "token-endpoint", string().url().optional());
+    return this.getConfigValue<string | undefined>("token-endpoint", string().url().optional());
   }
 
   public get userinfoEndpoint() {
-    return getConfigValue<string | undefined>(this.config, "userinfo-endpoint", string().url().optional());
+    return this.getConfigValue<string | undefined>("userinfo-endpoint", string().url().optional());
   }
 
   public get jwksUri() {
-    return getConfigValue<string | undefined>(this.config, "jwks-uri", string().url().optional());
+    return this.getConfigValue<string | undefined>("jwks-uri", string().url().optional());
   }
 
   public get scope() {
-    return getConfigValue<string | undefined>(this.config, "scope", string().optional()) ?? "openid";
+    return this.getConfigValue<string | undefined>("scope", string().optional()) ?? "openid";
   }
 
   public get clientId() {
-    const envClientId = process.env.VERDACCIO_OPENID_CLIENT_ID;
-
-    const schema: Schema = string();
-    return (
-      getConfigValue<string>(this.config, "client-id", envClientId ? schema.optional() : schema.required()) ??
-      envClientId
-    );
+    return this.getConfigValue<string>("client-id", string().required());
   }
 
   public get clientSecret() {
-    const envClientSecret = process.env.VERDACCIO_OPENID_CLIENT_SECRET;
-
-    const schema: Schema = string();
-
-    return (
-      getConfigValue<string>(this.config, "client-secret", envClientSecret ? schema.optional() : schema.required()) ??
-      envClientSecret
-    );
+    return this.getConfigValue<string>("client-secret", string().required());
   }
 
   public get usernameClaim() {
-    return getConfigValue<string | undefined>(this.config, "username-claim", string().optional()) ?? "sub";
+    return this.getConfigValue<string | undefined>("username-claim", string().optional()) ?? "sub";
   }
 
   public get groupsClaim() {
-    return getConfigValue<string | undefined>(this.config, "groups-claim", string().optional());
+    return this.getConfigValue<string | undefined>("groups-claim", string().optional());
   }
 
   public get authorizedGroups() {
-    return getConfigValue<unknown>(this.config, "authorized-groups", mixed().optional()) ?? false;
+    return (
+      this.getConfigValue<unknown>(
+        "authorized-groups",
+        mixed()
+          .test("is-string-array-or-boolean", "Must be a string[] or a boolean", (value) => {
+            if (Array.isArray(value)) {
+              return value.every((item) => typeof item === "string");
+            }
+            return typeof value === "boolean";
+          })
+          .optional(),
+      ) ?? false
+    );
   }
 
   public get groupUsers() {
-    return getConfigValue<Record<string, string[]> | undefined>(
-      this.config,
+    return this.getConfigValue<Record<string, string[]> | undefined>(
       "group-users",
-      lazy((value) => {
-        switch (typeof value) {
-          case "object": {
-            return object(
-              Object.fromEntries(Object.keys(value).map((key) => [key, array(string()).compact().min(1).required()])),
-            ).optional();
+      object()
+        .test("is-record-of-string-arrays", "Must be a Record<string, string[]>", (value) => {
+          if (typeof value !== "object" || value === null) {
+            return false;
           }
-          default: {
-            return object().optional();
-          }
-        }
-      }),
+          return Object.values(value).every(
+            (item) => Array.isArray(item) && item.every((subItem) => typeof subItem === "string"),
+          );
+        })
+        .optional(),
     );
   }
 }
