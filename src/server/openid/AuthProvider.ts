@@ -23,7 +23,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     this.scope = this.config.scope;
 
     this.stateCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5min
-    this.userinfoCache = new TTLCache({ max: 1000, ttl: 30 * 1000 }); // 1min
+    this.userinfoCache = new TTLCache({ max: 1000, ttl: 60 * 1000 }); // 1min
     this.groupsCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5m;
 
     this.discoverClient().catch((e) => {
