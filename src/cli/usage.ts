@@ -3,6 +3,8 @@ import { cliName } from "@/constants";
 import logger from "./logger";
 import { getRegistryUrl } from "./npm";
 
+const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com"];
+
 export function getUsageInfo() {
   return [
     "========================= Usage =========================",
@@ -27,7 +29,7 @@ export function printUsage() {
 export function validateRegistry() {
   const registry = getRegistryUrl();
 
-  if (registry.includes("registry.npmjs.org")) {
+  if (PUBLIC_REGISTRIES.some((item) => registry.includes(item))) {
     printUsage();
     process.exit(1);
   }
