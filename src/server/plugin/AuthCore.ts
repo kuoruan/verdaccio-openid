@@ -4,7 +4,7 @@ import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import { debug } from "@/server/debugger";
 
-import type { AuthProvider, Token, TokenSet } from "./AuthProvider";
+import type { AuthProvider, Token } from "./AuthProvider";
 import type { PackageAccess, ParsedPluginConfig } from "./Config";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
@@ -13,13 +13,23 @@ export interface User {
   realGroups: string[];
 }
 
-type UserPayload = User & { expiresAt: number };
-type AccessTokenPayload = Pick<TokenSet, "accessToken">;
+interface UserPayload {
+  /** User Name */
+  n: string;
+  /** User Groups */
+  g: string[];
+  /** Expiration Time */
+  exp: number;
+}
+interface AccessTokenPayload {
+  /** Access Token */
+  at: string;
+}
 
 type LegacyPayload = UserPayload | AccessTokenPayload;
 
-function accessTokenOnly(u: LegacyPayload): u is AccessTokenPayload {
-  return !!(u as AccessTokenPayload).accessToken;
+function isAccessTokenPayload(u: LegacyPayload): u is AccessTokenPayload {
+  return !!(u as AccessTokenPayload).at;
 }
 
 export class AuthCore {
@@ -200,21 +210,21 @@ export class AuthCore {
 
       debug("legacy payload: %j", legacyPayload);
 
-      if (accessTokenOnly(legacyPayload)) {
-        const { accessToken } = legacyPayload;
+      if (isAccessTokenPayload(legacyPayload)) {
+        const { at } = legacyPayload;
 
-        const { name, groups } = await this.provider.getUserinfo(accessToken);
+        const { name, groups } = await this.provider.getUserinfo(at);
         if (!this.authenticate(name, groups)) {
           return false;
         }
 
         return { name: name, realGroups: this.filterRealGroups(name, groups) };
       } else {
-        if (!isNowBefore(legacyPayload.expiresAt)) {
+        if (!isNowBefore(legacyPayload.exp)) {
           return false;
         }
 
-        return { name: legacyPayload.name, realGroups: legacyPayload.realGroups };
+        return { name: legacyPayload.n, realGroups: legacyPayload.g };
       }
     } else {
       return this.verifyJWT(token);
@@ -268,19 +278,19 @@ export class AuthCore {
 
     if (typeof providerToken === "string") {
       u = {
-        accessToken: providerToken,
+        at: providerToken,
       };
     } else {
       // legacy token does not have a expiration time
       // we use the provider expire time or token to check if the token is still valid
       u = providerToken.expiresAt
         ? {
-            name: username,
-            realGroups: [...realGroups],
-            expiresAt: providerToken.expiresAt,
+            n: username,
+            g: [...realGroups],
+            exp: providerToken.expiresAt,
           }
         : {
-            accessToken: providerToken.accessToken,
+            at: providerToken.accessToken,
           };
     }
     const payloadToken = this.legacyEncode(u);
