@@ -235,13 +235,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     if (groups) {
-      if (Array.isArray(groups)) {
-        groups = groups.map(String);
-      } else if (typeof groups === "string") {
-        groups = [groups];
-      } else {
-        throw new TypeError(`Groups claim is not an array or string`);
-      }
+      groups = Array.isArray(groups) ? groups.map(String) : [String(groups)];
     }
 
     return {
