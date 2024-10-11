@@ -10,6 +10,7 @@ import merge from "deepmerge";
 import { mixed, object, Schema, string } from "yup";
 
 import { plugin, pluginKey } from "@/constants";
+import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import logger from "@/server/logger";
 
 // Verdaccio incorrectly types some of these as string arrays
@@ -115,7 +116,7 @@ function getOpenIdConfigValue<T>(config: OpenIdConfig, key: keyof PluginConfig, 
    * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
    */
   const environmentName: string =
-    typeof valueOrEnvironmentName === "string" && !!valueOrEnvironmentName
+    typeof valueOrEnvironmentName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrEnvironmentName)
       ? valueOrEnvironmentName
       : `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
 
