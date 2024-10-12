@@ -94,6 +94,7 @@ The default environment variable name is `VERDACCIO_OPENID_` followed by the con
 | provider-host     | `VERDACCIO_OPENID_PROVIDER_HOST`     | `https://example.com`                                          |
 | authorized-groups | `VERDACCIO_OPENID_AUTHORIZED_GROUPS` | `["group1", "group2"]`                                         |
 | group-users       | `VERDACCIO_OPENID_GROUP_USERS`       | `{"group1": ["user1", "user2"], "group2": ["user3", "user4"]}` |
+| [key]             | `VERDACCIO_OPENID_[KEY]`             | other config value is the same as above                        |
 
 The environment value can be a string or a JSON string. If it is a JSON string, the plugin will parse it to a JSON object.
 
