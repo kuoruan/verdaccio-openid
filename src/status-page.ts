@@ -1,5 +1,5 @@
 import Logo from "@/assets/images/logo.svg";
-import { pluginKey } from "@/constants";
+import { plugin } from "@/constants";
 
 const styles = `
 html,
@@ -33,7 +33,7 @@ export function buildStatusPage(body: string, withBack: boolean, backUrl = "/"):
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
-    <title>${pluginKey}</title>
+    <title>${plugin.name} - ${plugin.version}</title>
     <style>${styles}</style>
   </head>
   <body>
