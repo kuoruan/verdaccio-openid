@@ -6,6 +6,7 @@ const prefix = colors.blue(`[${pluginKey}]`);
 
 const logger = {
   info: console.log.bind(console, prefix),
+  success: (...args: any[]) => console.log(prefix, colors.green(args.join(" "))),
   warn: (...args: any[]) => console.warn(prefix, colors.yellow(args.join(" "))),
   error: (...args: any[]) => console.error(prefix, colors.red(args.join(" "))),
 };
