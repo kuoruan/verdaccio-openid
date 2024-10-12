@@ -20,23 +20,23 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 
 1. Install globally
 
-  ```sh
-  npm install -S verdaccio-openid
-  ```
+```sh
+npm install -g verdaccio-openid
+```
 
 2. Install to Verdaccio plugins folder
 
-  > npm >= 7
+> npm >= 7
 
-  ```bash
-  mkdir -p ./install-here/
-  npm install --global-style \
-    --bin-links=false --save=false --package-lock=false \
-    --omit=dev --omit=optional --omit=peer \
-    --prefix ./install-here/ \
-    verdaccio-openid@latest
-  mv ./install-here/node_modules/verdaccio-openid/ /path/to/verdaccio/plugins/
-  ```
+```bash
+mkdir -p ./install-here/
+npm install --global-style \
+  --bin-links=false --save=false --package-lock=false \
+  --omit=dev --omit=optional --omit=peer \
+  --prefix ./install-here/ \
+  verdaccio-openid@latest
+mv ./install-here/node_modules/verdaccio-openid/ /path/to/verdaccio/plugins/
+```
 
 ### Verdaccio Config
 
@@ -56,10 +56,10 @@ auth:
     # token-endpoint: https://example.com/oauth/token # optional
     # userinfo-endpoint: https://example.com/oauth/userinfo # optional
     # jwks-uri: https://example.com/oauth/jwks # optional
-    # scope: openid email groups # optional. custom scope, default is openid
-    client-id: CLIENT_ID # optional, you can set it with environment variable 'VERDACCIO_OPENID_CLIENT_ID'
-    client-secret: CLIENT_SECRET # optional, you can set it with environment variable 'VERDACCIO_OPENID_CLIENT_SECRET'
-    username-claim: name # optional. username claim in openid, or key to get username in userinfo endpoint response, default is sub
+    # scope: openid email groups # optional. custom scope, default is "openid"
+    client-id: CLIENT_ID # optional, the client id
+    client-secret: CLIENT_SECRET # optional, the client secret
+    username-claim: name # optional. username claim in id_token, or key to get username in userinfo endpoint response, default is "sub"
     groups-claim: groups # optional. claim to get groups from
     # provider-type: gitlab # optional. define this to get groups from gitlab api
     # authorized-groups: # optional. user in array is allowed to login. use true to ensure user have at least one group, false means no groups check
@@ -74,16 +74,46 @@ Now you can use the openid-connect auth in the webUI.
 
 ### Environment Variables
 
-| Name | Description |
-| --- | --- |
-| `VERDACCIO_OPENID_CLIENT_ID` | OIDC client ID |
-| `VERDACCIO_OPENID_CLIENT_SECRET` | OIDC client secret |
+You can set each config with environment variables to avoid storing sensitive information in the config file.
+Every config can be set with an environment variable name, matching the regex `/^[a-zA-Z_][a-zA-Z0-9_]*$/`.
+
+```yaml
+auth:
+  openid:
+    client-id: MY_CLIENT_ID
+    client-secret: MY_CLIENT_SECRET
+```
+
+If the config value is not set, the plugin will try to read the value from the environment variable.
+The default environment variable name is `VERDACCIO_OPENID_` followed by the config key in uppercase and snake case.
+
+| Config Value      | Environment Name                     | Value Example                                                  |
+| ----------------- | ------------------------------------ | -------------------------------------------------------------- |
+| client-id         | `VERDACCIO_OPENID_CLIENT_ID`         | `your-client-id`                                               |
+| client-secret     | `VERDACCIO_OPENID_CLIENT_SECRET`     | `your-client-secret`                                           |
+| provider-host     | `VERDACCIO_OPENID_PROVIDER_HOST`     | `https://example.com`                                          |
+| authorized-groups | `VERDACCIO_OPENID_AUTHORIZED_GROUPS` | `["group1", "group2"]`                                         |
+| group-users       | `VERDACCIO_OPENID_GROUP_USERS`       | `{"group1": ["user1", "user2"], "group2": ["user3", "user4"]}` |
+
+The environment value can be a string or a JSON string. If it is a JSON string, the plugin will parse it to a JSON object.
+
+Note: The environment variable will take precedence over the config value. That means if the config value is like an environment variable name(matching above regex), and the environment variable is set, the plugin will use the environment variable value.
+
+### Dotenv files
+
+You can use a `.env` file to set the environment variables. The plugin will read the `.env` file in the HOME directory and the directory where the Verdaccio process is started.
+
+The load order is:
+
+1. $HOME/.env
+2. $HOME/.env.openid
+3. $PWD/.env
+4. $PWD/.env.openid
 
 
 ### Token Expiration
 
 To set the token expiration time, follow the instructions in the [Verdaccio docs](https://verdaccio.org/docs/configuration#security).
-
 
 ```yml
 security:
@@ -98,8 +128,8 @@ security:
 
 ## OpenID Callback URL
 
-* Web UI: https://your-registry.com/-/oauth/callback
-* CLI: https://your-registry.com/-/oauth/callback/cli
+- Web UI: https://your-registry.com/-/oauth/callback
+- CLI: https://your-registry.com/-/oauth/callback/cli
 
 ## Auth with CLI
 
