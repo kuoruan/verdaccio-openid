@@ -37,10 +37,10 @@
   "dependencies": {
     "@gitbeaker/rest": "^39.34.3",
     "@isaacs/ttlcache": "^1.4.1",
-    "@verdaccio/auth": "8.0.0-next-8.1",
-    "@verdaccio/config": "8.0.0-next-8.1",
-    "@verdaccio/core": "8.0.0-next-8.1",
-    "@verdaccio/url": "13.0.0-next-8.1",
+    "@verdaccio/auth": "8.0.0-next-8.3",
+    "@verdaccio/config": "8.0.0-next-8.3",
+    "@verdaccio/core": "8.0.0-next-8.3",
+    "@verdaccio/url": "13.0.0-next-8.3",
     "debug": "^4.3.7",
     "deepmerge": "^4.3.1",
     "dotenv": "^16.4.5",
@@ -53,8 +53,8 @@
     "yup": "^1.4.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.7",
-    "@babel/preset-env": "^7.25.7",
+    "@babel/core": "^7.25.8",
+    "@babel/preset-env": "^7.25.8",
     "@babel/preset-typescript": "^7.25.7",
     "@eslint/js": "^9.12.0",
     "@rollup/plugin-alias": "^5.1.1",
