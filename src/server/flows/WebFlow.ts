@@ -6,7 +6,8 @@ import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
-import type { AuthProvider, ConfigHolder } from "@/server/plugin/AuthProvider";
+import type { AuthProvider } from "@/server/plugin/AuthProvider";
+import type { ConfigHolder } from "@/server/plugin/Config";
 import { getBaseUrl } from "@/server/plugin/utils";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
