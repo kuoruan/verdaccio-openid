@@ -21,13 +21,13 @@ const server = express()
     let message = String(req.query.message);
     const token = String(req.query.token);
 
-    try {
-      if (status === "success") {
+    if (status === "success") {
+      try {
         saveNpmToken(token);
+      } catch (error: any) {
+        status = "error";
+        message = error.message;
       }
-    } catch (error: any) {
-      status = "error";
-      message = error.message;
     }
 
     respondWithWebPage(status, message, res);
