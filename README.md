@@ -92,7 +92,7 @@ The default environment variable name is `VERDACCIO_OPENID_` followed by the con
 | client-id         | `VERDACCIO_OPENID_CLIENT_ID`         | `your-client-id`                                               |
 | client-secret     | `VERDACCIO_OPENID_CLIENT_SECRET`     | `your-client-secret`                                           |
 | provider-host     | `VERDACCIO_OPENID_PROVIDER_HOST`     | `https://example.com`                                          |
-| authorized-groups | `VERDACCIO_OPENID_AUTHORIZED_GROUPS` | `["group1", "group2"]`                                         |
+| authorized-groups | `VERDACCIO_OPENID_AUTHORIZED_GROUPS` | `true`                                                         |
 | group-users       | `VERDACCIO_OPENID_GROUP_USERS`       | `{"group1": ["user1", "user2"], "group2": ["user3", "user4"]}` |
 | [key]             | `VERDACCIO_OPENID_[KEY]`             | other config value is the same as above                        |
 
