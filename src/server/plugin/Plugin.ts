@@ -4,13 +4,15 @@ import type {
   AllowAccess,
   AuthAccessCallback,
   AuthCallback,
+  IBasicAuth,
   IPluginAuth,
   IPluginMiddleware,
-  Logger,
+  PluginOptions,
   RemoteUser,
 } from "@verdaccio/types";
 import type { Application } from "express";
 
+import { plugin } from "@/constants";
 import { debug } from "@/server/debugger";
 import { CliFlow, WebFlow } from "@/server/flows";
 import logger, { setLogger } from "@/server/logger";
@@ -19,7 +21,7 @@ import { registerGlobalProxy } from "@/server/proxy-agent";
 
 import { AuthCore, type User } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
-import { type Config, type PackageAccess, ParsedPluginConfig } from "./Config";
+import { type OpenIDConfig, type PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
 
@@ -31,24 +33,34 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
   private readonly provider: AuthProvider;
   private readonly core: AuthCore;
 
-  constructor(config: Config, params: { logger: Logger }) {
-    setLogger(params.logger);
+  constructor(config: OpenIDConfig, options: PluginOptions<OpenIDConfig>) {
+    setLogger(options.logger);
+
+    const verdaccioConfig = options.config;
 
     registerGlobalProxy({
-      http_proxy: config.http_proxy,
-      https_proxy: config.https_proxy,
-      no_proxy: config.no_proxy,
+      http_proxy: verdaccioConfig.http_proxy,
+      https_proxy: verdaccioConfig.https_proxy,
+      no_proxy: verdaccioConfig.no_proxy,
     });
 
-    this.config = new ParsedPluginConfig(config);
-    this.provider = new OpenIDConnectAuthProvider(this.config);
-    this.core = new AuthCore(this.config, this.provider);
+    const parsedConfig = new ParsedPluginConfig(config, verdaccioConfig);
+    const provider = new OpenIDConnectAuthProvider(parsedConfig);
+    const core = new AuthCore(parsedConfig, provider);
+
+    this.config = parsedConfig;
+    this.provider = provider;
+    this.core = core;
+  }
+
+  public get version(): string {
+    return plugin.version;
   }
 
   /**
    * IPluginMiddleware
    */
-  register_middlewares(app: Application, auth) {
+  register_middlewares(app: Application, auth: IBasicAuth<any>, _storage) {
     this.core.setAuth(auth as Auth);
 
     const children = [
@@ -119,7 +131,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     const grant = this.checkPackageAccess(user, config.access);
     if (!grant) {
-      logger.info(
+      logger.debug(
         { username: user.name, package: config.name },
         `user "@{username}" is not allowed to access "@{package}"`,
       );

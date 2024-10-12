@@ -88,9 +88,9 @@ export class AuthCore {
    */
   private initConfiguredGroups(packages: Record<string, PackageAccess> = {}): string[] {
     for (const packageConfig of Object.values(packages)) {
-      const groups = ["access", "publish", "unpublish"]
-        .flatMap((key) => packageConfig[key] as string[])
-        .filter(Boolean);
+      const groups = (["access", "publish", "unpublish"] as const)
+        .flatMap((key) => packageConfig[key])
+        .filter(Boolean) as string[];
 
       return [...new Set(groups)];
     }

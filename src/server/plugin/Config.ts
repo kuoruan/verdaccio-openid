@@ -1,11 +1,7 @@
 import process from "node:process";
 
 import { defaultSecurity } from "@verdaccio/config";
-import type {
-  Config as IncorrectVerdaccioConfig,
-  PackageAccess as IncorrectVerdaccioPackageAccess,
-  Security,
-} from "@verdaccio/types";
+import type { Config, PackageAccess as IncorrectPackageAccess, PackageList, Security } from "@verdaccio/types";
 import merge from "deepmerge";
 import { mixed, object, Schema, string } from "yup";
 
@@ -13,20 +9,13 @@ import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import logger from "@/server/logger";
 
-// Verdaccio incorrectly types some of these as string arrays
-// although they are all strings.
-export type PackageAccess = IncorrectVerdaccioPackageAccess & {
-  unpublish?: string[];
-};
-
-export type VerdaccioConfig = IncorrectVerdaccioConfig & {
-  packages?: Record<string, PackageAccess>;
-  security?: Partial<Security>;
-};
-
 type ProviderType = "gitlab";
 
-export interface PluginConfig {
+export interface PackageAccess extends IncorrectPackageAccess {
+  unpublish?: string[];
+}
+
+export interface OpenIDConfig {
   "provider-host": string;
   "provider-type"?: ProviderType;
   "configuration-uri"?: string;
@@ -43,13 +32,6 @@ export interface PluginConfig {
   "authorized-groups"?: string | string[] | boolean;
   "group-users"?: string | Record<string, string[]>;
 }
-
-export interface OpenIdConfig {
-  middlewares: Record<"openid", PluginConfig>;
-  auth: Record<"openid", PluginConfig>;
-}
-
-export type Config = OpenIdConfig & VerdaccioConfig;
 
 export interface ConfigHolder {
   providerHost: string;
@@ -107,61 +89,55 @@ function handleValidationError(error: any, key: string) {
   process.exit(1);
 }
 
-function getOpenIdConfigValue<T>(config: OpenIdConfig, key: keyof PluginConfig, schema: Schema): T {
-  const valueOrEnvironmentName = config.auth?.[pluginKey]?.[key] ?? config.middlewares?.[pluginKey]?.[key];
-
-  /**
-   * If the value is not defined in the config, use the plugin name and key as the environment variable name.
-   *
-   * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
-   */
-  const environmentName: string =
-    typeof valueOrEnvironmentName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrEnvironmentName)
-      ? valueOrEnvironmentName
-      : `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
-
-  /**
-   * Allow environment variables to be used as values.
-   */
-  const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
-
-  try {
-    schema.validateSync(value);
-  } catch (error: any) {
-    handleValidationError(error, key);
-  }
-
-  return value as T;
-}
-
 export class ParsedPluginConfig implements ConfigHolder {
-  constructor(public readonly config: Config) {
-    for (const node of ["middlewares", "auth"] satisfies (keyof OpenIdConfig)[]) {
-      const object_ = config[node]?.[pluginKey];
+  constructor(
+    private readonly config: OpenIDConfig,
+    private readonly verdaccioConfig: Config,
+  ) {}
 
-      if (!object_) {
-        throw new Error(`"${node}.${pluginKey}" must be defined in the verdaccio config.`);
-      }
-    }
-  }
-
-  public get secret() {
-    return this.config.secret;
+  public get secret(): string {
+    return this.verdaccioConfig.secret;
   }
 
   public get security(): Security {
-    return merge(defaultSecurity, this.config.security || {});
+    return merge(defaultSecurity, this.verdaccioConfig.security ?? {});
   }
 
-  public get packages() {
-    return this.config.packages ?? {};
+  public get packages(): PackageList {
+    return this.verdaccioConfig.packages ?? {};
   }
   public get urlPrefix(): string {
-    return this.config.url_prefix ?? "";
+    return this.verdaccioConfig.url_prefix ?? "";
   }
 
-  private getConfigValue<T>(key: keyof PluginConfig, schema: Schema): T {
-    return getOpenIdConfigValue<T>(this.config, key, schema);
+  private getConfigValue<T>(key: keyof OpenIDConfig, schema: Schema): T {
+    const valueOrEnvironmentName =
+      this.config[key] ??
+      this.verdaccioConfig.auth?.[pluginKey]?.[key] ??
+      this.verdaccioConfig.middlewares?.[pluginKey]?.[key];
+
+    /**
+     * If the value is not defined in the config, use the plugin name and key as the environment variable name.
+     *
+     * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
+     */
+    const environmentName: string =
+      typeof valueOrEnvironmentName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrEnvironmentName)
+        ? valueOrEnvironmentName
+        : `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
+
+    /**
+     * Allow environment variables to be used as values.
+     */
+    const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
+
+    try {
+      schema.validateSync(value);
+    } catch (error: any) {
+      handleValidationError(error, key);
+    }
+
+    return value as T;
   }
 
   public get providerHost() {
