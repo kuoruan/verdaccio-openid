@@ -127,6 +127,8 @@ export class AuthCore {
    * @returns groups or undefined
    */
   getUserGroups(username: string): string[] | undefined {
+    if (!this.groupUsers) return undefined;
+
     const groupUsers = { ...this.groupUsers };
 
     return Object.keys(groupUsers).filter((group) => {
