@@ -4,7 +4,7 @@ import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import { debug } from "@/server/debugger";
 
-import type { AuthProvider, Token } from "./AuthProvider";
+import type { AuthProvider, OpenIDToken } from "./AuthProvider";
 import type { PackageAccess, ParsedPluginConfig } from "./Config";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
@@ -14,6 +14,7 @@ export interface User {
 }
 
 interface UserPayload {
+  sub?: string;
   /** User Name */
   n: string;
   /** User Groups */
@@ -22,6 +23,7 @@ interface UserPayload {
   exp: number;
 }
 interface AccessTokenPayload {
+  sub?: string;
   /** Access Token */
   at: string;
 }
@@ -184,7 +186,7 @@ export class AuthCore {
     return authenticated;
   }
 
-  issueNpmToken(username: string, realGroups: string[], providerToken: Token): Promise<string> {
+  issueNpmToken(username: string, realGroups: string[], providerToken: OpenIDToken): Promise<string> {
     if (isAESLegacy(this.security)) {
       debug("using legacy encryption for npm token");
 
@@ -274,7 +276,7 @@ export class AuthCore {
     };
   }
 
-  private legacyEncrypt(username: string, realGroups: string[], providerToken: Token): string {
+  private legacyEncrypt(username: string, realGroups: string[], providerToken: OpenIDToken): string {
     if (!this.auth) {
       throw new ReferenceError("Unexpected error, auth is not initialized");
     }
@@ -291,11 +293,13 @@ export class AuthCore {
       // we use the provider expire time or token to check if the token is still valid
       u = providerToken.expiresAt
         ? {
+            sub: providerToken.subject,
             n: username,
             g: [...realGroups],
             exp: providerToken.expiresAt,
           }
         : {
+            sub: providerToken.subject,
             at: providerToken.accessToken,
           };
     }

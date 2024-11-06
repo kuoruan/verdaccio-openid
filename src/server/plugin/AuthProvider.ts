@@ -1,6 +1,7 @@
 import type { Request } from "express";
 
-export interface TokenSet {
+export interface TokenInfo {
+  subject?: string;
   accessToken: string;
   idToken?: string;
   // We not use the expires_in field
@@ -9,7 +10,7 @@ export interface TokenSet {
 }
 
 // when token is string, it is a access token
-export type Token = TokenSet | string;
+export type OpenIDToken = TokenInfo | string;
 
 export interface ProviderUser {
   name: string;
@@ -20,6 +21,6 @@ export interface AuthProvider {
   getId(): string;
   getLoginUrl(request: Request): string;
 
-  getToken(callbackRequest: Request): Promise<Token>;
-  getUserinfo(providerToken: Token): Promise<ProviderUser>;
+  getToken(callbackRequest: Request): Promise<OpenIDToken>;
+  getUserinfo(providerToken: OpenIDToken): Promise<ProviderUser>;
 }

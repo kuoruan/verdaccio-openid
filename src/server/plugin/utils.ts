@@ -3,8 +3,6 @@ import { createHash } from "node:crypto";
 import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
 
-import type { Token } from "./AuthProvider";
-
 /**
  * Encode a string to base64
  *
@@ -26,29 +24,17 @@ export function base64Decode(str: string): string {
 }
 
 /**
- * Get a hash of the token
+ * Get hash of any object
  *
- * @param token
+ * @param obj
  * @returns {string}
  */
-export function hashToken(token: Token): string {
-  if (typeof token === "string") return token;
+export function hashObject(obj: any): string {
+  if (typeof obj === "string") return obj;
 
-  const str = JSON.stringify(token);
+  const str = JSON.stringify(obj);
 
   return createHash("sha256").update(str).digest("hex");
-}
-
-/**
- * Get the access token from the token set
- *
- * @param token
- * @returns {string}
- */
-export function extractAccessToken(token: Token): string {
-  if (typeof token === "string") return token;
-
-  return token.accessToken;
 }
 
 /**

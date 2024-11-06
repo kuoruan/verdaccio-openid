@@ -1,14 +1,29 @@
 import { Groups } from "@gitbeaker/rest";
 import TTLCache from "@isaacs/ttlcache";
 import type { Request } from "express";
-import { type Client, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
+import {
+  type Client,
+  custom,
+  type CustomHttpOptionsProvider,
+  generators,
+  Issuer,
+  type OpenIDCallbackChecks,
+} from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
-import type { AuthProvider, ProviderUser, Token, TokenSet } from "@/server/plugin/AuthProvider";
+import type { AuthProvider, OpenIDToken, ProviderUser, TokenInfo } from "@/server/plugin/AuthProvider";
 import type { ConfigHolder } from "@/server/plugin/Config";
-import { extractAccessToken, getBaseUrl, getClaimsFromIdToken, hashToken } from "@/server/plugin/utils";
+import { getBaseUrl, getClaimsFromIdToken, hashObject } from "@/server/plugin/utils";
+
+const CLIENT_HTTP_TIMEOUT = 30 * 1000; // 30s
+
+const httpOptionsProvider: CustomHttpOptionsProvider = (_, options) => {
+  options.timeout = CLIENT_HTTP_TIMEOUT;
+
+  return options;
+};
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
@@ -45,6 +60,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     const configurationUri = this.config.configurationUri;
 
+    Issuer[custom.http_options] = httpOptionsProvider;
+
     if (configurationUri) {
       issuer = await Issuer.discover(configurationUri);
     } else {
@@ -71,11 +88,18 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       }
     }
 
-    this.client = new issuer.Client({
+    issuer[custom.http_options] = httpOptionsProvider;
+    issuer.Client[custom.http_options] = httpOptionsProvider;
+
+    const client = new issuer.Client({
       client_id: this.config.clientId,
       client_secret: this.config.clientSecret,
       response_types: ["code"],
     });
+
+    client[custom.http_options] = httpOptionsProvider;
+
+    this.client = client;
   }
 
   getId(): string {
@@ -105,7 +129,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param callbackRequest
    * @returns
    */
-  async getToken(callbackRequest: Request): Promise<TokenSet> {
+  async getToken(callbackRequest: Request): Promise<TokenInfo> {
     const parameters = this.discoveredClient.callbackParams(callbackRequest.url);
 
     debug("Receive callback parameters, %j", parameters);
@@ -140,12 +164,19 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     let expiresAt = tokens.expires_at;
+    const claims = tokens.claims();
+
+    if (!expiresAt && tokens.expires_in) {
+      expiresAt = Math.trunc(Date.now() / 1000) + tokens.expires_in;
+    }
+
     // if expires_at is not set, try to get it from the id_token
     if (!expiresAt && tokens.id_token) {
-      expiresAt = getClaimsFromIdToken(tokens.id_token).exp as number;
+      expiresAt = claims.exp;
     }
 
     return {
+      subject: claims.sub,
       accessToken: tokens.access_token,
       idToken: tokens.id_token,
       expiresAt: expiresAt,
@@ -158,7 +189,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param token
    * @returns
    */
-  private getUserinfoFromIdToken(token: TokenSet): Record<string, unknown> {
+  private getUserinfoFromIdToken(token: TokenInfo): Record<string, unknown> {
     const idToken = token.idToken;
     if (!idToken) {
       throw new TypeError("No id_token found in token");
@@ -172,12 +203,22 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param token
    * @returns
    */
-  private async getUserinfoFromEndpoint(token: Token): Promise<Record<string, unknown>> {
-    const key = hashToken(token);
+  private async getUserinfoFromEndpoint(token: OpenIDToken): Promise<Record<string, unknown>> {
+    let accessToken: string;
+    let key: string;
+
+    if (typeof token === "string") {
+      accessToken = token;
+      key = token;
+    } else {
+      accessToken = token.accessToken;
+      key = token.subject ?? hashObject(token);
+    }
 
     let userinfo = this.userinfoCache.get(key);
+
     if (!userinfo) {
-      userinfo = await this.discoveredClient.userinfo<Record<string, unknown>>(extractAccessToken(token));
+      userinfo = await this.discoveredClient.userinfo<Record<string, unknown>>(accessToken);
 
       this.userinfoCache.set(key, userinfo);
     }
@@ -190,7 +231,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param token
    * @returns
    */
-  async getUserinfo(token: Token): Promise<ProviderUser> {
+  async getUserinfo(token: OpenIDToken): Promise<ProviderUser> {
     let userinfo: Record<string, unknown>;
 
     let username: unknown, groups: unknown;
@@ -252,8 +293,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param providerType
    * @returns
    */
-  private async getGroupsWithProviderType(token: Token, providerType: string): Promise<string[]> {
-    const key = hashToken(token);
+  private async getGroupsWithProviderType(token: OpenIDToken, providerType: string): Promise<string[]> {
+    const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
 
     let groups = this.groupsCache.get(key);
 
@@ -279,10 +320,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param token
    * @returns {Promise<string[]>} The groups the user is in.
    */
-  async getGitlabGroups(token: Token): Promise<string[]> {
+  async getGitlabGroups(token: OpenIDToken): Promise<string[]> {
     const group = new Groups({
       host: this.providerHost,
-      oauthToken: extractAccessToken(token),
+      oauthToken: typeof token === "string" ? token : token.accessToken,
     });
 
     const userGroups = await group.all();
