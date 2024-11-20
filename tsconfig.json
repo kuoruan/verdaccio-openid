@@ -1,9 +1,9 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["ES2023"], // Node 18
     "module": "ESNext",
-    "target": "ESNext",
+    "target": "ES2022",
     "baseUrl": ".",
     "esModuleInterop": true,
     "isolatedModules": true,
