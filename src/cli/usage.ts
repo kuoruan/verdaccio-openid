@@ -1,4 +1,4 @@
-import { cliName } from "@/constants";
+import { plugin } from "@/constants";
 
 import logger from "./logger";
 import { getRegistryUrl } from "./npm";
@@ -15,7 +15,7 @@ export function getUsageInfo() {
     "",
     "Or by using the registry argument:",
     "",
-    `npx ${cliName} --registry <URL>`,
+    `npx ${plugin.name} --registry <URL>`,
     "========================================================",
   ];
 }
