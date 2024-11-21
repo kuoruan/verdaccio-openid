@@ -1,4 +1,5 @@
 import eslint from "@eslint/js";
+import importResolverNext from "eslint-import-resolver-next";
 import pluginImportX from "eslint-plugin-import-x";
 import pluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import pluginSimpleImportSort from "eslint-plugin-simple-import-sort";
@@ -69,12 +70,13 @@ export default tseslint.config(
       "@typescript-eslint/no-base-to-string": "off",
     },
     settings: {
-      "import-x/resolver": {
-        node: {},
-        typescript: {
-          project: "./tsconfig.json",
+      "import-x/resolver": [
+        {
+          name: "next",
+          resolver: importResolverNext,
+          options: {},
         },
-      },
+      ],
     },
   },
   {
