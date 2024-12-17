@@ -22,9 +22,7 @@
   "module": "./dist/server/index.mjs",
   "bin": "./dist/verdaccio-openid.mjs",
   "files": [
-    "dist",
-    "LICENSE",
-    "README.md"
+    "dist"
   ],
   "scripts": {
     "build": "rimraf dist && rollup -c --environment NODE_ENV:production",
