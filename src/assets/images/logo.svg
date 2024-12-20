@@ -1,29 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="100" height="100" viewBox="0 0 100 100">
-  <defs>
-    <filter id="a" width="139.6%" height="140.4%" x="-19.8%" y="-11.7%" filterUnits="objectBoundingBox">
-      <feOffset dy="4" in="SourceAlpha" result="shadowOffsetOuter1"/>
-      <feGaussianBlur in="shadowOffsetOuter1" result="shadowBlurOuter1" stdDeviation="2.5"/>
-      <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"/>
-      <feColorMatrix in="shadowBlurOuter1" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.0906646286 0"/>
-    </filter>
-    <filter id="c" width="167.9%" height="272.7%" x="-33.9%" y="-50%" filterUnits="objectBoundingBox">
-      <feOffset dy="4" in="SourceAlpha" result="shadowOffsetOuter1"/>
-      <feGaussianBlur in="shadowOffsetOuter1" result="shadowBlurOuter1" stdDeviation="2.5"/>
-      <feColorMatrix in="shadowBlurOuter1" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.0906646286 0"/>
-    </filter>
-    <path id="b" d="M48 16.729 32.672 47h-8.874L0 0h15.328l12.907 25.492 4.437-8.763H48z"/>
-    <path id="d" d="M35.2 11H28V8.643h8.4l1.2-2.357H32V3.929h6.8l.8-1.572H36V0h20l-5.6 11H35.2Z"/>
-  </defs>
-  <g fill="none" fill-rule="evenodd">
-    <rect width="100" height="100" fill="#000" rx="37"/>
-    <g transform="translate(22 30)">
-      <use xlink:href="#b" fill="#000" filter="url(#a)"/>
-      <use xlink:href="#b" fill="#FFF" fill-opacity=".6"/>
-    </g>
-    <g transform="translate(22 30)">
-      <use xlink:href="#d" fill="#000" filter="url(#c)"/>
-      <use xlink:href="#d" fill="#FFF"/>
-    </g>
-    <path fill="#FFF" d="M54.785 77H45.88L22 30h15.381L58 70.718z"/>
+<svg width="65" height="57" viewBox="0 0 65 57" xmlns="http://www.w3.org/2000/svg">
+  <g fill="none" stroke-width="2.4">
+    <!-- Main shape -->
+    <path d="M46.06 18.8L33.54 18.8L28.4 29.08L14.86 2H2.34L24.74 46.8H32.06L46.06 18.8Z"
+          fill="#405236"
+          stroke="#405236"/>
+
+    <!-- Top triangle -->
+    <path d="M50.06 10.8L54.46 2H41.94L37.54 10.8H50.06Z"
+          fill="#CD4000"
+          stroke="#CD4000"/>
+
+    <!-- Darker overlay -->
+    <path d="M32.06 46.8L34.64 41.69L14.86 2H2.34L24.74 46.8H32.06Z"
+          fill="#4A5E3F"
+          stroke="#405236"/>
+
+    <!-- Orange lines -->
+    <line x1="37.6" y1="2" x2="52.82" y2="2" stroke="#CD4000" stroke-linecap="square"/>
+    <line x1="33.6" y1="6" x2="48.82" y2="6" stroke="#CD4000" stroke-linecap="square"/>
+    <line x1="29.6" y1="10.8" x2="44.82" y2="10.8" stroke="#CD4000" stroke-linecap="square"/>
   </g>
 </svg>
