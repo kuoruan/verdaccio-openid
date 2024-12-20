@@ -1,23 +1,11 @@
-<svg width="65" height="57" viewBox="0 0 65 57" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 57 49" width="57" height="49">
   <g fill="none" stroke-width="2.4">
-    <!-- Main shape -->
-    <path d="M46.06 18.8L33.54 18.8L28.4 29.08L14.86 2H2.34L24.74 46.8H32.06L46.06 18.8Z"
-          fill="#405236"
-          stroke="#405236"/>
-
-    <!-- Top triangle -->
-    <path d="M50.06 10.8L54.46 2H41.94L37.54 10.8H50.06Z"
-          fill="#CD4000"
-          stroke="#CD4000"/>
-
-    <!-- Darker overlay -->
-    <path d="M32.06 46.8L34.64 41.69L14.86 2H2.34L24.74 46.8H32.06Z"
-          fill="#4A5E3F"
-          stroke="#405236"/>
-
-    <!-- Orange lines -->
-    <line x1="37.6" y1="2" x2="52.82" y2="2" stroke="#CD4000" stroke-linecap="square"/>
-    <line x1="33.6" y1="6" x2="48.82" y2="6" stroke="#CD4000" stroke-linecap="square"/>
-    <line x1="29.6" y1="10.8" x2="44.82" y2="10.8" stroke="#CD4000" stroke-linecap="square"/>
+    <path fill="#405236" stroke="#405236" d="M46.06 18.8H33.54L28.4 29.08 14.86 2H2.34l22.4 44.8h7.32l14-28Z"/>
+    <path fill="#4A5E3F" stroke="#405236" d="m32.06 46.8 2.58-5.11L14.86 2H2.34l22.4 44.8h7.32Z"/>
+    <path fill="#CD4000" stroke="#CD4000" d="m50.06 10.8 4.4-8.8H41.94l-4.4 8.8h12.52Z"/>
+    <g stroke="#CD4000" stroke-linecap="square">
+      <path d="M37.6 2h15.22M33.6 6h15.22M29.6 10.8h15.22"/>
+    </g>
   </g>
+
 </svg>
