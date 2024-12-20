@@ -18,3 +18,5 @@ export const logoutHref = "/";
 export const cliPort = 8239;
 export const cliProviderId = "cli";
 export const cliAuthorizeUrl = "/oauth/authorize";
+
+export const messageGroupRequired = "You are not a member of the required access group.";

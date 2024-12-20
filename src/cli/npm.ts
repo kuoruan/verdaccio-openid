@@ -13,7 +13,7 @@ function parseCliArgs() {
 }
 
 function runCommand(command: string): string {
-  logger.info(`Running command:`, colors.blackBright(command));
+  logger.info("Running command:", colors.blackBright(command));
 
   return execSync(command).toString();
 }

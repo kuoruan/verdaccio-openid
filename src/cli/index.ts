@@ -6,11 +6,10 @@ import open from "open";
 import { cliPort, cliProviderId } from "@/constants";
 import { getAuthorizePath } from "@/redirect";
 
-import { respondWithCliMessage } from "./cli-response";
 import logger from "./logger";
 import { saveNpmToken } from "./npm";
+import { respondWithCliMessage, respondWithWebPage } from "./response";
 import { validateRegistry } from "./usage";
-import { respondWithWebPage } from "./web-response";
 
 const registry = validateRegistry();
 const authorizeUrl = registry + getAuthorizePath(cliProviderId);

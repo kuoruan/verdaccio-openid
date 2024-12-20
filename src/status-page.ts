@@ -1,5 +1,5 @@
 import Logo from "@/assets/images/logo.svg";
-import { plugin } from "@/constants";
+import { messageGroupRequired, plugin } from "@/constants";
 
 const styles = `
 html,
@@ -24,12 +24,14 @@ a {
 }
 .img {
   filter: drop-shadow(0 0.5rem 0.5rem #24292F80);
-  width: 100px;
-  height: 100px;
+  width: 114px;
+  height: 98px;
 }
 `;
 
-export function buildStatusPage(body: string, withBack: boolean, backUrl = "/"): string {
+export type BackOptions = boolean | Record<"backUrl", string>;
+
+export function buildStatusPage(body: string, withBack: BackOptions = false): string {
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -40,26 +42,24 @@ export function buildStatusPage(body: string, withBack: boolean, backUrl = "/"):
     <div class="wrap">
       <img src="${Logo}" class="img" alt="logo" />
       ${body}
-      ${withBack ? `<p><a href="${backUrl}">Go back</a></p>` : ""}
+      ${withBack ? `<p><a href="${typeof withBack === "object" ? withBack.backUrl : "javascript:history.back()"}">Go back</a></p>` : ""}
     </div>
   </body>
 </html>`;
 }
 
-export function buildErrorPage(error: any, withBack: boolean, backUrl?: string) {
+export function buildErrorPage(error: any, withBack: BackOptions = false) {
   return buildStatusPage(
     `<h1>Sorry :(</h1>
     <p>${error?.message || error}</p>`,
     withBack,
-    backUrl,
   );
 }
 
-export function buildAccessDeniedPage(withBack: boolean, backUrl?: string) {
+export function buildAccessDeniedPage(withBack: BackOptions = false) {
   return buildStatusPage(
     `<h1>Access Denied</h1>
-    <p>You are not a member of the required access group.</p>`,
+    <p>${messageGroupRequired}</p>`,
     withBack,
-    backUrl,
   );
 }

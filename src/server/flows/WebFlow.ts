@@ -54,8 +54,6 @@ export class WebFlow implements IPluginMiddleware<any> {
    * automatically reversed by verdaccio before passing it to the plugin.
    */
   callback: Handler = async (req, res) => {
-    const withBackButton = true;
-
     const baseUrl = getBaseUrl(this.config.urlPrefix, req);
 
     try {
@@ -83,12 +81,12 @@ export class WebFlow implements IPluginMiddleware<any> {
 
         res.redirect(redirectUrl);
       } else {
-        res.status(401).send(buildAccessDeniedPage(withBackButton, baseUrl));
+        res.status(401).send(buildAccessDeniedPage({ backUrl: baseUrl }));
       }
     } catch (e: any) {
       logger.error({ message: e.message || e }, "auth error: @{message}");
 
-      res.status(500).send(buildErrorPage(e, withBackButton, baseUrl));
+      res.status(500).send(buildErrorPage(e, { backUrl: baseUrl }));
     }
   };
 }
