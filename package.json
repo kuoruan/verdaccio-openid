@@ -26,7 +26,7 @@
   ],
   "scripts": {
     "build": "rimraf dist && rollup -c --environment NODE_ENV:production",
-    "start": "cross-env DEBUG='verdaccio:*' verdaccio -c verdaccio/verdaccio.yml",
+    "start": "cross-env DEBUG='verdaccio:*' node_modules/verdaccio/bin/verdaccio -c verdaccio/verdaccio.yml",
     "start:5": "cross-env DEBUG='verdaccio:*' node_modules/verdaccio5/bin/verdaccio -c verdaccio5/verdaccio.yml",
     "lint": "eslint .",
     "lint:fix": "eslint --fix .",
