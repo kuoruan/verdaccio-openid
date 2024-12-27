@@ -5,7 +5,7 @@ import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 import { debug } from "@/server/debugger";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
-import type { PackageAccess, ParsedPluginConfig } from "./Config";
+import type { ConfigHolder, PackageAccess } from "./Config";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
 export interface User {
@@ -49,7 +49,7 @@ export class AuthCore {
 
   private auth?: Auth;
 
-  constructor(config: ParsedPluginConfig, provider: AuthProvider) {
+  constructor(config: ConfigHolder, provider: AuthProvider) {
     this.provider = provider;
 
     this.configSecret = config.secret;

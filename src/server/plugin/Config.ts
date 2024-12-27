@@ -36,18 +36,23 @@ export interface OpenIDConfig {
 export interface ConfigHolder {
   providerHost: string;
   providerType?: string;
-  issuer?: string;
   configurationUri?: string;
-  scope: string;
-  usernameClaim: string;
-  groupsClaim?: string;
+  issuer?: string;
   authorizationEndpoint?: string;
   tokenEndpoint?: string;
   userinfoEndpoint?: string;
   jwksUri?: string;
+  scope: string;
   clientId: string;
   clientSecret: string;
+  usernameClaim: string;
+  groupsClaim?: string;
+  authorizedGroups: string | string[] | boolean;
+  groupUsers?: Record<string, string[]>;
+
   urlPrefix: string;
+  secret: string;
+  security: Security;
   packages: Record<string, PackageAccess>;
 }
 
@@ -199,18 +204,18 @@ export class ParsedPluginConfig implements ConfigHolder {
 
   public get authorizedGroups() {
     return (
-      this.getConfigValue<unknown>(
+      this.getConfigValue<string | string[] | boolean>(
         "authorized-groups",
         mixed()
           .test({
             name: "is-string-array-or-boolean",
             skipAbsent: true,
-            message: "must be a string[] or a boolean",
+            message: "must be a string, string[] or a boolean",
             test: (value) => {
               if (Array.isArray(value)) {
                 return value.every((item) => typeof item === "string");
               }
-              return typeof value === "boolean";
+              return typeof value === "string" || typeof value === "boolean";
             },
           })
           .optional(),
