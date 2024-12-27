@@ -13,15 +13,16 @@ import type {
 import type { Application } from "express";
 
 import { plugin } from "@/constants";
+import ParsedPluginConfig, { type OpenIDConfig, type PackageAccess } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import { CliFlow, WebFlow } from "@/server/flows";
 import logger, { setLogger } from "@/server/logger";
 import { OpenIDConnectAuthProvider } from "@/server/openid";
 import { registerGlobalProxy } from "@/server/proxy-agent";
+import { createStore } from "@/server/store";
 
 import { AuthCore, type User } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
-import { type OpenIDConfig, type PackageAccess, ParsedPluginConfig } from "./Config";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
 
@@ -45,7 +46,10 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     });
 
     const parsedConfig = new ParsedPluginConfig(config, verdaccioConfig);
-    const provider = new OpenIDConnectAuthProvider(parsedConfig);
+
+    const store = createStore(parsedConfig);
+
+    const provider = new OpenIDConnectAuthProvider(parsedConfig, store);
     const core = new AuthCore(parsedConfig, provider);
 
     this.config = parsedConfig;

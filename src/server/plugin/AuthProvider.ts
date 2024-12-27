@@ -19,7 +19,7 @@ export interface ProviderUser {
 
 export interface AuthProvider {
   getId(): string;
-  getLoginUrl(request: Request): string;
+  getLoginUrl(request: Request): Promise<string>;
 
   getToken(callbackRequest: Request): Promise<OpenIDToken>;
   getUserinfo(providerToken: OpenIDToken): Promise<ProviderUser>;

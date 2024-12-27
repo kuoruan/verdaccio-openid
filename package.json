@@ -44,6 +44,8 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "global-agent": "^3.0.0",
+    "ioredis": "^5.4.2",
+    "lowdb": "^7.0.1",
     "minimist": "^1.2.8",
     "open": "^10.1.0",
     "openid-client": "^5.7.1",
