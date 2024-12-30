@@ -1,6 +1,13 @@
 import TTLCache from "@isaacs/ttlcache";
 
-import { BaseStore, CACHE_TTL, type InMemoryConfig, STATE_TTL, type Store } from "./Store";
+import {
+  BaseStore,
+  type InMemoryConfig,
+  STATE_TTL,
+  type Store,
+  USER_GROUPS_CACHE_TTL,
+  USER_INFO_CACHE_TTL,
+} from "./Store";
 
 const defaultOptions = {
   ttl: STATE_TTL,
@@ -16,8 +23,8 @@ export default class InMemoryStore extends BaseStore implements Store {
     const { max, ttl } = { ...defaultOptions, ...opts };
 
     this.stateCache = new TTLCache({ max, ttl });
-    this.userinfoCache = new TTLCache({ max: 1000, ttl: CACHE_TTL });
-    this.groupsCache = new TTLCache({ max: 1000, ttl: CACHE_TTL });
+    this.userinfoCache = new TTLCache({ max: 1000, ttl: USER_INFO_CACHE_TTL });
+    this.groupsCache = new TTLCache({ max: 1000, ttl: USER_GROUPS_CACHE_TTL });
   }
 
   setState(key: string, nonce: string, providerId: string): void {

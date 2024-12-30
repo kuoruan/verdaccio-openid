@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import { defaultSecurity } from "@verdaccio/config";
 import type { Config, PackageAccess as IncorrectPackageAccess, PackageList, Security } from "@verdaccio/types";
 import merge from "deepmerge";
@@ -10,7 +8,7 @@ import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import { type InMemoryConfig, type StoreConfigMap, StoreType } from "@/server/store/Store";
 
 import { InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
-import { getEnvironmentValue, handleValidationError } from "./utils";
+import { getEnvironmentValue, getStoreFilePath, handleValidationError } from "./utils";
 
 type ProviderType = "gitlab";
 
@@ -258,11 +256,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
       case StoreType.File: {
         const config = this.getConfigValue<string>(configKey, string().required());
 
-        const filePath = path.isAbsolute(config)
-          ? config
-          : path.normalize(
-              path.join(path.dirname(this.verdaccioConfig.self_path || this.verdaccioConfig.configPath), config),
-            );
+        const filePath = getStoreFilePath(this.verdaccioConfig.self_path || this.verdaccioConfig.configPath, config);
 
         return filePath as StoreConfigMap[T];
       }

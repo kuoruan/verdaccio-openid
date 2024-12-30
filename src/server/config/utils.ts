@@ -1,3 +1,4 @@
+import path from "node:path";
 import process from "node:process";
 
 import { pluginKey } from "@/constants";
@@ -39,4 +40,8 @@ export function handleValidationError(error: any, ...keyPaths: string[]) {
     `invalid configuration at "@{key}": @{message} — Please check your verdaccio config.`,
   );
   process.exit(1);
+}
+
+export function getStoreFilePath(configPath: string, storePath: string): string {
+  return path.isAbsolute(storePath) ? storePath : path.normalize(path.join(path.dirname(configPath), storePath));
 }

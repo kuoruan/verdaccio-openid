@@ -134,7 +134,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       throw new URIError("No state parameter found in callback request");
     }
 
-    const nonce = (await this.store.getState(state, this.getId())) as string | undefined;
+    const nonce = await this.store.getState(state, this.getId());
 
     if (!nonce) {
       throw new URIError("State parameter does not match a known state");
@@ -211,12 +211,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       key = token.subject ?? hashObject(token);
     }
 
-    let userinfo: Record<string, unknown> | undefined;
+    let userinfo: Record<string, unknown> | null | undefined;
 
     try {
       userinfo = await this.store.getUserInfo?.(key, this.getId());
-    } catch (e: any) {
-      logger.warn({ message: e.message }, "Could not get userinfo cache: @{message}");
+    } catch {
+      debug("No userinfo cache found for key: %s", key);
     }
 
     if (!userinfo) {
@@ -302,12 +302,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private async getGroupsWithProviderType(token: OpenIDToken, providerType: string): Promise<string[]> {
     const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
 
-    let groups: string[] | undefined;
+    let groups: string[] | null | undefined;
 
     try {
       groups = await this.store.getUserGroups?.(key, this.getId());
-    } catch (e: any) {
-      logger.warn({ message: e.message }, "Could not get user groups cache: @{message}");
+    } catch {
+      debug("No user groups cache found for key: %s", key);
     }
 
     if (groups) return groups;

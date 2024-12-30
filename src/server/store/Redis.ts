@@ -1,6 +1,13 @@
 import Redis, { type RedisCommander } from "ioredis";
 
-import { BaseStore, type RedisConfig, STATE_TTL, type Store } from "./Store";
+import {
+  BaseStore,
+  type RedisConfig,
+  STATE_TTL,
+  type Store,
+  USER_GROUPS_CACHE_TTL,
+  USER_INFO_CACHE_TTL,
+} from "./Store";
 
 const defaultOptions = {
   ttl: STATE_TTL,
@@ -30,14 +37,24 @@ export default class RedisStore extends BaseStore implements Store {
     }
   }
 
+  private async isKeyExists(key: string): Promise<boolean> {
+    const times = await this.redis.exists(key);
+
+    return times > 0;
+  }
+
   async setState(key: string, nonce: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
     await this.redis.set(stateKey, nonce, "PX", this.ttl);
   }
 
-  getState(key: string, providerId: string): Promise<string | null> {
+  async getState(key: string, providerId: string): Promise<string | null> {
     const stateKey = this.getStateKey(key, providerId);
+
+    const exists = await this.isKeyExists(stateKey);
+
+    if (!exists) return null;
 
     return this.redis.get(stateKey);
   }
@@ -52,11 +69,14 @@ export default class RedisStore extends BaseStore implements Store {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
     await this.redis.hset(userInfoKey, data as Record<string, unknown>);
-    await this.redis.pexpire(userInfoKey, this.ttl);
+    await this.redis.pexpire(userInfoKey, USER_INFO_CACHE_TTL);
   }
 
-  getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {
+  async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | null> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
+
+    const exists = await this.redis.exists(userInfoKey);
+    if (!exists) return null;
 
     return this.redis.hgetall(userInfoKey);
   }
@@ -65,11 +85,14 @@ export default class RedisStore extends BaseStore implements Store {
     const groupsKey = this.getUserGroupsKey(key, providerId);
 
     await this.redis.lpush(groupsKey, ...groups);
-    await this.redis.pexpire(groupsKey, this.ttl);
+    await this.redis.pexpire(groupsKey, USER_GROUPS_CACHE_TTL);
   }
 
-  async getUserGroups(key: string, providerId: string): Promise<string[]> {
+  async getUserGroups(key: string, providerId: string): Promise<string[] | null> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
+
+    const exists = await this.redis.exists(groupsKey);
+    if (!exists) return null;
 
     return this.redis.lrange(groupsKey, 0, -1);
   }
