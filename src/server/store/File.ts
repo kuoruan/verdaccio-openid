@@ -1,6 +1,7 @@
 import storage, { type InitOptions, LocalStorage } from "node-persist";
 
-import logger from "../logger";
+import logger from "@/server/logger";
+
 import { BaseStore, type FileConfig, STATE_TTL, type Store, USER_GROUPS_CACHE_TTL, USER_INFO_CACHE_TTL } from "./Store";
 
 const defaultOptions = {
