@@ -5,9 +5,9 @@ import { mixed, object, Schema, string } from "yup";
 
 import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
-import { type InMemoryConfig, type StoreConfigMap, StoreType } from "@/server/store/Store";
+import { type FileConfig, type InMemoryConfig, type StoreConfigMap, StoreType } from "@/server/store/Store";
 
-import { InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
+import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
 import { getEnvironmentValue, getStoreFilePath, handleValidationError } from "./utils";
 
 type ProviderType = "gitlab";
@@ -254,11 +254,18 @@ export default class ParsedPluginConfig implements ConfigHolder {
       }
 
       case StoreType.File: {
-        const config = this.getConfigValue<string>(configKey, string().required());
+        const config = this.getConfigValue<FileConfig | string>(
+          configKey,
+          mixed().oneOf([FileConfigSchema, string()]).required(),
+        );
 
-        const filePath = getStoreFilePath(this.verdaccioConfig.self_path || this.verdaccioConfig.configPath, config);
+        const configPath = this.verdaccioConfig.self_path || this.verdaccioConfig.configPath;
 
-        return filePath as StoreConfigMap[T];
+        if (typeof config === "string") {
+          return getStoreFilePath(configPath, config);
+        }
+
+        return { ...config, dir: getStoreFilePath(configPath, config.dir) } as StoreConfigMap[T];
       }
 
       default: {

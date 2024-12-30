@@ -60,12 +60,12 @@ importers:
       ioredis:
         specifier: ^5.4.2
         version: 5.4.2
-      lowdb:
-        specifier: ^7.0.1
-        version: 7.0.1
       minimist:
         specifier: ^1.2.8
         version: 1.2.8
+      node-persist:
+        specifier: ^4.0.3
+        version: 4.0.3
       open:
         specifier: ^10.1.0
         version: 10.1.0
@@ -133,6 +133,9 @@ importers:
       '@types/minimist':
         specifier: ^1.2.5
         version: 1.2.5
+      '@types/node-persist':
+        specifier: ^3.1.8
+        version: 3.1.8
       '@verdaccio/types':
         specifier: ^10.8.0
         version: 10.8.0
@@ -1147,6 +1150,9 @@ packages:
 
   '@types/ms@0.7.34':
     resolution: {integrity: sha512-nG96G3Wp6acyAgJqGasjODb+acrI7KltPiRxzHPXnP3NgI28bpQDRv53olbqGXbfcgF5aiiHmO3xpwEpS5Ld9g==}
+
+  '@types/node-persist@3.1.8':
+    resolution: {integrity: sha512-QLidg6/SadZYPrTKxtxL1A85XBoQlG40bhoMdhu6DH6+eNCMr2j+RGfFZ9I9+IY8W/PDwQonJ+iBWD62jZjMfg==}
 
   '@types/node@22.10.2':
     resolution: {integrity: sha512-Xxr6BBRCAOQixvonOye19wnzyDiUtTeqldOOmj3CkeblonbccA12PFwlufvRdrpjXxqnmUaeiU5EOA+7s5diUQ==}
@@ -2578,10 +2584,6 @@ packages:
     resolution: {integrity: sha512-2+x8esE/Wb9SQ1F9IHaYWfsC9FIecLOPrK4g17FGEayjUWH172H6nwicRovGvSE2CPZouc2MCIqCI7h9d+GftQ==}
     engines: {node: '>=4'}
 
-  lowdb@7.0.1:
-    resolution: {integrity: sha512-neJAj8GwF0e8EpycYIDFqEPcx9Qz4GUho20jWFR7YiFeXzF1YMLdxB36PypcTSPMA+4+LvgyMacYhlr18Zlymw==}
-    engines: {node: '>=18'}
-
   lru-cache@11.0.2:
     resolution: {integrity: sha512-123qHRfJBmo2jXDbo/a5YOQrJoHF/GNQTLzQ5+IdK5pWpceK17yRc6ozlWd25FxvGKQbIUs91fDFkXmDHTKcyA==}
     engines: {node: 20 || >=22}
@@ -2757,6 +2759,10 @@ packages:
     peerDependenciesMeta:
       encoding:
         optional: true
+
+  node-persist@4.0.3:
+    resolution: {integrity: sha512-0gDy86TNShzfbpUKFbH8KJFjoovuUgVh/FqL4jrJWYz0cET76Uohl118utG/Ft6wl4sHOPXdRSY7eXH5kVY06w==}
+    engines: {node: '>=10.12.0'}
 
   node-releases@2.0.19:
     resolution: {integrity: sha512-xxOWJsBKtzAq7DY0J+DTzuz58K8e7sJbdgwkbMWQe8UYB6ekmsQ45q0M/tJDsGaZmbC+l7n57UV8Hl5tHxO9uw==}
@@ -3330,10 +3336,6 @@ packages:
 
   steno@0.4.4:
     resolution: {integrity: sha512-EEHMVYHNXFHfGtgjNITnka0aHhiAlo93F7z2/Pwd+g0teG9CnM3JIINM7hVVB5/rhw9voufD7Wukwgtw2uqh6w==}
-
-  steno@4.0.2:
-    resolution: {integrity: sha512-yhPIQXjrlt1xv7dyPQg2P17URmXbuM5pdGkpiMB3RenprfiBlvK415Lctfe0eshk90oA7/tNq7WEiMK8RSP39A==}
-    engines: {node: '>=18'}
 
   stream-shift@1.0.3:
     resolution: {integrity: sha512-76ORR0DO1o1hlKwTbi/DM3EXWGf3ZJYO8cXX5RJwnul2DEg2oyoZyjLNoQM8WsvZiFKCRfC1O0J7iCvie3RZmQ==}
@@ -4782,6 +4784,10 @@ snapshots:
   '@types/minimist@1.2.5': {}
 
   '@types/ms@0.7.34': {}
+
+  '@types/node-persist@3.1.8':
+    dependencies:
+      '@types/node': 22.10.2
 
   '@types/node@22.10.2':
     dependencies:
@@ -6429,10 +6435,6 @@ snapshots:
       pify: 3.0.0
       steno: 0.4.4
 
-  lowdb@7.0.1:
-    dependencies:
-      steno: 4.0.2
-
   lru-cache@11.0.2: {}
 
   lru-cache@5.1.1:
@@ -6564,6 +6566,8 @@ snapshots:
   node-fetch@2.6.7:
     dependencies:
       whatwg-url: 5.0.0
+
+  node-persist@4.0.3: {}
 
   node-releases@2.0.19: {}
 
@@ -7214,8 +7218,6 @@ snapshots:
     dependencies:
       graceful-fs: 4.2.11
 
-  steno@4.0.2: {}
-
   stream-shift@1.0.3: {}
 
   streamx@2.21.1:
@@ -7499,8 +7501,8 @@ snapshots:
       express: 4.21.2
       global-agent: 3.0.0
       ioredis: 5.4.2
-      lowdb: 7.0.1
       minimist: 1.2.8
+      node-persist: 4.0.3
       open: 10.1.0
       openid-client: 5.7.1
       picocolors: 1.1.1

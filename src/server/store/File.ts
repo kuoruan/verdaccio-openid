@@ -1,95 +1,70 @@
-import type { Low } from "lowdb/lib";
+import storage, { type InitOptions, LocalStorage } from "node-persist";
 
 import logger from "../logger";
-import { BaseStore, type Store } from "./Store";
+import { BaseStore, type FileConfig, STATE_TTL, type Store, USER_GROUPS_CACHE_TTL, USER_INFO_CACHE_TTL } from "./Store";
 
-interface Data {
-  state: Record<string, string>;
-  userInfo: Record<string, Record<string, unknown>>;
-  userGroups: Record<string, string[]>;
-}
-
-const defaultData = {
-  state: {},
-  userInfo: {},
-  userGroups: {},
-} satisfies Data;
+const defaultOptions = {
+  ttl: STATE_TTL,
+  expiredInterval: STATE_TTL / 4,
+} satisfies InitOptions;
 
 export default class FileStore extends BaseStore implements Store {
-  private db!: Low<Data>;
+  private readonly db: LocalStorage;
 
-  constructor(private readonly filePath: string) {
+  constructor(opts: FileConfig) {
     super();
 
-    void this.init();
+    const db = storage.create({
+      ...defaultOptions,
+      ...(typeof opts === "string" ? { dir: opts } : opts),
+    });
+
+    db.init().catch((e) => {
+      logger.error({ message: e.message }, "Failed to initialize file store: @{message}");
+    });
+
+    this.db = db;
   }
 
-  private async init(): Promise<void> {
-    try {
-      const { JSONFilePreset } = await import("lowdb/node");
-
-      const db = await JSONFilePreset<Data>(this.filePath, defaultData);
-      this.db = db;
-    } catch (e: any) {
-      logger.error({ message: e.message }, "Could not initialize JSON file store: @{message}");
-
-      process.exit(1);
-    }
-  }
-
-  setState(key: string, nonce: string, providerId: string): Promise<void> {
+  async setState(key: string, nonce: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
-    const state = this.db.data.state;
-
-    state[stateKey] = nonce;
-
-    return this.db.write();
+    await this.db.setItem(stateKey, nonce);
   }
 
-  getState(key: string, providerId: string): string | undefined {
+  getState(key: string, providerId: string): Promise<string | undefined> {
     const stateKey = this.getStateKey(key, providerId);
 
-    return this.db.data.state[stateKey];
+    return this.db.getItem(stateKey);
   }
 
-  deleteState(key: string, providerId: string): Promise<void> {
+  async deleteState(key: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
-    delete this.db.data.state[stateKey];
-
-    return this.db.write();
+    await this.db.removeItem(stateKey);
   }
 
-  setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
+  async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    const userInfo = this.db.data.userInfo;
-
-    userInfo[userInfoKey] = data as Record<string, unknown>;
-
-    return this.db.write();
+    await this.db.setItem(userInfoKey, data, { ttl: USER_INFO_CACHE_TTL });
   }
 
-  getUserInfo(key: string, providerId: string): Record<string, unknown> {
+  getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    return this.db.data.userInfo[userInfoKey];
+    return this.db.getItem(userInfoKey);
   }
 
-  setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
+  async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
 
-    const userGroups = this.db.data.userGroups;
-
-    userGroups[groupsKey] = groups;
-
-    return this.db.write();
+    await this.db.setItem(groupsKey, groups, { ttl: USER_GROUPS_CACHE_TTL });
   }
 
-  getUserGroups(key: string, providerId: string): string[] {
+  getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
 
-    return this.db.data.userGroups[groupsKey];
+    return this.db.getItem(groupsKey);
   }
 }

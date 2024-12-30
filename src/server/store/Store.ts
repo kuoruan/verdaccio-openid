@@ -1,4 +1,5 @@
 import type { ClusterNode, RedisOptions } from "ioredis";
+import type { InitOptions as FileInitOptions } from "node-persist";
 
 export interface Store {
   /** set state data to the store */
@@ -65,10 +66,12 @@ export interface RedisConfig extends RedisOptions {
   nodes?: ClusterNode[];
 }
 
-export type FileConfig = string;
+export interface FileConfig extends FileInitOptions {
+  dir: string;
+}
 
 export interface StoreConfigMap {
   [StoreType.InMemory]: InMemoryConfig | undefined;
   [StoreType.Redis]: RedisConfig | string | undefined;
-  [StoreType.File]: FileConfig;
+  [StoreType.File]: FileConfig | string;
 }

@@ -3,7 +3,7 @@ import { number, object } from "yup";
 
 import { plugin } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
-import { type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
+import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
 
 import { getEnvironmentValue, handleValidationError } from "./utils";
 
@@ -29,6 +29,12 @@ export const RedisConfigSchema = object<RedisConfig>({
       }),
     )
     .optional(),
+});
+
+export const FileConfigSchema = object<FileConfig>({
+  dir: string().required(),
+  ttl: number().min(1).optional(),
+  expiredInterval: number().min(1).optional(),
 });
 
 abstract class StoreConfig<T> {
