@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import { Groups } from "@gitbeaker/rest";
 import TTLCache from "@isaacs/ttlcache";
 import type { Request } from "express";
@@ -44,6 +46,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     this.discoverClient().catch((e) => {
       logger.error({ message: e.message }, "Could not discover client: @{message}");
+
+      process.exit(1);
     });
   }
 
