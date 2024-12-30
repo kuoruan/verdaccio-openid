@@ -221,7 +221,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
         string()
           .oneOf([StoreType.InMemory, StoreType.Redis, StoreType.JsonFile] satisfies StoreType[])
           .optional(),
-      ) ?? "in-memory"
+      ) ?? StoreType.InMemory
     );
   }
 
