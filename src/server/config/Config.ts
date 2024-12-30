@@ -219,7 +219,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
       this.getConfigValue<StoreType>(
         "store-type",
         string()
-          .oneOf([StoreType.InMemory, StoreType.Redis, StoreType.JsonFile] satisfies StoreType[])
+          .oneOf([StoreType.InMemory, StoreType.Redis, StoreType.File] satisfies StoreType[])
           .optional(),
       ) ?? StoreType.InMemory
     );
@@ -255,10 +255,16 @@ export default class ParsedPluginConfig implements ConfigHolder {
         return { ...storeConfig, username, password } as StoreConfigMap[T];
       }
 
-      case StoreType.JsonFile: {
-        const filePath = this.getConfigValue<string>(configKey, string().required());
+      case StoreType.File: {
+        const config = this.getConfigValue<string>(configKey, string().required());
 
-        return path.resolve(this.verdaccioConfig.self_path || "", filePath) as StoreConfigMap[T];
+        const filePath = path.isAbsolute(config)
+          ? config
+          : path.normalize(
+              path.join(path.dirname(this.verdaccioConfig.self_path || this.verdaccioConfig.configPath), config),
+            );
+
+        return filePath as StoreConfigMap[T];
       }
 
       default: {

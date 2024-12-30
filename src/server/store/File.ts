@@ -15,7 +15,7 @@ const defaultData = {
   userGroups: {},
 } satisfies Data;
 
-export default class JsonFileStore extends BaseStore implements Store {
+export default class FileStore extends BaseStore implements Store {
   private db!: Low<Data>;
 
   constructor(private readonly filePath: string) {

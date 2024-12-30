@@ -1,7 +1,7 @@
 import type { ConfigHolder } from "@/server/config/Config";
 
+import FileStore from "./File";
 import InMemoryStore from "./InMemory";
-import JsonFileStore from "./JsonFile";
 import RedisStore from "./Redis";
 import { type Store, StoreType } from "./Store";
 
@@ -14,10 +14,10 @@ export function createStore(config: ConfigHolder): Store {
 
       return new RedisStore(storeConfig);
     }
-    case StoreType.JsonFile: {
-      const storeConfig = config.getStoreConfig(StoreType.JsonFile);
+    case StoreType.File: {
+      const storeConfig = config.getStoreConfig(StoreType.File);
 
-      return new JsonFileStore(storeConfig);
+      return new FileStore(storeConfig);
     }
 
     default: {

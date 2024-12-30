@@ -46,7 +46,7 @@ export const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export enum StoreType {
   InMemory = "in-memory",
   Redis = "redis",
-  JsonFile = "json-file",
+  File = "file",
 }
 
 export interface InMemoryConfig {
@@ -67,5 +67,5 @@ export type FileConfig = string;
 export interface StoreConfigMap {
   [StoreType.InMemory]: InMemoryConfig | undefined;
   [StoreType.Redis]: RedisConfig | string | undefined;
-  [StoreType.JsonFile]: FileConfig;
+  [StoreType.File]: FileConfig;
 }
