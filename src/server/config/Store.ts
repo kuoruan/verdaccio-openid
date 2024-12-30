@@ -7,19 +7,21 @@ import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } fro
 
 import { getEnvironmentValue, handleValidationError } from "./utils";
 
-export const InMemoryConfigSchema = object<InMemoryConfig>({
-  max: number().min(1).optional(),
-  min: number().min(1).optional(),
-});
-
 const portSchema = number().min(1).max(65_535);
+const ttlSchema = number().min(10 * 1000);
+
+export const InMemoryConfigSchema = object<InMemoryConfig>({
+  ttl: ttlSchema.optional(),
+
+  max: number().min(1).optional(),
+});
 
 export const RedisConfigSchema = object<RedisConfig>({
   username: string().optional(),
   password: string().optional(),
   port: portSchema.optional(),
 
-  ttl: number().min(1).optional(),
+  ttl: ttlSchema.optional(),
 
   nodes: array()
     .of(
@@ -32,8 +34,9 @@ export const RedisConfigSchema = object<RedisConfig>({
 });
 
 export const FileConfigSchema = object<FileConfig>({
+  ttl: ttlSchema.optional(),
+
   dir: string().required(),
-  ttl: number().min(1).optional(),
   expiredInterval: number().min(1).optional(),
 });
 
