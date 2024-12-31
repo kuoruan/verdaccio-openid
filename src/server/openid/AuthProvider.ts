@@ -1,7 +1,6 @@
 import process from "node:process";
 
 import { Groups } from "@gitbeaker/rest";
-import TTLCache from "@isaacs/ttlcache";
 import type { Request } from "express";
 import {
   type Client,
@@ -13,6 +12,7 @@ import {
 } from "openid-client";
 
 import { getCallbackPath } from "@/redirect";
+import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import {
@@ -22,8 +22,8 @@ import {
   type ProviderUser,
   type TokenInfo,
 } from "@/server/plugin/AuthProvider";
-import type { ConfigHolder } from "@/server/plugin/Config";
 import { getBaseUrl, getClaimsFromIdToken, hashObject } from "@/server/plugin/utils";
+import type { Store } from "@/server/store/Store";
 
 const CLIENT_HTTP_TIMEOUT = 30 * 1000; // 30s
 
@@ -38,17 +38,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private providerHost: string;
   private scope: string;
 
-  private readonly stateCache: TTLCache<string, string>;
-  private readonly userinfoCache: TTLCache<string, Record<string, unknown>>;
-  private readonly groupsCache: TTLCache<string, string[]>;
-
-  constructor(private readonly config: ConfigHolder) {
+  constructor(
+    private readonly config: ConfigHolder,
+    private readonly store: Store,
+  ) {
     this.providerHost = this.config.providerHost;
     this.scope = this.config.scope;
-
-    this.stateCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5min
-    this.userinfoCache = new TTLCache({ max: 1000, ttl: 60 * 1000 }); // 1min
-    this.groupsCache = new TTLCache({ max: 1000, ttl: 5 * 60 * 1000 }); // 5m;
 
     this.discoverClient().catch((e) => {
       logger.error({ message: e.message }, "Could not discover client: @{message}");
@@ -116,14 +111,14 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     return "openid";
   }
 
-  getLoginUrl(request: Request): string {
+  async getLoginUrl(request: Request): Promise<string> {
     const baseUrl = getBaseUrl(this.config.urlPrefix, request, true);
     const redirectUrl = baseUrl + getCallbackPath(request.params.id);
 
     const state = generators.state(32);
     const nonce = generators.nonce();
 
-    this.stateCache.set(state, nonce);
+    await this.store.setState(state, nonce, this.getId());
 
     return this.discoveredClient.authorizationUrl({
       scope: this.scope,
@@ -149,12 +144,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       throw new URIError("No state parameter found in callback request");
     }
 
-    if (!this.stateCache.has(state)) {
+    const nonce = await this.store.getState(state, this.getId());
+
+    if (!nonce) {
       throw new URIError("State parameter does not match a known state");
     }
 
-    const nonce = this.stateCache.get(state);
-    this.stateCache.delete(state);
+    await this.store.deleteState(state, this.getId());
 
     const checks: OpenIDCallbackChecks = {
       state,
@@ -225,12 +221,22 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       key = token.subject ?? hashObject(token);
     }
 
-    let userinfo = this.userinfoCache.get(key);
+    let userinfo: Record<string, unknown> | null | undefined;
+
+    try {
+      userinfo = await this.store.getUserInfo?.(key, this.getId());
+    } catch {
+      debug("No userinfo cache found for key: %s", key);
+    }
 
     if (!userinfo) {
       userinfo = await this.discoveredClient.userinfo<Record<string, unknown>>(accessToken);
 
-      this.userinfoCache.set(key, userinfo);
+      try {
+        await this.store.setUserInfo?.(key, userinfo, this.getId());
+      } catch (e: any) {
+        logger.warn({ message: e.message }, "Could not set userinfo cache: @{message}");
+      }
     }
     return userinfo;
   }
@@ -311,7 +317,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private async getGroupsWithProviderType(token: OpenIDToken, providerType: ProviderType): Promise<string[]> {
     const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
 
-    let groups = this.groupsCache.get(key);
+    let groups: string[] | null | undefined;
+
+    try {
+      groups = await this.store.getUserGroups?.(key, this.getId());
+    } catch {
+      debug("No user groups cache found for key: %s", key);
+    }
 
     if (groups) return groups;
 
@@ -325,7 +337,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       }
     }
 
-    this.groupsCache.set(key, groups);
+    try {
+      await this.store.setUserGroups?.(key, groups, this.getId());
+    } catch (e: any) {
+      logger.warn({ message: e.message }, "Could not set user groups cache: @{message}");
+    }
+
     return groups;
   }
 

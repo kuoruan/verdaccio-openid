@@ -3,11 +3,11 @@ import type { Application, Handler } from "express";
 
 import { stringifyQueryParams } from "@/query-params";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
+import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
-import type { ConfigHolder } from "@/server/plugin/Config";
 import { getBaseUrl } from "@/server/plugin/utils";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
@@ -29,9 +29,9 @@ export class WebFlow implements IPluginMiddleware<any> {
   /**
    * Initiates the auth flow by redirecting to the provider's login URL.
    */
-  authorize: Handler = (req, res, next) => {
+  authorize: Handler = async (req, res, next) => {
     try {
-      const url = this.provider.getLoginUrl(req);
+      const url = await this.provider.getLoginUrl(req);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message || e }, "auth error: @{message}");
