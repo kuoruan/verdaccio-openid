@@ -10,7 +10,7 @@ import { type FileConfig, type InMemoryConfig, type StoreConfigMap, StoreType } 
 import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
 import { getEnvironmentValue, getStoreFilePath, handleValidationError } from "./utils";
 
-type ProviderType = "gitlab";
+import { ProviderType } from "./AuthProvider";
 
 export interface PackageAccess extends IncorrectPackageAccess {
   unpublish?: string[];
@@ -18,7 +18,7 @@ export interface PackageAccess extends IncorrectPackageAccess {
 
 export interface ConfigHolder {
   providerHost: string;
-  providerType?: string;
+  providerType?: ProviderType;
   configurationUri?: string;
   issuer?: string;
   authorizationEndpoint?: string;
@@ -121,7 +121,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
     return this.getConfigValue<ProviderType | undefined>(
       "provider-type",
       string()
-        .oneOf(["gitlab"] satisfies ProviderType[])
+        .oneOf([ProviderType.Gitlab] satisfies ProviderType[])
         .optional(),
     );
   }

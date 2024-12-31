@@ -17,6 +17,10 @@ export interface ProviderUser {
   groups?: string[];
 }
 
+export enum ProviderType {
+  Gitlab = "gitlab",
+}
+
 export interface AuthProvider {
   getId(): string;
   getLoginUrl(request: Request): Promise<string>;

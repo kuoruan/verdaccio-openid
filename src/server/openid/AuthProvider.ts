@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
 import {
@@ -13,7 +15,13 @@ import { getCallbackPath } from "@/redirect";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
-import type { AuthProvider, OpenIDToken, ProviderUser, TokenInfo } from "@/server/plugin/AuthProvider";
+import {
+  type AuthProvider,
+  type OpenIDToken,
+  ProviderType,
+  type ProviderUser,
+  type TokenInfo,
+} from "@/server/plugin/AuthProvider";
 import { getBaseUrl, getClaimsFromIdToken, hashObject } from "@/server/plugin/utils";
 import type { Store } from "@/server/store/Store";
 
@@ -39,6 +47,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     this.discoverClient().catch((e) => {
       logger.error({ message: e.message }, "Could not discover client: @{message}");
+
+      process.exit(1);
     });
   }
 
@@ -241,6 +251,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     let userinfo: Record<string, unknown>;
 
     let username: unknown, groups: unknown;
+
+    const usernameClaim = this.config.usernameClaim;
+    const groupsClaim = this.config.groupsClaim;
+
     if (typeof token !== "string") {
       /**
        * username and groups can be in the id_token if the scope is openid.
@@ -248,9 +262,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       try {
         userinfo = this.getUserinfoFromIdToken(token);
 
-        username = userinfo[this.config.usernameClaim];
-        if (this.config.groupsClaim) {
-          groups = userinfo[this.config.groupsClaim];
+        username = userinfo[usernameClaim];
+        if (groupsClaim) {
+          groups = userinfo[groupsClaim];
         }
       } catch {
         debug("Could not get userinfo from id_token. Trying userinfo endpoint...");
@@ -264,9 +278,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       try {
         userinfo = await this.getUserinfoFromEndpoint(token);
 
-        username ??= userinfo[this.config.usernameClaim];
-        if (this.config.groupsClaim) {
-          groups ??= userinfo[this.config.groupsClaim];
+        username ??= userinfo[usernameClaim];
+        if (groupsClaim) {
+          groups ??= userinfo[groupsClaim];
         }
       } catch {
         debug("Could not get userinfo from userinfo endpoint.");
@@ -274,12 +288,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     if (!username) {
-      throw new Error(`Could not get username with claim: "${this.config.usernameClaim}"`);
+      throw new Error(`Could not get username with claim: "${usernameClaim}"`);
     }
 
     // We prefer the groups from the providerType if it is set.
-    if (this.config.providerType) {
-      groups = await this.getGroupsWithProviderType(token, this.config.providerType);
+    const providerType = this.config.providerType;
+    if (providerType) {
+      groups = await this.getGroupsWithProviderType(token, providerType);
     }
 
     if (groups) {
@@ -299,7 +314,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @param providerType
    * @returns
    */
-  private async getGroupsWithProviderType(token: OpenIDToken, providerType: string): Promise<string[]> {
+  private async getGroupsWithProviderType(token: OpenIDToken, providerType: ProviderType): Promise<string[]> {
     const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
 
     let groups: string[] | null | undefined;
@@ -313,7 +328,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     if (groups) return groups;
 
     switch (providerType) {
-      case "gitlab": {
+      case ProviderType.Gitlab: {
         groups = await this.getGitlabGroups(token);
         break;
       }
