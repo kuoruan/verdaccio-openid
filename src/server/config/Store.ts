@@ -8,7 +8,7 @@ import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } fro
 import { getEnvironmentValue, handleValidationError } from "./utils";
 
 const portSchema = number().min(1).max(65_535);
-const ttlSchema = number().min(10 * 1000);
+const ttlSchema = number().min(1000); // 1 second
 
 export const InMemoryConfigSchema = object<InMemoryConfig>({
   ttl: ttlSchema.optional(),

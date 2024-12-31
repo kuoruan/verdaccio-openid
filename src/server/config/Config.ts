@@ -236,7 +236,20 @@ export default class ParsedPluginConfig implements ConfigHolder {
       case StoreType.Redis: {
         const storeConfig = this.getConfigValue<Record<string, unknown> | string | undefined>(
           configKey,
-          mixed().oneOf([RedisConfigSchema, string().url()]).optional(),
+          mixed().test({
+            name: "is-redis-config-or-string",
+            message: "must be a RedisConfig or a string",
+            test: (value) => {
+              if (value === undefined) return true;
+              if (typeof value === "string" && value !== "") {
+                return string().url().isValidSync(value);
+              }
+              if (typeof value === "object" && value !== null) {
+                return RedisConfigSchema.isValidSync(value);
+              }
+              return false;
+            },
+          }),
         );
 
         if (storeConfig === undefined) return undefined as StoreConfigMap[T];
@@ -256,7 +269,19 @@ export default class ParsedPluginConfig implements ConfigHolder {
       case StoreType.File: {
         const config = this.getConfigValue<FileConfig | string>(
           configKey,
-          mixed().oneOf([FileConfigSchema, string()]).required(),
+          mixed().test({
+            name: "is-file-config-or-string",
+            message: "must be a FileConfig or a string",
+            test: (value) => {
+              if (typeof value === "string" && value !== "") {
+                return true;
+              }
+              if (typeof value === "object" && value !== null) {
+                return FileConfigSchema.isValidSync(value);
+              }
+              return false;
+            },
+          }),
         );
 
         const configPath = this.verdaccioConfig.self_path || this.verdaccioConfig.configPath;

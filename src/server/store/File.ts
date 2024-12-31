@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import storage, { type InitOptions, LocalStorage } from "node-persist";
 
 import logger from "@/server/logger";
@@ -15,13 +17,24 @@ export default class FileStore extends BaseStore implements Store {
   constructor(opts: FileConfig) {
     super();
 
-    const db = storage.create({
+    const {
+      ttl,
+      expiredInterval = ttl / 4,
+      ...restOpts
+    } = {
       ...defaultOptions,
       ...(typeof opts === "string" ? { dir: opts } : opts),
+    } satisfies FileConfig;
+
+    const db = storage.create({
+      ttl,
+      expiredInterval,
+      ...restOpts,
     });
 
     db.init().catch((e) => {
       logger.error({ message: e.message }, "Failed to initialize file store: @{message}");
+      process.exit(1);
     });
 
     this.db = db;

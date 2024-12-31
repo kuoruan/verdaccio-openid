@@ -1,4 +1,6 @@
-import Redis, { type RedisCommander } from "ioredis";
+import { Cluster, Redis } from "ioredis";
+
+import logger from "@/server/logger";
 
 import {
   BaseStore,
@@ -11,17 +13,18 @@ import {
 
 const defaultOptions = {
   ttl: STATE_TTL,
+  lazyConnect: true,
 } satisfies RedisConfig;
 
 export default class RedisStore extends BaseStore implements Store {
   private readonly ttl: number;
-  private readonly redis: RedisCommander;
+  private readonly redis: Cluster | Redis;
 
   constructor(opts?: RedisConfig | string) {
     super();
 
     if (typeof opts === "string") {
-      this.redis = new Redis(opts);
+      this.redis = new Redis(opts, defaultOptions);
 
       this.ttl = defaultOptions.ttl;
     } else {
@@ -35,6 +38,12 @@ export default class RedisStore extends BaseStore implements Store {
 
       this.ttl = ttl;
     }
+
+    this.redis.connect().catch((e) => {
+      logger.error({ message: e.message }, "Failed to connect to redis: @{message}");
+
+      process.exit(1);
+    });
   }
 
   private async isKeyExists(key: string): Promise<boolean> {
