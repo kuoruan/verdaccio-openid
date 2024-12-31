@@ -14,7 +14,7 @@ const defaultOptions = {
 export default class FileStore extends BaseStore implements Store {
   private readonly db: LocalStorage;
 
-  constructor(opts: FileConfig) {
+  constructor(opts: FileConfig | string) {
     super();
 
     const {
