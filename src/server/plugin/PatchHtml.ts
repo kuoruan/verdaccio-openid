@@ -4,9 +4,9 @@ import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler, Request } from "express";
 
 import { plugin } from "@/constants";
+import type { ConfigHolder } from "@/server/config/Config";
 import { publicRoot, staticPath } from "@/server/constants";
 
-import type { ConfigHolder } from "../config/Config";
 import { getBaseUrl } from "./utils";
 
 /**

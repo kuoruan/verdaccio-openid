@@ -8,7 +8,6 @@ import { BaseStore, type FileConfig, STATE_TTL, type Store, USER_GROUPS_CACHE_TT
 
 const defaultOptions = {
   ttl: STATE_TTL,
-  expiredInterval: STATE_TTL / 4,
 } satisfies InitOptions;
 
 export default class FileStore extends BaseStore implements Store {
@@ -17,19 +16,9 @@ export default class FileStore extends BaseStore implements Store {
   constructor(opts: FileConfig | string) {
     super();
 
-    const {
-      ttl,
-      expiredInterval = ttl / 4,
-      ...restOpts
-    } = {
+    const db = storage.create({
       ...defaultOptions,
       ...(typeof opts === "string" ? { dir: opts } : opts),
-    } satisfies FileConfig;
-
-    const db = storage.create({
-      ttl,
-      expiredInterval,
-      ...restOpts,
     });
 
     db.init().catch((e) => {

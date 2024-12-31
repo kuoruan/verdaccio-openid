@@ -20,9 +20,8 @@ export default class InMemoryStore extends BaseStore implements Store {
 
   constructor(opts: InMemoryConfig = {}) {
     super();
-    const { max, ttl } = { ...defaultOptions, ...opts };
 
-    this.stateCache = new TTLCache({ max, ttl });
+    this.stateCache = new TTLCache({ ...defaultOptions, ...opts });
     this.userinfoCache = new TTLCache({ max: 1000, ttl: USER_INFO_CACHE_TTL });
     this.groupsCache = new TTLCache({ max: 1000, ttl: USER_GROUPS_CACHE_TTL });
   }
