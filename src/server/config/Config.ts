@@ -5,12 +5,11 @@ import { mixed, object, Schema, string } from "yup";
 
 import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
+import { ProviderType } from "@/server/plugin/AuthProvider";
 import { type FileConfig, type InMemoryConfig, type StoreConfigMap, StoreType } from "@/server/store/Store";
 
 import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
 import { getEnvironmentValue, getStoreFilePath, handleValidationError } from "./utils";
-
-import { ProviderType } from "./AuthProvider";
 
 export interface PackageAccess extends IncorrectPackageAccess {
   unpublish?: string[];
@@ -267,7 +266,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
       }
 
       case StoreType.File: {
-        const config = this.getConfigValue<FileConfig | string>(
+        const config = this.getConfigValue<FileConfig>(
           configKey,
           mixed().test({
             name: "is-file-config-or-string",
