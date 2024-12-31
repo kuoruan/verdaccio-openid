@@ -9,7 +9,7 @@ import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import logger from "@/server/logger";
 
-type ProviderType = "gitlab";
+import { ProviderType } from "./AuthProvider";
 
 export interface PackageAccess extends IncorrectPackageAccess {
   unpublish?: string[];
@@ -35,7 +35,7 @@ export interface OpenIDConfig {
 
 export interface ConfigHolder {
   providerHost: string;
-  providerType?: string;
+  providerType?: ProviderType;
   configurationUri?: string;
   issuer?: string;
   authorizationEndpoint?: string;
@@ -153,7 +153,7 @@ export class ParsedPluginConfig implements ConfigHolder {
     return this.getConfigValue<ProviderType | undefined>(
       "provider-type",
       string()
-        .oneOf(["gitlab"] satisfies ProviderType[])
+        .oneOf([ProviderType.Gitlab] satisfies ProviderType[])
         .optional(),
     );
   }
