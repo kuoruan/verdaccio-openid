@@ -1,6 +1,7 @@
 # verdaccio-openid
 
 [![npm](https://img.shields.io/npm/v/verdaccio-openid.svg)](https://www.npmjs.com/package/verdaccio-openid)
+[![npm](https://img.shields.io/npm/dw/verdaccio-openid.svg)](https://www.npmjs.com/package/verdaccio-openid)
 [![npm](https://img.shields.io/npm/dt/verdaccio-openid.svg)](https://www.npmjs.com/package/verdaccio-openid)
 [![npm](https://img.shields.io/npm/l/verdaccio-openid.svg)](https://www.npmjs.com/package/verdaccio-openid)
 
@@ -12,7 +13,7 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 
 - Verdaccio 5, 6
 - Node >=18
-- Chrome, Firefox, Firefox ESR, Edge, Safari
+- Chrome, Firefox, Firefox ESR, Edge, Safari witch supports [ES5](https://caniuse.com/?search=es5)
 
 ## Setup
 
@@ -49,28 +50,87 @@ middlewares:
 
 auth:
   openid:
-    provider-host: https://example.com # required, the host of oidc provider
-    # configuration-uri: https://example.com/.well-known/openid-configuration # optional
-    # issuer: https://example.com # optional, jwt issuer, use 'provider-host' when empty
-    # authorization-endpoint: https://example.com/oauth/authorize # optional
-    # token-endpoint: https://example.com/oauth/token # optional
-    # userinfo-endpoint: https://example.com/oauth/userinfo # optional
-    # jwks-uri: https://example.com/oauth/jwks # optional
-    # scope: openid email groups # optional. custom scope, default is "openid"
-    client-id: CLIENT_ID # optional, the client id
-    client-secret: CLIENT_SECRET # optional, the client secret
-    username-claim: name # optional. username claim in id_token, or key to get username in userinfo endpoint response, default is "sub"
-    groups-claim: groups # optional. claim to get groups from
-    # provider-type: gitlab # optional. define this to get groups from gitlab api
-    # authorized-groups: # optional. user in array is allowed to login. use true to ensure user have at least one group, false means no groups check
+    provider-host: https://example.com
+    # configuration-uri: https://example.com/.well-known/openid-configuration
+    # issuer: https://example.com
+    # authorization-endpoint: https://example.com/oauth/authorize
+    # token-endpoint: https://example.com/oauth/token
+    # userinfo-endpoint: https://example.com/oauth/userinfo
+    # jwks-uri: https://example.com/oauth/jwks
+    # scope: openid email groups
+    client-id: CLIENT_ID
+    client-secret: CLIENT_SECRET
+    username-claim: name
+    # groups-claim: groups
+    # provider-type: gitlab
+    # store-type: file
+    # store-config: ./store
+    # authorized-groups:
     #  - access
-    # group-users: # optional. custom the group users. eg. animal group has user tom and jack. if set, 'groups-claim' and 'provider-type' take no effect
+    # group-users:
     #   animal:
     #     - tom
     #     - jack
 ```
 
 Now you can use the openid-connect auth in the webUI.
+
+### Config Options
+
+#### openid
+
+| Config key             | Description                                                                                                               | Value Type                  | Default Value    | Required | Example Value                                          |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------- | -------- | ------------------------------------------------------ |
+| provider-host          | The host of the OIDC provider                                                                                             | string                      |                  | Yes      | `https://example.com`                                  |
+| configuration-uri      | The URI of the OIDC provider configuration                                                                                | string                      |                  | No       | `https://example.com/.well-known/openid-configuration` |
+| issuer                 | The issuer of the OIDC provider                                                                                           | string                      |                  | No       | `https://example.com`                                  |
+| authorization-endpoint | The authorization endpoint of the OIDC provider                                                                           | string                      |                  | No       | `https://example.com/oauth/authorize`                  |
+| token-endpoint         | The token endpoint of the OIDC provider                                                                                   | string                      |                  | No       | `https://example.com/oauth/token`                      |
+| userinfo-endpoint      | The userinfo endpoint of the OIDC provider                                                                                | string                      |                  | No       | `https://example.com/oauth/userinfo`                   |
+| jwks-uri               | The JWKS URI of the OIDC provider                                                                                         | string                      |                  | No       | `https://example.com/oauth/jwks`                       |
+| scope                  | The scope of the OIDC provider                                                                                            | string                      | `openid`         | No       | `openid email groups`                                  |
+| client-id              | The client ID of the OIDC provider                                                                                        | string                      |                  | Yes      | `your-client-id`                                       |
+| client-secret          | The client secret of the OIDC provider                                                                                    | string                      |                  | Yes      | `your-client-secret`                                   |
+| username-claim         | The claim to get the username from the ID token or userinfo endpoint response                                             | string                      | `sub`            | No       | `name`                                                 |
+| groups-claim           | The claim to get the groups from the ID token or userinfo endpoint response                                               | string                      |                  | No       | `groups`                                               |
+| provider-type          | The provider type to get groups from the provider. Supported values: `gitlab`                                             | string                      |                  | No       | `gitlab`                                               |
+| store-type             | The store type to store the OIDC state and caches. Supported values: `in-memory`, `redis`, `file`                         | string                      | `in-memory`      | No       | `file`                                                 |
+| store-config           | The store configuration.                                                                                                  | string \| object            | `{ ttl: 60000 }` | No       | `./store`                                              |
+| authorized-groups      | The groups that are allowed to login. Use `true` to ensure the user has at least one group, `false` means no groups check | string \| string \| boolean | `false`          | No       | `true`                                                 |
+| group-users            | The custom group users. If set, `groups-claim` and `provider-type` take no effect                                         | object                      |                  | No       | `{"animal": ["Tom", "Jack"]}`                          |
+
+#### store-config
+
+1. in-memory
+
+When using the `in-memory` store, the `store-config` is an object with the following properties:
+
+| Config key | Description                                                                                                   | Value Type | Default Value | Required | Example Value |
+| ---------- | ------------------------------------------------------------------------------------------------------------- | ---------- | ------------- | -------- | ------------- |
+| ttl        | The TTL of the OIDC state in milliseconds.                                                                    | number     | 60000         | No       | 60000         |
+| ...        | All options are passed to the [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache) constructor. | any        |               | No       |               |
+
+2. redis
+
+When using the `redis` store, the `store-config` is a string with the Redis connection string or an object with the following properties:
+
+| Config key | Description                                                                                     | Value Type | Default Value | Required | Example Value                         |
+| ---------- | ----------------------------------------------------------------------------------------------- | ---------- | ------------- | -------- | ------------------------------------- |
+| ttl        | The TTL of the OIDC state in milliseconds.                                                      | number     | 60000         | No       | 60000                                 |
+| username   | The username of the Redis connection.                                                           | string     |               | No       | `your-username`                       |
+| password   | The password of the Redis connection.                                                           | string     |               | No       | `your-password`                       |
+| nodes      | The nodes of the Redis connection. when nodes is set it will use the Redis Cluster constructor. | object[]   |               | No       | `[{ host: 'localhost', port: 6379 }]` |
+| ...        | All options are passed to the [ioredis](https://www.npmjs.com/package/ioredis) constructor.     | any        |               | No       |                                       |
+
+3. file
+
+When using the `file` store, the `store-config` is a string with the file path to store the OIDC state or an object with the following properties:
+
+| Config key | Description                                                                                           | Value Type | Default Value | Required | Example Value |
+| ---------- | ----------------------------------------------------------------------------------------------------- | ---------- | ------------- | -------- | ------------- |
+| ttl        | The TTL of the OIDC state in milliseconds.                                                            | number     | 60000         | No       | 60000         |
+| dir        | The directory to store the OIDC state.                                                                | string     |               | No       | `./store`     |
+| ...        | All options are passed to the [node-persist](https://www.npmjs.com/package/node-persist) constructor. | any        |               | No       |               |
 
 ### Environment Variables
 
@@ -110,7 +170,6 @@ The load order is:
 2. $HOME/.env.openid
 3. $PWD/.env
 4. $PWD/.env.openid
-
 
 ### Token Expiration
 
