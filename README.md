@@ -13,7 +13,7 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 
 - Verdaccio 5, 6
 - Node >=18
-- Chrome, Firefox, Firefox ESR, Edge, Safari witch supports [ES5](https://caniuse.com/?search=es5)
+- Browsers which support [ES5](https://caniuse.com/?search=es5)
 
 ## Setup
 
@@ -79,25 +79,25 @@ Now you can use the openid-connect auth in the webUI.
 
 #### openid
 
-| Config key             | Description                                                                                                               | Value Type                  | Default Value    | Required | Example Value                                          |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ---------------- | -------- | ------------------------------------------------------ |
-| provider-host          | The host of the OIDC provider                                                                                             | string                      |                  | Yes      | `https://example.com`                                  |
-| configuration-uri      | The URI of the OIDC provider configuration                                                                                | string                      |                  | No       | `https://example.com/.well-known/openid-configuration` |
-| issuer                 | The issuer of the OIDC provider                                                                                           | string                      |                  | No       | `https://example.com`                                  |
-| authorization-endpoint | The authorization endpoint of the OIDC provider                                                                           | string                      |                  | No       | `https://example.com/oauth/authorize`                  |
-| token-endpoint         | The token endpoint of the OIDC provider                                                                                   | string                      |                  | No       | `https://example.com/oauth/token`                      |
-| userinfo-endpoint      | The userinfo endpoint of the OIDC provider                                                                                | string                      |                  | No       | `https://example.com/oauth/userinfo`                   |
-| jwks-uri               | The JWKS URI of the OIDC provider                                                                                         | string                      |                  | No       | `https://example.com/oauth/jwks`                       |
-| scope                  | The scope of the OIDC provider                                                                                            | string                      | `openid`         | No       | `openid email groups`                                  |
-| client-id              | The client ID of the OIDC provider                                                                                        | string                      |                  | Yes      | `your-client-id`                                       |
-| client-secret          | The client secret of the OIDC provider                                                                                    | string                      |                  | Yes      | `your-client-secret`                                   |
-| username-claim         | The claim to get the username from the ID token or userinfo endpoint response                                             | string                      | `sub`            | No       | `name`                                                 |
-| groups-claim           | The claim to get the groups from the ID token or userinfo endpoint response                                               | string                      |                  | No       | `groups`                                               |
-| provider-type          | The provider type to get groups from the provider. Supported values: `gitlab`                                             | string                      |                  | No       | `gitlab`                                               |
-| store-type             | The store type to store the OIDC state and caches. Supported values: `in-memory`, `redis`, `file`                         | string                      | `in-memory`      | No       | `file`                                                 |
-| store-config           | The store configuration.                                                                                                  | string \| object            | `{ ttl: 60000 }` | No       | `./store`                                              |
-| authorized-groups      | The groups that are allowed to login. Use `true` to ensure the user has at least one group, `false` means no groups check | string \| string \| boolean | `false`          | No       | `true`                                                 |
-| group-users            | The custom group users. If set, `groups-claim` and `provider-type` take no effect                                         | object                      |                  | No       | `{"animal": ["Tom", "Jack"]}`                          |
+| Config key                                                                                                                                                                       | Value Type                       | Default Value    | Required | Example Value                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- | ---------------- | -------- | ------------------------------------------------------ |
+| <details><summary>provider-host</summary>The host of the OIDC provider</details>                                                                                                 | string                           |                  | Yes      | `https://example.com`                                  |
+| <details><summary>configuration-uri</summary>The URI of the OIDC provider configuration</details>                                                                                | string                           |                  | No       | `https://example.com/.well-known/openid-configuration` |
+| <details><summary>issuer</summary>The issuer of the OIDC provider</details>                                                                                                      | string                           |                  | No       | `https://example.com`                                  |
+| <details><summary>authorization-endpoint</summary>The authorization endpoint of the OIDC provider</details>                                                                      | string                           |                  | No       | `https://example.com/oauth/authorize`                  |
+| <details><summary>token-endpoint</summary>The token endpoint of the OIDC provider</details>                                                                                      | string                           |                  | No       | `https://example.com/oauth/token`                      |
+| <details><summary>userinfo-endpoint</summary>The userinfo endpoint of the OIDC provider</details>                                                                                | string                           |                  | No       | `https://example.com/oauth/userinfo`                   |
+| <details><summary>jwks-uri</summary>The JWKS URI of the OIDC provider</details>                                                                                                  | string                           |                  | No       | `https://example.com/oauth/jwks`                       |
+| <details><summary>scope</summary>The scope of the OIDC provider</details>                                                                                                        | string                           | `openid`         | No       | `openid email groups`                                  |
+| <details><summary>client-id</summary>The client ID of the OIDC provider</details>                                                                                                | string                           |                  | Yes      | `your-client-id`                                       |
+| <details><summary>client-secret</summary>The client secret of the OIDC provider</details>                                                                                        | string                           |                  | Yes      | `your-client-secret`                                   |
+| <details><summary>username-claim</summary>The claim to get the username from the ID token or userinfo endpoint response</details>                                                | string                           | `sub`            | No       | `name`                                                 |
+| <details><summary>groups-claim</summary>The claim to get the groups from the ID token or userinfo endpoint response</details>                                                    | string                           |                  | No       | `groups`                                               |
+| <details><summary>provider-type</summary>The provider type to get groups from the provider. Supported values: `gitlab`</details>                                                 | string                           |                  | No       | `gitlab`                                               |
+| <details><summary>store-type</summary>The store type to store the OIDC state and caches.</details>                                                                               | "in-memory" \| "redis" \| "file" | `in-memory`      | No       | `file`                                                 |
+| <details><summary>store-config</summary>The store configuration.</details>                                                                                                       | string \| object                 | `{ ttl: 60000 }` | No       | `./store`                                              |
+| <details><summary>authorized-groups</summary>The groups that are allowed to login. Use `true` to ensure the user has at least one group, `false` means no groups check</details> | string \| string \| boolean      | `false`          | No       | `true`                                                 |
+| <details><summary>group-users</summary>The custom group users. If set, `groups-claim` and `provider-type` take no effect</details>                                               | object                           |                  | No       | `{"animal": ["Tom", "Jack"]}`                          |
 
 #### store-config
 
@@ -147,7 +147,7 @@ auth:
 If the config value is not set, the plugin will try to read the value from the environment variable.
 The default environment variable name is `VERDACCIO_OPENID_` followed by the config key in uppercase and snake case.
 
-| Config Value      | Environment Name                     | Value Example                                                  |
+| Config Key        | Environment Name                     | Value Example                                                  |
 | ----------------- | ------------------------------------ | -------------------------------------------------------------- |
 | client-id         | `VERDACCIO_OPENID_CLIENT_ID`         | `your-client-id`                                               |
 | client-secret     | `VERDACCIO_OPENID_CLIENT_SECRET`     | `your-client-secret`                                           |
