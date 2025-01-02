@@ -4,6 +4,7 @@ import logger from "@/server/logger";
 
 import {
   BaseStore,
+  type RedisClusterConfig,
   type RedisConfig,
   STATE_TTL,
   type Store,
@@ -23,20 +24,37 @@ export default class RedisStore extends BaseStore implements Store {
   constructor(opts?: RedisConfig | string) {
     super();
 
-    if (typeof opts === "string") {
-      this.redis = new Redis(opts, defaultOptions);
+    if (!opts) {
+      const { ttl, ...restOpts } = defaultOptions;
 
-      this.ttl = defaultOptions.ttl;
-    } else {
-      const { ttl, nodes, ...restOpts } = { ...defaultOptions, ...opts } satisfies RedisConfig;
-
-      this.redis = nodes?.length
-        ? new Redis.Cluster(nodes, {
-            redisOptions: restOpts,
-          })
-        : new Redis(restOpts);
+      this.redis = new Redis(restOpts);
 
       this.ttl = ttl;
+    } else if (typeof opts === "string") {
+      const { ttl, ...restOpts } = defaultOptions;
+
+      this.redis = new Redis(opts, restOpts);
+
+      this.ttl = ttl;
+    } else {
+      if (opts?.nodes) {
+        const { ttl: defaultTTL, ...restDefaultOpts } = defaultOptions;
+
+        const { ttl = defaultTTL, nodes, redisOptions, ...restOpts } = opts satisfies RedisClusterConfig;
+
+        this.redis = new Redis.Cluster(nodes, {
+          redisOptions: { ...restDefaultOpts, ...redisOptions },
+          ...restOpts,
+        });
+
+        this.ttl = ttl;
+      } else {
+        const { ttl, nodes: _, ...restOpts } = { ...defaultOptions, ...opts } satisfies RedisConfig;
+
+        this.redis = new Redis(restOpts);
+
+        this.ttl = ttl;
+      }
     }
 
     this.redis.connect().catch((e) => {

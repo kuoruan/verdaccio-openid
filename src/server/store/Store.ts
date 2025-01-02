@@ -1,4 +1,5 @@
-import type { ClusterNode, RedisOptions } from "ioredis";
+import type { Options as TTLCacheOptions } from "@isaacs/ttlcache";
+import type { ClusterNode as RedisClusterNode, ClusterOptions as RedisClusterOptions, RedisOptions } from "ioredis";
 import type { InitOptions as FileInitOptions } from "node-persist";
 
 export interface Store {
@@ -53,23 +54,29 @@ export enum StoreType {
   File = "file",
 }
 
-export interface InMemoryConfig {
-  max?: number;
+interface StoreBaseConfig {
   ttl?: number;
 }
 
-export interface RedisConfig extends RedisOptions {
+export type InMemoryConfig = TTLCacheOptions<string, string> & StoreBaseConfig;
+
+interface RedisBaseConfig extends StoreBaseConfig {
   username?: string;
   password?: string;
-  ttl?: number;
-
-  nodes?: ClusterNode[];
 }
 
-export interface FileConfig extends FileInitOptions {
-  dir: string;
+export interface RedisSineleConfig extends RedisBaseConfig, RedisOptions {
+  nodes?: never;
+}
 
-  ttl?: number;
+export interface RedisClusterConfig extends RedisBaseConfig, RedisClusterOptions {
+  nodes: RedisClusterNode[];
+}
+
+export type RedisConfig = RedisSineleConfig | RedisClusterConfig;
+
+export interface FileConfig extends StoreBaseConfig, Omit<FileInitOptions, "ttl"> {
+  dir: string;
 }
 
 export interface StoreConfigMap {
