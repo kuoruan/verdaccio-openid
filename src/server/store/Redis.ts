@@ -40,10 +40,17 @@ export default class RedisStore extends BaseStore implements Store {
       if (opts?.nodes) {
         const { ttl: defaultTTL, ...restDefaultOpts } = defaultOptions;
 
-        const { ttl = defaultTTL, nodes, redisOptions, ...restOpts } = opts satisfies RedisClusterConfig;
+        const {
+          ttl = defaultTTL,
+          nodes,
+          username,
+          password,
+          redisOptions,
+          ...restOpts
+        } = opts satisfies RedisClusterConfig;
 
         this.redis = new Redis.Cluster(nodes, {
-          redisOptions: { ...restDefaultOpts, ...redisOptions },
+          redisOptions: { ...restDefaultOpts, username, password, ...redisOptions },
           ...restOpts,
         });
 
