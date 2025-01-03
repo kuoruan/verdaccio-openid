@@ -1,4 +1,4 @@
-import { array, type Schema, string } from "yup";
+import { array, mixed, type Schema, string } from "yup";
 import { number, object } from "yup";
 
 import { plugin } from "@/constants";
@@ -16,6 +16,11 @@ export const InMemoryConfigSchema = object<InMemoryConfig>({
   max: number().min(1).optional(),
 });
 
+const nodeObjectSchema = object({
+  host: string().optional(),
+  port: portSchema.optional(),
+});
+
 export const RedisConfigSchema = object<RedisConfig>({
   username: string().optional(),
   password: string().optional(),
@@ -25,9 +30,16 @@ export const RedisConfigSchema = object<RedisConfig>({
 
   nodes: array()
     .of(
-      object({
-        host: string().optional(),
-        port: portSchema.optional(),
+      mixed().test({
+        name: "is-valid-node",
+        message: "must be an object, number, or string.",
+        test: (value) => {
+          if (typeof value === "object" && value !== null) {
+            return nodeObjectSchema.isValidSync(value);
+          }
+
+          return typeof value === "number" || typeof value === "string";
+        },
       }),
     )
     .optional(),
