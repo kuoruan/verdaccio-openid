@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import { Cluster, Redis } from "ioredis";
 
 import logger from "@/server/logger";

@@ -1,4 +1,5 @@
 import { execSync } from "node:child_process";
+import process from "node:process";
 import { URL } from "node:url";
 
 import minimist from "minimist";
