@@ -1,8 +1,4 @@
-import process from "node:process";
-
 import { Cluster, Redis } from "ioredis";
-
-import logger from "@/server/logger";
 
 import {
   BaseStore,
@@ -16,7 +12,6 @@ import {
 
 const defaultOptions = {
   ttl: STATE_TTL,
-  lazyConnect: true,
 } satisfies RedisConfig;
 
 export default class RedisStore extends BaseStore implements Store {
@@ -66,10 +61,12 @@ export default class RedisStore extends BaseStore implements Store {
       }
     }
 
-    this.redis.connect().catch((e) => {
-      logger.error({ message: e.message }, "Failed to connect to redis: @{message}");
+    this.addProcessExitHandler();
+  }
 
-      process.exit(1);
+  private addProcessExitHandler(): void {
+    process.once("exit", async () => {
+      await this.redis.quit();
     });
   }
 
