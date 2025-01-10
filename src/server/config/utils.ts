@@ -33,7 +33,7 @@ export function getEnvironmentValue(name: string): unknown {
   return value;
 }
 
-export function handleValidationError(error: any, ...keyPaths: string[]) {
+export function handleValidationError(error: any, ...keyPaths: string[]): never {
   const message = error.errors ? error.errors[0] : error.message || error;
   logger.error(
     { key: ["auth", pluginKey, ...keyPaths].join("."), message },

@@ -73,6 +73,49 @@ describe("ParsedPluginConfig", () => {
     expect(config.usernameClaim).toBe("sub");
   });
 
+  it("should get redis store config for redis store", () => {
+    const config = new ParsedPluginConfig(
+      {
+        ...mockConfig,
+        "store-type": StoreType.Redis,
+        "store-config": "redis://redis-host:1234/0",
+      },
+      mockVerdaccioConfig,
+    );
+
+    expect(config.storeType).toBe(StoreType.Redis);
+    expect(config.getStoreConfig(StoreType.Redis)).toBe("redis://redis-host:1234/0");
+
+    const config1 = new ParsedPluginConfig(
+      {
+        ...mockConfig,
+        "store-type": StoreType.Redis,
+        "store-config": "rediss://redis-host:1234/0",
+      },
+      mockVerdaccioConfig,
+    );
+
+    expect(config1.getStoreConfig(StoreType.Redis)).toBe("rediss://redis-host:1234/0");
+
+    const config2 = new ParsedPluginConfig(
+      {
+        ...mockConfig,
+        "store-type": StoreType.Redis,
+        "store-config": {
+          host: "redis-host",
+          port: 1234,
+          db: 0,
+        },
+      },
+      mockVerdaccioConfig,
+    );
+    expect(config2.getStoreConfig(StoreType.Redis)).toEqual({
+      host: "redis-host",
+      port: 1234,
+      db: 0,
+    });
+  });
+
   it("should get store config for in-memory store", () => {
     const config = new ParsedPluginConfig(
       {

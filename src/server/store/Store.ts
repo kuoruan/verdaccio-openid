@@ -78,9 +78,3 @@ export type RedisConfig = RedisSineleConfig | RedisClusterConfig;
 export interface FileConfig extends StoreBaseConfig, Omit<FileInitOptions, "ttl"> {
   dir: string;
 }
-
-export interface StoreConfigMap {
-  [StoreType.InMemory]: InMemoryConfig | undefined;
-  [StoreType.Redis]: RedisConfig | string | undefined;
-  [StoreType.File]: FileConfig | string;
-}

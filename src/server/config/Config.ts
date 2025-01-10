@@ -6,7 +6,7 @@ import { mixed, object, Schema, string } from "yup";
 import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import { ProviderType } from "@/server/plugin/AuthProvider";
-import { type FileConfig, type InMemoryConfig, type StoreConfigMap, StoreType } from "@/server/store/Store";
+import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
 
 import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
 import { getEnvironmentValue, getStoreFilePath, handleValidationError } from "./utils";
@@ -38,7 +38,7 @@ export interface ConfigHolder {
   security: Security;
   packages: Record<string, PackageAccess>;
 
-  getStoreConfig<T extends StoreType>(storeType: T): StoreConfigMap[T];
+  getStoreConfig(storeType: StoreType): any;
 }
 
 export interface OpenIDConfig {
@@ -222,26 +222,28 @@ export default class ParsedPluginConfig implements ConfigHolder {
     );
   }
 
-  public getStoreConfig<T extends StoreType>(storeType: T): StoreConfigMap[T] {
+  public getStoreConfig(storeType: StoreType) {
     const configKey: keyof OpenIDConfig = "store-config";
 
     switch (storeType) {
       case StoreType.InMemory: {
         const storeConfig = this.getConfigValue<InMemoryConfig | undefined>(configKey, InMemoryConfigSchema.optional());
 
-        return storeConfig as unknown as StoreConfigMap[T];
+        return storeConfig;
       }
 
       case StoreType.Redis: {
         const storeConfig = this.getConfigValue<Record<string, unknown> | string | undefined>(
           configKey,
           mixed().test({
-            name: "is-redis-config-or-string",
+            name: "is-redis-config-or-redis-url",
             message: "must be a RedisConfig or a string",
             test: (value) => {
               if (value === undefined) return true;
               if (typeof value === "string" && value !== "") {
-                return string().url().isValidSync(value);
+                return string()
+                  .matches(/^rediss?:\/\//)
+                  .isValidSync(value);
               }
               if (typeof value === "object" && value !== null) {
                 return RedisConfigSchema.isValidSync(value);
@@ -251,7 +253,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           }),
         );
 
-        if (storeConfig === undefined) return undefined as StoreConfigMap[T];
+        if (storeConfig === undefined) return;
 
         if (typeof storeConfig === "string") {
           return storeConfig;
@@ -262,7 +264,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
         const username = configHolder.username;
         const password = configHolder.password;
 
-        return { ...storeConfig, username, password } as StoreConfigMap[T];
+        return { ...storeConfig, username, password } satisfies RedisConfig;
       }
 
       case StoreType.File: {
@@ -289,11 +291,11 @@ export default class ParsedPluginConfig implements ConfigHolder {
           return getStoreFilePath(configPath, config);
         }
 
-        return { ...config, dir: getStoreFilePath(configPath, config.dir) } as StoreConfigMap[T];
+        return { ...config, dir: getStoreFilePath(configPath, config.dir) } satisfies FileConfig;
       }
 
       default: {
-        throw new Error(`Unsupported store type: ${storeType}`);
+        handleValidationError(new Error(`Unsupported store type: ${String(storeType)}`), "store-type");
       }
     }
   }
