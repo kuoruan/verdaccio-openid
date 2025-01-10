@@ -105,10 +105,10 @@ Now you can use the openid-connect auth in the webUI.
 
 When using the `in-memory` store, the `store-config` is an object with the following properties:
 
-| Config key | Description                                                                                                   | Value Type | Default | Required | Example |
-| ---------- | ------------------------------------------------------------------------------------------------------------- | ---------- | ------- | -------- | ------- |
-| ttl        | The TTL of the OIDC state in milliseconds.                                                                    | number     | 60000   | No       | 60000   |
-| ...        | All options are passed to the [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache) constructor. | any        |         | No       |         |
+| Config key | Description                                                                                                   | Value Type       | Default | Required | Example |
+| ---------- | ------------------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | ------- |
+| ttl        | The TTL of the OIDC state (ms).                                                                               | number \| string | 60000   | No       | 1m      |
+| ...        | All options are passed to the [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache) constructor. | any              |         | No       |         |
 
 2. redis
 
@@ -116,7 +116,7 @@ When using the `redis` store, the `store-config` is a string with the Redis conn
 
 | Config key | Description                                                                                 | Value Type                     | Default | Required | Example                               |
 | ---------- | ------------------------------------------------------------------------------------------- | ------------------------------ | ------- | -------- | ------------------------------------- |
-| ttl        | The TTL of the OIDC state in milliseconds.                                                  | number                         | 60000   | No       | 60000                                 |
+| ttl        | The TTL of the OIDC state (ms).                                                             | number \| string               | 60000   | No       | 1m                                    |
 | username   | The username of the Redis connection.                                                       | string                         |         | No       | `your-username`                       |
 | password   | The password of the Redis connection.                                                       | string                         |         | No       | `your-password`                       |
 | nodes      | The nodes of the Redis Cluster connection.                                                  | (object \| string \| number)[] |         | No       | `[{ host: 'localhost', port: 6379 }]` |
@@ -152,7 +152,7 @@ auth:
   openid:
     store-type: redis
     store-config:
-      ttl: 60000
+      ttl: 1m
       username: your-username
       password: your-password
       nodes:
@@ -168,11 +168,11 @@ auth:
 
 When using the `file` store, the `store-config` is a string with the file path to store the OIDC state or an object with the following properties:
 
-| Config key | Description                                                                                           | Value Type | Default | Required | Example   |
-| ---------- | ----------------------------------------------------------------------------------------------------- | ---------- | ------- | -------- | --------- |
-| ttl        | The TTL of the OIDC state in milliseconds.                                                            | number     | 60000   | No       | 60000     |
-| dir        | The directory to store the OIDC state.                                                                | string     |         | No       | `./store` |
-| ...        | All options are passed to the [node-persist](https://www.npmjs.com/package/node-persist) constructor. | any        |         | No       |           |
+| Config key | Description                                                                                           | Value Type       | Default | Required | Example   |
+| ---------- | ----------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | --------- |
+| ttl        | The TTL of the OIDC state (ms).                                                                       | number \| string | 60000   | No       | 1m        |
+| dir        | The directory to store the OIDC state.                                                                | string           |         | No       | `./store` |
+| ...        | All options are passed to the [node-persist](https://www.npmjs.com/package/node-persist) constructor. | any              |         | No       |           |
 
 Config example:
 
