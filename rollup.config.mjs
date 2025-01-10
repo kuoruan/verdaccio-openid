@@ -45,7 +45,7 @@ function getBasePlugins(isBrowser = false) {
           "@babel/preset-env",
           {
             useBuiltIns: isBrowser ? "usage" : false,
-            corejs: isBrowser ? { version: "3.38", proposals: true } : false,
+            corejs: isBrowser ? { version: "3.40", proposals: true } : false,
             browserslistEnv: isBrowser ? "browser" : "node",
           },
         ],
