@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import { getEnvironmentValue, getStoreFilePath } from "@/server/config/utils";
+import { getEnvironmentValue, getStoreFilePath, getTTLValue } from "@/server/config/utils";
 
 describe("getEnvironmentValue", () => {
   const OLD_ENV = process.env;
@@ -73,5 +73,25 @@ describe("getStoreFilePath", () => {
     const expected = path.normalize(String.raw`/path/to/config/store\subdir`);
 
     expect(getStoreFilePath(configPath, relativePath)).toBe(expected);
+  });
+});
+
+describe("getTTLValue", () => {
+  it("should return undefined when input is undefined", () => {
+    expect(getTTLValue()).toBeUndefined();
+  });
+
+  it("should return same number when input is number", () => {
+    expect(getTTLValue(1000)).toBe(1000);
+  });
+
+  it("should parse string values using ms", () => {
+    expect(getTTLValue("1s")).toBe(1000);
+    expect(getTTLValue("1m")).toBe(60_000);
+    expect(getTTLValue("1h")).toBe(3_600_000);
+  });
+
+  it("should return undefined when input is invalid string", () => {
+    expect(getTTLValue("invalid")).toBeUndefined();
   });
 });

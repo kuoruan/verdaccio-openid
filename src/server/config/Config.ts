@@ -9,7 +9,7 @@ import { ProviderType } from "@/server/plugin/AuthProvider";
 import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
 
 import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
-import { getEnvironmentValue, getStoreFilePath, handleValidationError } from "./utils";
+import { getEnvironmentValue, getStoreFilePath, getTTLValue, handleValidationError } from "./utils";
 
 export interface PackageAccess extends IncorrectPackageAccess {
   unpublish?: string[];
@@ -229,11 +229,13 @@ export default class ParsedPluginConfig implements ConfigHolder {
       case StoreType.InMemory: {
         const storeConfig = this.getConfigValue<InMemoryConfig | undefined>(configKey, InMemoryConfigSchema.optional());
 
-        return storeConfig;
+        if (storeConfig === undefined) return;
+
+        return { ...storeConfig, ttl: getTTLValue(storeConfig.ttl) } satisfies InMemoryConfig;
       }
 
       case StoreType.Redis: {
-        const storeConfig = this.getConfigValue<Record<string, unknown> | string | undefined>(
+        const storeConfig = this.getConfigValue<RedisConfig | string | undefined>(
           configKey,
           mixed().test({
             name: "is-redis-config-or-redis-url",
@@ -261,10 +263,12 @@ export default class ParsedPluginConfig implements ConfigHolder {
 
         const configHolder = new RedisStoreConfigHolder(storeConfig, configKey);
 
-        const username = configHolder.username;
-        const password = configHolder.password;
-
-        return { ...storeConfig, username, password } satisfies RedisConfig;
+        return {
+          ...storeConfig,
+          username: configHolder.username,
+          password: configHolder.password,
+          ttl: getTTLValue(storeConfig.ttl),
+        } satisfies RedisConfig;
       }
 
       case StoreType.File: {
@@ -291,7 +295,11 @@ export default class ParsedPluginConfig implements ConfigHolder {
           return getStoreFilePath(configPath, config);
         }
 
-        return { ...config, dir: getStoreFilePath(configPath, config.dir) } satisfies FileConfig;
+        return {
+          ...config,
+          dir: getStoreFilePath(configPath, config.dir),
+          ttl: getTTLValue(config.ttl),
+        } satisfies FileConfig;
       }
 
       default: {

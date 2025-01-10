@@ -8,10 +8,18 @@ import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } fro
 import { getEnvironmentValue, handleValidationError } from "./utils";
 
 const portSchema = number().min(1).max(65_535);
-const ttlSchema = number().min(1000); // 1 second
+const ttlSchema = mixed().test({
+  name: "is-time-string-or-integer",
+  message: "must be a time string or integer",
+  test: (value) => {
+    return (
+      value === undefined || (typeof value === "string" && value !== "") || (typeof value === "number" && value > 1000) // 1 second
+    );
+  },
+});
 
 export const InMemoryConfigSchema = object<InMemoryConfig>({
-  ttl: ttlSchema.optional(),
+  ttl: ttlSchema,
 
   max: number().min(1).optional(),
 });
@@ -26,7 +34,7 @@ export const RedisConfigSchema = object<RedisConfig>({
   password: string().optional(),
   port: portSchema.optional(),
 
-  ttl: ttlSchema.optional(),
+  ttl: ttlSchema,
 
   nodes: array()
     .of(
@@ -46,7 +54,7 @@ export const RedisConfigSchema = object<RedisConfig>({
 });
 
 export const FileConfigSchema = object<FileConfig>({
-  ttl: ttlSchema.optional(),
+  ttl: ttlSchema,
 
   dir: string().required(),
   expiredInterval: number().min(1).optional(),
@@ -54,7 +62,7 @@ export const FileConfigSchema = object<FileConfig>({
 
 abstract class StoreConfig<T> {
   constructor(
-    private config: Record<string, unknown>,
+    private config: T,
     private configKey: string,
   ) {}
 

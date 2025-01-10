@@ -1,6 +1,8 @@
 import path from "node:path";
 import process from "node:process";
 
+import ms from "ms";
+
 import { pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
@@ -42,6 +44,27 @@ export function handleValidationError(error: any, ...keyPaths: string[]): never 
   process.exit(1);
 }
 
+/**
+ * Transform a time string or number into a ms number.
+ *
+ * @param ttl - The time to live value.
+ * @returns The time to live value in ms.
+ */
+export function getTTLValue(ttl?: number | string): number | undefined {
+  if (typeof ttl === "string") {
+    return ms(ttl);
+  }
+
+  return ttl;
+}
+
+/**
+ * Get the absolute path of a store file.
+ *
+ * @param configPath - The path to the config file.
+ * @param storePath - The path to the store files.
+ * @returns The absolute path of the store file.
+ */
 export function getStoreFilePath(configPath: string, storePath: string): string {
   return path.isAbsolute(storePath) ? storePath : path.normalize(path.join(path.dirname(configPath), storePath));
 }
