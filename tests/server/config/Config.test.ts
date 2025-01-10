@@ -1,7 +1,6 @@
 import { defaultSecurity } from "@verdaccio/config";
 import type { Config } from "@verdaccio/types";
 import merge from "deepmerge";
-import type { MockInstance } from "vitest";
 
 import ParsedPluginConfig from "@/server/config/Config";
 import * as utils from "@/server/config/utils";
@@ -142,16 +141,14 @@ describe("ParsedPluginConfig", () => {
 });
 
 describe("Invalid ParsedPluginConfig", () => {
-  let exitMock: MockInstance<never>;
-
   beforeEach(() => {
-    exitMock = vi.spyOn(process, "exit").mockImplementation(() => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("process.exit called");
     });
   });
 
   afterEach(() => {
-    exitMock.mockRestore();
+    vi.resetAllMocks();
   });
 
   it("should throw error if provider host is not specified", () => {
