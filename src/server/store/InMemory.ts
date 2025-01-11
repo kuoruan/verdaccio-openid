@@ -79,4 +79,10 @@ export default class InMemoryStore extends BaseStore implements Store {
 
     return this.groupsCache.get(userGroupsKey);
   }
+
+  close(): void {
+    this.stateCache.clear();
+    this.userinfoCache.clear();
+    this.groupsCache.clear();
+  }
 }

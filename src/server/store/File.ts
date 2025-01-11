@@ -70,4 +70,8 @@ export default class FileStore extends BaseStore implements Store {
 
     return this.db.getItem(groupsKey);
   }
+
+  close(): void {
+    // ignore
+  }
 }

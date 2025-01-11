@@ -49,6 +49,21 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
 
     const store = createStore(parsedConfig);
 
+    // close store on process termination
+    for (const signal of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"]) {
+      process.once(signal, async () => {
+        try {
+          debug("Received signal %s, closing store...", signal);
+
+          await store.close();
+
+          debug("Store closed, good bye!");
+        } catch (e: any) {
+          debug("Error closing store: %s", e.message);
+        }
+      });
+    }
+
     const provider = new OpenIDConnectAuthProvider(parsedConfig, store);
     const core = new AuthCore(parsedConfig, provider);
 

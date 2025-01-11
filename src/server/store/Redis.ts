@@ -60,14 +60,6 @@ export default class RedisStore extends BaseStore implements Store {
         this.ttl = ttl;
       }
     }
-
-    this.addProcessExitHandler();
-  }
-
-  private addProcessExitHandler(): void {
-    process.once("exit", async () => {
-      await this.redis.quit();
-    });
   }
 
   private async isKeyExists(key: string): Promise<boolean> {
@@ -128,5 +120,9 @@ export default class RedisStore extends BaseStore implements Store {
     if (!exists) return null;
 
     return this.redis.lrange(groupsKey, 0, -1);
+  }
+
+  async close(): Promise<void> {
+    await this.redis.quit();
   }
 }

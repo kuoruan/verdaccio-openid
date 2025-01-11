@@ -23,6 +23,9 @@ export interface Store {
 
   /** get user groups from the store */
   getUserGroups?: (key: string, providerId: string) => MaybePromise<string[] | null | undefined>;
+
+  /** close the store */
+  close: () => MaybePromise<void>;
 }
 
 export class BaseStore {
