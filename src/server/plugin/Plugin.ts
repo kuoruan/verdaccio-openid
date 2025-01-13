@@ -1,3 +1,5 @@
+import process from "node:process";
+
 import type { Auth } from "@verdaccio/auth";
 import { errorUtils } from "@verdaccio/core";
 import type {
