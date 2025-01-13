@@ -143,8 +143,8 @@ importers:
         specifier: ^3.1.8
         version: 3.1.8
       '@verdaccio/types':
-        specifier: ^10.8.0
-        version: 10.8.0
+        specifier: 13.0.0-next-8.2
+        version: 13.0.0-next-8.2
       core-js:
         specifier: ^3.40.0
         version: 3.40.0
@@ -1446,8 +1446,9 @@ packages:
     resolution: {integrity: sha512-EWRuEOLgb3UETxUsYg6+Mml6DDRiwQqKIEsE4Ys6y6rcH2vgW6XMnTt+s/v5pFI+zlbi6fxjOgQB1e6IJAwxVA==}
     engines: {node: '>=18'}
 
-  '@verdaccio/types@10.8.0':
-    resolution: {integrity: sha512-FuJyCRFPdy+gqCi0v29dE1xKn99Ztq6fuY9fb7ezeP1SRbUL/hgDaNkpjYvSIMCyb+dLFKOFBeZPyIUBLOSdlA==}
+  '@verdaccio/types@13.0.0-next-8.2':
+    resolution: {integrity: sha512-I3FmPyRMlE7xjVaeBqZ/9q/+npF18tGe4O7e0yg/qGhx47wRAOJ1+zy0XvxPi5CU8Oe9FXzCqWrl9CH2+m+WgA==}
+    engines: {node: '>=18'}
 
   '@verdaccio/ui-theme@3.0.1':
     resolution: {integrity: sha512-5L8knU5yYYZ5nc3zOGIZArtuc8t+znbtMYMcvzweE2JsLF/gMCsRhpGUB69OBJYtJtut3phzrLxdranYExacmw==}
@@ -5391,7 +5392,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@verdaccio/types@10.8.0': {}
+  '@verdaccio/types@13.0.0-next-8.2': {}
 
   '@verdaccio/ui-theme@3.0.1': {}
 
