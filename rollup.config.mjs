@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 import alias from "@rollup/plugin-alias";
@@ -12,6 +13,9 @@ import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
 import { defineConfig } from "rollup";
 import { nodeExternals } from "rollup-plugin-node-externals";
+
+const packageName = process.env.npm_package_name;
+const packageVersion = process.env.npm_package_version;
 
 function getBasePlugins(isBrowser = false) {
   return [
@@ -30,8 +34,8 @@ function getBasePlugins(isBrowser = false) {
       preventAssignment: true,
       values: {
         "process.env.NODE_ENV": JSON.stringify(process.env.NODE_ENV),
-        "process.env.npm_package_name": JSON.stringify(process.env.npm_package_name),
-        "process.env.npm_package_version": JSON.stringify(process.env.npm_package_version),
+        "process.env.npm_package_name": JSON.stringify(packageName),
+        "process.env.npm_package_version": JSON.stringify(packageVersion),
       },
     }),
     json(),
@@ -99,7 +103,13 @@ export default defineConfig([
     input: "./src/client/verdaccio.ts",
     output: {
       dir: "dist/client",
-      entryFileNames: "[name].[hash].js",
+      entryFileNames: (info) => {
+        if (info.isEntry) {
+          return `${packageName}-${packageVersion}.js`;
+        }
+
+        return "[name].[hash].js";
+      },
       format: "iife",
     },
     plugins: [...getBasePlugins(true), terser()],

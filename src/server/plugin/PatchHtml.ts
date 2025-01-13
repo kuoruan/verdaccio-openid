@@ -1,11 +1,10 @@
-import fs from "node:fs";
-
 import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler, Request } from "express";
 
 import { plugin } from "@/constants";
 import type { ConfigHolder } from "@/server/config/Config";
-import { publicRoot, staticPath } from "@/server/constants";
+import { staticPath } from "@/server/constants";
+import logger from "@/server/logger";
 
 import { getBaseUrl } from "./utils";
 
@@ -14,21 +13,7 @@ import { getBaseUrl } from "./utils";
  * that modifies the login button.
  */
 export class PatchHtml implements IPluginMiddleware<any> {
-  private readonly scriptName: string;
-
-  constructor(private readonly config: ConfigHolder) {
-    const scriptName = this.getScriptName();
-
-    if (!scriptName) {
-      throw new Error("Could not find script to inject");
-    }
-
-    this.scriptName = scriptName;
-  }
-
-  private getScriptName(): string | undefined {
-    return fs.readdirSync(publicRoot).find((file) => file.startsWith("verdaccio") && file.endsWith(".js"));
-  }
+  constructor(private readonly config: ConfigHolder) {}
 
   /**
    * IPluginMiddleware
@@ -41,33 +26,40 @@ export class PatchHtml implements IPluginMiddleware<any> {
    * Patches `res.send` in order to inject style and script tags.
    */
   patchResponse: Handler = (req, res, next) => {
-    const send = res.send;
+    const originalSend = res.send;
 
     res.send = (html) => {
-      html = this.insertTags(html, req);
-      return send.call(res, html);
+      try {
+        const patchedHtml = this.insertTags(html, req);
+
+        return originalSend.call(res, patchedHtml);
+      } catch (err: any) {
+        logger.error({ message: err.message }, "Failed to patch HTML: @{message}");
+
+        return originalSend.call(res, html);
+      }
     };
     next();
   };
 
   private insertTags(html: string | Buffer, req: Request): string {
-    html = String(html);
-    if (!html.includes("__VERDACCIO_BASENAME_UI_OPTIONS")) {
-      return html;
+    const htmlString = Buffer.isBuffer(html) ? html.toString() : html;
+
+    if (!htmlString.includes("__VERDACCIO_BASENAME_UI_OPTIONS")) {
+      return htmlString;
     }
 
+    const scriptTag = this.generateScriptTag(req);
+
+    return htmlString.replace(/<\/body>/, `${scriptTag}</body>`);
+  }
+
+  private generateScriptTag(req: Request): string {
     const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
+    const scriptName = `${plugin.name}-${plugin.version}.js`;
 
-    const scriptSrc = `${baseUrl}${staticPath}/${this.scriptName}`;
+    const scriptSrc = `${baseUrl}${staticPath}/${scriptName}`;
 
-    return html.replace(
-      /<\/body>/,
-      [
-        `<!-- inject start, ${plugin.name}: ${plugin.version} -->`,
-        `<script defer="defer" src="${scriptSrc}"></script>`,
-        "<!-- inject end -->",
-        "</body>",
-      ].join(""),
-    );
+    return `<script defer="defer" src="${scriptSrc}"></script>`;
   }
 }
