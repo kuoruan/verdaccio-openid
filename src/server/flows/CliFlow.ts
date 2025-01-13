@@ -1,4 +1,3 @@
-import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
 
 import { cliPort, cliProviderId } from "@/constants";
@@ -8,18 +7,16 @@ import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
+import type { PluginMiddleware } from "@/server/plugin/Plugin";
 
 const pluginCallbackeUrl = getCallbackPath(cliProviderId);
 
-export class CliFlow implements IPluginMiddleware<any> {
+export class CliFlow implements PluginMiddleware {
   constructor(
     private readonly core: AuthCore,
     private readonly provider: AuthProvider,
   ) {}
 
-  /**
-   * IPluginMiddleware
-   */
   register_middlewares(app: Application) {
     app.get(pluginCallbackeUrl, this.callback);
   }

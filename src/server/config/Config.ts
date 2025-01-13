@@ -289,7 +289,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           }),
         );
 
-        const configPath = this.verdaccioConfig.self_path || this.verdaccioConfig.configPath;
+        const configPath = this.verdaccioConfig.configPath ?? this.verdaccioConfig.self_path;
 
         if (typeof config === "string") {
           return getStoreFilePath(configPath, config);

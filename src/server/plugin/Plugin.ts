@@ -1,21 +1,13 @@
 import process from "node:process";
 
 import type { Auth } from "@verdaccio/auth";
+import type { pluginUtils } from "@verdaccio/core";
 import { errorUtils } from "@verdaccio/core";
-import type {
-  AllowAccess,
-  AuthAccessCallback,
-  AuthCallback,
-  IBasicAuth,
-  IPluginAuth,
-  IPluginMiddleware,
-  PluginOptions,
-  RemoteUser,
-} from "@verdaccio/types";
+import type { AllowAccess, PackageAccess, RemoteUser } from "@verdaccio/types";
 import type { Application } from "express";
 
 import { plugin } from "@/constants";
-import ParsedPluginConfig, { type OpenIDConfig, type PackageAccess } from "@/server/config/Config";
+import ParsedPluginConfig, { type OpenIDConfig } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import { CliFlow, WebFlow } from "@/server/flows";
 import logger, { setLogger } from "@/server/logger";
@@ -28,15 +20,22 @@ import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
 
+export interface PluginMiddleware {
+  register_middlewares(app: Application): void;
+}
+
 /**
  * Implements the verdaccio plugin interfaces.
  */
-export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
-  private readonly config: ParsedPluginConfig;
+export class Plugin implements pluginUtils.Auth<any>, pluginUtils.ExpressMiddleware<OpenIDConfig, any, Auth> {
+  private readonly parsedConfig: ParsedPluginConfig;
   private readonly provider: AuthProvider;
   private readonly core: AuthCore;
 
-  constructor(config: OpenIDConfig, options: PluginOptions<OpenIDConfig>) {
+  constructor(
+    public config: OpenIDConfig,
+    public options: pluginUtils.PluginOptions,
+  ) {
     setLogger(options.logger);
 
     const verdaccioConfig = options.config;
@@ -69,25 +68,26 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     const provider = new OpenIDConnectAuthProvider(parsedConfig, store);
     const core = new AuthCore(parsedConfig, provider);
 
-    this.config = parsedConfig;
+    this.parsedConfig = parsedConfig;
     this.provider = provider;
     this.core = core;
   }
 
-  public get version(): string {
-    return plugin.version;
+  public get version(): number {
+    return +plugin.version;
   }
 
-  /**
-   * IPluginMiddleware
-   */
-  register_middlewares(app: Application, auth: IBasicAuth<any>, _storage) {
-    this.core.setAuth(auth as Auth);
+  public getVersion(): number {
+    return this.version;
+  }
+
+  register_middlewares(app: Application, auth: Auth, _storage) {
+    this.core.setAuth(auth);
 
     const children = [
       new ServeStatic(),
-      new PatchHtml(this.config),
-      new WebFlow(this.config, this.core, this.provider),
+      new PatchHtml(this.parsedConfig),
+      new WebFlow(this.parsedConfig, this.core, this.provider),
       new CliFlow(this.core, this.provider),
     ];
 
@@ -96,10 +96,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     }
   }
 
-  /**
-   * IPluginAuth
-   */
-  async authenticate(username: string, token: string, callback: AuthCallback): Promise<void> {
+  async authenticate(username: string, token: string, callback: pluginUtils.AuthCallback): Promise<void> {
     if (!username || !token) {
       debug("username or token is empty, skip authentication");
 
@@ -144,10 +141,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     callback(null, user.realGroups);
   }
 
-  /**
-   * IPluginAuth
-   */
-  allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
+  allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AccessCallback): void {
     debug("check access: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.access);
@@ -160,10 +154,7 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     callback(null, grant);
   }
 
-  /**
-   * IPluginAuth
-   */
-  allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
+  allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AuthAccessCallback): void {
     debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.publish ?? config.access);
@@ -178,10 +169,11 @@ export class Plugin implements IPluginMiddleware<any>, IPluginAuth<any> {
     callback(null, grant);
   }
 
-  /**
-   * IPluginAuth
-   */
-  allow_unpublish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: AuthAccessCallback): void {
+  allow_unpublish(
+    user: RemoteUser,
+    config: AllowAccess & PackageAccess,
+    callback: pluginUtils.AuthAccessCallback,
+  ): void {
     debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
     const grant = this.checkPackageAccess(user, config.unpublish ?? config.access);

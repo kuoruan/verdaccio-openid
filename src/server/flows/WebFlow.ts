@@ -1,4 +1,3 @@
-import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler } from "express";
 
 import { stringifyQueryParams } from "@/query-params";
@@ -8,19 +7,17 @@ import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
+import type { PluginMiddleware } from "@/server/plugin/Plugin";
 import { getBaseUrl } from "@/server/plugin/utils";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
-export class WebFlow implements IPluginMiddleware<any> {
+export class WebFlow implements PluginMiddleware {
   constructor(
     private readonly config: ConfigHolder,
     private readonly core: AuthCore,
     private readonly provider: AuthProvider,
   ) {}
 
-  /**
-   * IPluginMiddleware
-   */
   register_middlewares(app: Application) {
     app.get(getAuthorizePath(), this.authorize);
     app.get(getCallbackPath(), this.callback);

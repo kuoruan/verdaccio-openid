@@ -1,4 +1,4 @@
-import { Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
+import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
 import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 

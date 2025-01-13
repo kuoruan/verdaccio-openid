@@ -1,4 +1,3 @@
-import type { IPluginMiddleware } from "@verdaccio/types";
 import type { Application, Handler, Request } from "express";
 
 import { plugin } from "@/constants";
@@ -6,18 +5,16 @@ import type { ConfigHolder } from "@/server/config/Config";
 import { staticPath } from "@/server/constants";
 import logger from "@/server/logger";
 
+import type { PluginMiddleware } from "./Plugin";
 import { getBaseUrl } from "./utils";
 
 /**
  * Injects additional static imports into the DOM with code from the client folder
  * that modifies the login button.
  */
-export class PatchHtml implements IPluginMiddleware<any> {
+export class PatchHtml implements PluginMiddleware {
   constructor(private readonly config: ConfigHolder) {}
 
-  /**
-   * IPluginMiddleware
-   */
   register_middlewares(app: Application) {
     app.use(this.patchResponse);
   }
