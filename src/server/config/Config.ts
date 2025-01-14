@@ -1,5 +1,5 @@
 import { defaultSecurity } from "@verdaccio/config";
-import type { Config, PackageAccess as IncorrectPackageAccess, PackageList, Security } from "@verdaccio/types";
+import type { Config, PackageAccess, PackageList, Security } from "@verdaccio/types";
 import merge from "deepmerge";
 import { mixed, object, Schema, string } from "yup";
 
@@ -10,10 +10,6 @@ import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } fro
 
 import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
 import { getEnvironmentValue, getStoreFilePath, getTTLValue, handleValidationError } from "./utils";
-
-export interface PackageAccess extends IncorrectPackageAccess {
-  unpublish?: string[];
-}
 
 export interface ConfigHolder {
   providerHost: string;

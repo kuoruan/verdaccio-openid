@@ -1,10 +1,10 @@
 import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
 import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
-import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
+import type { JWTSignOptions, PackageAccess, RemoteUser, Security } from "@verdaccio/types";
 
+import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 
-import type { ConfigHolder, PackageAccess } from "../config/Config";
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
