@@ -1,4 +1,4 @@
-import { loginHref, logoutHref, replacedAttrKey, replacedAttrValue } from "@/constants";
+import { loginHref, logoutHref, updatedAttrKey, updatedAttrValue } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
 import {
@@ -68,7 +68,7 @@ function removeInvalidCommands(commands: HTMLElement[]): void {
 
 function updateUsageTabs(usageTabsSelector: string): void {
   const tabs = [...document.querySelectorAll(usageTabsSelector)].filter(
-    (node) => node.getAttribute(replacedAttrKey) !== replacedAttrValue,
+    (node) => node.getAttribute(updatedAttrKey) !== updatedAttrValue,
   );
 
   if (tabs.length === 0) return;
@@ -90,21 +90,46 @@ function updateUsageTabs(usageTabsSelector: string): void {
 
     removeInvalidCommands(commands);
 
-    tab.setAttribute(replacedAttrKey, replacedAttrValue);
+    tab.setAttribute(updatedAttrKey, updatedAttrValue);
   }
 }
 
+function addOpenIDLoginButton(loginDialogSelector: string, loginButtonSelector: string, callback: () => void): void {
+  const loginDialog = document.querySelector(loginDialogSelector);
+
+  if (!loginDialog || loginDialog.getAttribute(updatedAttrKey) === updatedAttrValue) return;
+
+  const loginButton = document.querySelector(loginButtonSelector)!;
+
+  const loginWithOpenIDButton = loginButton.cloneNode(false) as HTMLButtonElement;
+
+  loginWithOpenIDButton.textContent = "Login with OpenID Connect";
+  loginWithOpenIDButton.dataset.testid = "dialogOpenIDLogin";
+
+  loginWithOpenIDButton.addEventListener("click", callback);
+
+  loginDialog.append(loginWithOpenIDButton);
+
+  loginDialog.setAttribute(updatedAttrKey, updatedAttrValue);
+}
+
 export interface InitOptions {
-  loginButton: string;
-  logoutButton: string;
-  usageTabs: string;
+  loginButtonSelector: string;
+  loginDialogSelector: string;
+  logoutButtonSelector: string;
+  usageTabsSelector: string;
 }
 
 //
 // By default the login button opens a form that asks the user to submit credentials.
 // We replace this behaviour and instead redirect to the route that handles OAuth.
 //
-export function init({ loginButton, logoutButton, usageTabs }: InitOptions): void {
+export function init({
+  loginButtonSelector,
+  logoutButtonSelector,
+  usageTabsSelector,
+  loginDialogSelector,
+}: InitOptions): void {
   if (parseAndSaveCredentials()) {
     // If we are new logged in, reload the page to remove the query params
     reloadToPathname();
@@ -117,19 +142,25 @@ export function init({ loginButton, logoutButton, usageTabs }: InitOptions): voi
 
   const baseUrl = getBaseUrl(true);
 
-  interruptClick(loginButton, () => {
+  const gotoOpenIDLoginUrl = () => {
     location.href = baseUrl + loginHref;
-  });
+  };
 
-  interruptClick(logoutButton, () => {
+  if (window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin) {
+    const updateLoginDialog = () => addOpenIDLoginButton(loginDialogSelector, loginButtonSelector, gotoOpenIDLoginUrl);
+
+    document.addEventListener("click", () => retry(updateLoginDialog, 2));
+  } else {
+    interruptClick(loginButtonSelector, gotoOpenIDLoginUrl);
+  }
+
+  interruptClick(logoutButtonSelector, () => {
     clearCredentials();
 
     location.href = baseUrl + logoutHref;
   });
 
-  const updateUsageInfo = () => updateUsageTabs(usageTabs);
+  const updateUsageInfo = () => updateUsageTabs(usageTabsSelector);
 
   document.addEventListener("click", () => retry(updateUsageInfo, 2));
-
-  retry(updateUsageInfo);
 }

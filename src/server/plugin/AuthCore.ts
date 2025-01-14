@@ -1,6 +1,6 @@
 import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
 import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
-import type { JWTSignOptions, PackageAccess, RemoteUser, Security } from "@verdaccio/types";
+import type { JWTSignOptions, PackageList, RemoteUser, Security } from "@verdaccio/types";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
@@ -88,7 +88,7 @@ export class AuthCore {
   /**
    * Returns all permission groups used in the Verdacio config.
    */
-  private initConfiguredGroups(packages: Record<string, PackageAccess> = {}): string[] {
+  private initConfiguredGroups(packages: PackageList = {}): string[] {
     for (const packageConfig of Object.values(packages)) {
       const groups = (["access", "publish", "unpublish"] as const)
         .flatMap((key) => packageConfig[key])

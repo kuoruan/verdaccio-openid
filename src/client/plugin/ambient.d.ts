@@ -2,6 +2,10 @@ import type { TemplateUIOptions } from "@verdaccio/types";
 
 export {};
 
+interface OpenIDOptions {
+  keepPasswdLogin: boolean;
+}
+
 declare global {
   interface MouseEvent {
     // IE and Edge have a `path` property instead of `composedPath()`.
@@ -12,5 +16,6 @@ declare global {
   interface Window {
     VERDACCIO_API_URL?: string;
     __VERDACCIO_BASENAME_UI_OPTIONS?: TemplateUIOptions;
+    __VERDACCIO_OPENID_OPTIONS?: OpenIDOptions;
   }
 }
