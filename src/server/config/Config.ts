@@ -1,7 +1,7 @@
 import { defaultSecurity } from "@verdaccio/config";
-import type { Config, PackageAccess, PackageList, Security } from "@verdaccio/types";
+import type { Config, PackageList, Security } from "@verdaccio/types";
 import merge from "deepmerge";
-import { mixed, object, Schema, string } from "yup";
+import { boolean, mixed, object, Schema, string } from "yup";
 
 import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
@@ -29,11 +29,12 @@ export interface ConfigHolder {
   groupUsers?: Record<string, string[]>;
   storeType: StoreType;
 
-  urlPrefix: string;
   secret: string;
   security: Security;
-  packages: Record<string, PackageAccess>;
+  urlPrefix: string;
+  packages: PackageList;
 
+  keepPasswdLogin: boolean;
   getStoreConfig(storeType: StoreType): any;
 }
 
@@ -53,6 +54,7 @@ export interface OpenIDConfig {
   "groups-claim"?: string;
   "store-type"?: StoreType;
   "store-config"?: Record<string, unknown> | string;
+  "keep-passwd-login"?: boolean;
   "authorized-groups"?: string | string[] | boolean;
   "group-users"?: string | Record<string, string[]>;
 }
@@ -74,6 +76,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
   public get packages(): PackageList {
     return this.verdaccioConfig.packages ?? {};
   }
+
   public get urlPrefix(): string {
     return this.verdaccioConfig.url_prefix ?? "";
   }
@@ -302,5 +305,12 @@ export default class ParsedPluginConfig implements ConfigHolder {
         handleValidationError(new Error(`Unsupported store type: ${String(storeType)}`), "store-type");
       }
     }
+  }
+
+  public get keepPasswdLogin(): boolean {
+    return (
+      this.getConfigValue<boolean | undefined>("keep-passwd-login", boolean().optional()) ??
+      this.verdaccioConfig.auth?.htpasswd?.file !== undefined
+    );
   }
 }
