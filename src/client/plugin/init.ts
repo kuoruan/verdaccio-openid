@@ -5,6 +5,7 @@ import {
   clearCredentials,
   type Credentials,
   isLoggedIn,
+  isOpenIDLoggedIn,
   isUITokenExpired,
   saveCredentials,
   validateCredentials,
@@ -67,15 +68,22 @@ function removeInvalidCommands(commands: HTMLElement[]): void {
 }
 
 function updateUsageTabs(usageTabsSelector: string): void {
+  const openIDLoggedIn = isOpenIDLoggedIn();
+
+  const loggedIn = isLoggedIn();
+
+  if (!openIDLoggedIn && loggedIn) {
+    // If we are logged in but not with OpenID, we don't need to update the usage info
+    return;
+  }
+
   const tabs = [...document.querySelectorAll(usageTabsSelector)].filter(
     (node) => node.getAttribute(updatedAttrKey) !== updatedAttrValue,
   );
 
   if (tabs.length === 0) return;
 
-  const loggedIn = isLoggedIn();
-
-  const usageInfoLines = getUsageInfo(loggedIn).split("\n").reverse();
+  const usageInfoLines = getUsageInfo(openIDLoggedIn).split("\n").reverse();
 
   for (const tab of tabs) {
     const commands = [...tab.querySelectorAll("button")]
@@ -85,7 +93,7 @@ function updateUsageTabs(usageTabsSelector: string): void {
     if (commands.length === 0) continue;
 
     for (const info of usageInfoLines) {
-      cloneAndAppendCommand(commands[0], info, loggedIn);
+      cloneAndAppendCommand(commands[0], info, openIDLoggedIn);
     }
 
     removeInvalidCommands(commands);
