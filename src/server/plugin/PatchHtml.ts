@@ -58,8 +58,8 @@ export class PatchHtml implements PluginMiddleware {
     const scriptSrc = `${baseUrl}${staticPath}/${scriptName}`;
 
     return [
-      `<script>window.__VERDACCIO_OPENID_OPTIONS={keepPasswdLogin:${this.config.keepPasswdLogin}}</script>`,
+      `<script>window.__VERDACCIO_OPENID_OPTIONS={"keepPasswdLogin":${this.config.keepPasswdLogin}}</script>`,
       `<script defer="defer" src="${scriptSrc}"></script>`,
-    ].join("\n");
+    ].join("");
   }
 }
