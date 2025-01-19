@@ -70,9 +70,7 @@ function removeInvalidCommands(commands: HTMLElement[]): void {
 function updateUsageTabs(usageTabsSelector: string): void {
   const openIDLoggedIn = isOpenIDLoggedIn();
 
-  const loggedIn = isLoggedIn();
-
-  if (!openIDLoggedIn && loggedIn) {
+  if (!openIDLoggedIn && isLoggedIn()) {
     // If we are logged in but not with OpenID, we don't need to update the usage info
     return;
   }
