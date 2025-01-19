@@ -4,6 +4,7 @@
   "version": "0.12.0",
   "repository": "https://github.com/kuoruan/verdaccio-openid",
   "license": "MIT",
+  "packageManager": "pnpm@9.15.4",
   "author": {
     "name": "Xingwang Liao",
     "email": "kuoruan@gmail.com"
