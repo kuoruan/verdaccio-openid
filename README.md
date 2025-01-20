@@ -96,6 +96,7 @@ Now you can use the openid-connect auth in the webUI.
 | <details><summary>provider-type</summary>The provider type to get groups from the provider. Supported values: `gitlab`</details>                                                 | string                           |                  | No       | `gitlab`                                               |
 | <details><summary>store-type</summary>The store type to store the OIDC state and caches.</details>                                                                               | "in-memory" \| "redis" \| "file" | `in-memory`      | No       | `file`                                                 |
 | <details><summary>store-config</summary>The store configuration.</details>                                                                                                       | string \| object                 | `{ ttl: 60000 }` | No       | `./store`                                              |
+| <details><summary>keep-passwd-login</summary>Keep the htpasswd login dialog. If set to `true`, the htpasswd login dialog will be kept.</details>                                 | boolean                          | `undefined`      | No       | `true`                                                 |
 | <details><summary>authorized-groups</summary>The groups that are allowed to login. Use `true` to ensure the user has at least one group, `false` means no groups check</details> | string \| string \| boolean      | `false`          | No       | `true`                                                 |
 | <details><summary>group-users</summary>The custom group users. If set, `groups-claim` and `provider-type` take no effect</details>                                               | object                           |                  | No       | `{"animal": ["Tom", "Jack"]}`                          |
 
@@ -107,7 +108,7 @@ When using the `in-memory` store, the `store-config` is an object with the follo
 
 | Config key | Description                                                                                                   | Value Type       | Default | Required | Example |
 | ---------- | ------------------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | ------- |
-| ttl        | The TTL of the OIDC state (ms).                                                                               | number \| string | 60000   | No       | 1m      |
+| ttl        | The TTL of the OIDC state (ms).                                                                               | number \| string | `60000` | No       | `1m`    |
 | ...        | All options are passed to the [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache) constructor. | any              |         | No       |         |
 
 2. redis
@@ -116,9 +117,11 @@ When using the `redis` store, the `store-config` is a string with the Redis conn
 
 | Config key | Description                                                                                 | Value Type                     | Default | Required | Example                               |
 | ---------- | ------------------------------------------------------------------------------------------- | ------------------------------ | ------- | -------- | ------------------------------------- |
-| ttl        | The TTL of the OIDC state (ms).                                                             | number \| string               | 60000   | No       | 1m                                    |
+| ttl        | The TTL of the OIDC state (ms).                                                             | number \| string               | `60000` | No       | `1m`                                  |
 | username   | The username of the Redis connection.                                                       | string                         |         | No       | `your-username`                       |
 | password   | The password of the Redis connection.                                                       | string                         |         | No       | `your-password`                       |
+| host       | The host of the Redis connection.                                                           | string                         |         | No       | `localhost`                           |
+| port       | The port of the Redis connection.                                                           | number                         |         | No       | `6379`                                |
 | nodes      | The nodes of the Redis Cluster connection.                                                  | (object \| string \| number)[] |         | No       | `[{ host: 'localhost', port: 6379 }]` |
 | ...        | All options are passed to the [ioredis](https://www.npmjs.com/package/ioredis) constructor. | any                            |         | No       |                                       |
 
@@ -145,7 +148,7 @@ auth:
       port: 6379
 ```
 
-When using Redis Cluster, the `nodes` config is required.
+When using Redis Cluster, you should use the `nodes` property:
 
 ```yaml
 auth:
@@ -170,7 +173,7 @@ When using the `file` store, the `store-config` is a string with the file path t
 
 | Config key | Description                                                                                           | Value Type       | Default | Required | Example   |
 | ---------- | ----------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | --------- |
-| ttl        | The TTL of the OIDC state (ms).                                                                       | number \| string | 60000   | No       | 1m        |
+| ttl        | The TTL of the OIDC state (ms).                                                                       | number \| string | `60000` | No       | `1m`      |
 | dir        | The directory to store the OIDC state.                                                                | string           |         | No       | `./store` |
 | ...        | All options are passed to the [node-persist](https://www.npmjs.com/package/node-persist) constructor. | any              |         | No       |           |
 
@@ -191,6 +194,16 @@ auth:
       ttl: 60000
       dir: ./store
 ```
+
+#### keep-passwd-login
+
+If you want to keep the htpasswd login dialog, set the `keep-passwd-login` to `true`.
+
+By default, if `auth.htpasswd.file` is set, the htpasswd login dialog will be keep.
+
+With this, you can use both the htpasswd login and the OIDC login.
+
+![Login Dialog](./images/login-dialog.png)
 
 ### Environment Variables
 
