@@ -35,6 +35,8 @@ export interface ConfigHolder {
   packages: PackageList;
 
   keepPasswdLogin: boolean;
+  loginButtonText: string;
+
   getStoreConfig(storeType: StoreType): any;
 }
 
@@ -55,6 +57,7 @@ export interface OpenIDConfig {
   "store-type"?: StoreType;
   "store-config"?: Record<string, unknown> | string;
   "keep-passwd-login"?: boolean;
+  "login-button-text"?: string;
   "authorized-groups"?: string | string[] | boolean;
   "group-users"?: string | Record<string, string[]>;
 }
@@ -310,7 +313,13 @@ export default class ParsedPluginConfig implements ConfigHolder {
   public get keepPasswdLogin(): boolean {
     return (
       this.getConfigValue<boolean | undefined>("keep-passwd-login", boolean().optional()) ??
-      this.verdaccioConfig.auth?.htpasswd?.file !== undefined
+      !!this.verdaccioConfig.auth?.htpasswd?.file
+    );
+  }
+
+  public get loginButtonText(): string {
+    return (
+      this.getConfigValue<string | undefined>("login-button-text", string().optional()) ?? "Login with OpenID Connect"
     );
   }
 }

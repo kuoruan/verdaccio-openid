@@ -109,7 +109,7 @@ function addOpenIDLoginButton(loginDialogSelector: string, loginButtonSelector: 
 
   const loginWithOpenIDButton = loginButton.cloneNode(false) as HTMLButtonElement;
 
-  loginWithOpenIDButton.textContent = "Login with OpenID Connect";
+  loginWithOpenIDButton.textContent = window.__VERDACCIO_OPENID_OPTIONS?.loginButtonText || "Login with OpenID Connect";
   loginWithOpenIDButton.dataset.testid = "dialogOpenIDLogin";
 
   loginWithOpenIDButton.addEventListener("click", callback);

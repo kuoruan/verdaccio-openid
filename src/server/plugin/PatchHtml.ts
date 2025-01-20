@@ -13,7 +13,15 @@ import { getBaseUrl } from "./utils";
  * that modifies the login button.
  */
 export class PatchHtml implements PluginMiddleware {
-  constructor(private readonly config: ConfigHolder) {}
+  private urlPrefix: string;
+  private keepPasswdLogin: boolean;
+  private loginButtonText: string;
+
+  constructor(config: ConfigHolder) {
+    this.urlPrefix = config.urlPrefix;
+    this.keepPasswdLogin = config.keepPasswdLogin;
+    this.loginButtonText = config.loginButtonText;
+  }
 
   register_middlewares(app: Application) {
     app.use(this.patchResponse);
@@ -46,20 +54,29 @@ export class PatchHtml implements PluginMiddleware {
       return htmlString;
     }
 
-    const scriptTag = this.generateScriptTag(req);
+    const bodyLineRegex = /^(\s*)<\/body>/m;
 
-    return htmlString.replace(/<\/body>/, `${scriptTag}</body>`);
+    const indent = bodyLineRegex.exec(htmlString)?.[1] ?? "";
+
+    const scriptTag = this.generateScriptTag(req, indent);
+
+    return htmlString.replace(bodyLineRegex, `${scriptTag}</body>`);
   }
 
-  private generateScriptTag(req: Request): string {
-    const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
+  private generateScriptTag(req: Request, indent: string): string {
+    const baseUrl = getBaseUrl(this.urlPrefix, req, true);
     const scriptName = `${plugin.name}-${plugin.version}.js`;
 
     const scriptSrc = `${baseUrl}${staticPath}/${scriptName}`;
 
     return [
-      `<script>window.__VERDACCIO_OPENID_OPTIONS={"keepPasswdLogin":${this.config.keepPasswdLogin}}</script>`,
+      `<script>`,
+      `    window.__VERDACCIO_OPENID_OPTIONS={"keepPasswdLogin":${this.keepPasswdLogin},"loginButtonText":"${this.loginButtonText}"}`,
+      `</script>`,
       `<script defer="defer" src="${scriptSrc}"></script>`,
-    ].join("");
+      "",
+    ]
+      .map((line) => `${indent}${line}`)
+      .join("");
   }
 }

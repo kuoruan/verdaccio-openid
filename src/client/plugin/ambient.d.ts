@@ -4,6 +4,7 @@ export {};
 
 interface OpenIDOptions {
   keepPasswdLogin: boolean;
+  loginButtonText: string;
 }
 
 declare global {
