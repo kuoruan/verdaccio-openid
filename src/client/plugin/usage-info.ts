@@ -1,7 +1,7 @@
-//
-// Replace the default npm usage info and displays the authToken that needs
-// to be configured.
-
+/**
+ * Replace the default npm usage info and displays the authToken that needs
+ * to be configured
+ */
 import { getNPMToken } from "./credentials";
 
 export function getUsageInfo(loggedIn: boolean): string {

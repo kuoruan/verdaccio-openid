@@ -56,7 +56,11 @@ function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: b
   command.parentElement!.append(cloned);
 }
 
-// Remove commands that don't work with oauth
+/**
+ * Remove commands that don't work with oauth
+ *
+ * @param commands {HTMLElement[]} - The commands to be removed
+ */
 function removeInvalidCommands(commands: HTMLElement[]): void {
   for (const node of commands) {
     const content = node.textContent || "";
@@ -126,10 +130,10 @@ export interface InitOptions {
   usageTabsSelector: string;
 }
 
-//
-// By default the login button opens a form that asks the user to submit credentials.
-// We replace this behaviour and instead redirect to the route that handles OAuth.
-//
+/**
+ * By default the login button opens a form that asks the user to submit credentials.
+ * We replace this behaviour and instead redirect to the route that handles OAuth.
+ */
 export function init({
   loginButtonSelector,
   logoutButtonSelector,

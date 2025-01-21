@@ -239,7 +239,13 @@ export class AuthCore {
     }
   }
 
-  // The ui token of verdaccio is always a JWT token.
+  /**
+   * The ui token of verdaccio is always a JWT token.
+   *
+   * @param username
+   * @param realGroups
+   * @returns
+   */
   issueUiToken(username: string, realGroups: string[]): Promise<string> {
     const jwtSignOptions = this.security.web.sign;
 

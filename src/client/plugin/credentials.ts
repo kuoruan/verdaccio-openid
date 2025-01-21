@@ -1,17 +1,16 @@
-//
-// After a successful login we are redirected to the UI with our username
-// and a JWT token. We need to save these in local storage so Verdaccio
-// thinks we are logged in.
-//
-
+/**
+ * After a successful login we are redirected to the UI with our username
+ * and a JWT token. We need to save these in local storage so Verdaccio
+ * thinks we are logged in.
+ */
 import { parseJwt } from "./lib";
 
 export interface Credentials {
-  // The logged in username
+  /** The logged in username */
   username: string;
-  // UI token is used to authenticate with the UI
+  /** UI token is used to authenticate with the UI */
   uiToken: string;
-  // NPM token is used to authenticate with the registry
+  /** NPM token is used to authenticate with the registry */
   npmToken: string;
 }
 

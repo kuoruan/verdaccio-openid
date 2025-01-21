@@ -14,5 +14,7 @@ const env = config({
 
 debug("Loaded environment variables", env.parsed);
 
-// plugins must be a default export
+/**
+ * plugins must be a default export
+ */
 export { Plugin as default } from "./plugin/Plugin";

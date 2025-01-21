@@ -9,7 +9,9 @@ export interface TokenInfo {
   expiresAt?: number;
 }
 
-// when token is string, it is a access token
+/**
+ * When token is string, it is a access token
+ */
 export type OpenIDToken = TokenInfo | string;
 
 export interface ProviderUser {
