@@ -1,6 +1,5 @@
-import path from "node:path";
-
 import { getEnvironmentValue, getStoreFilePath, getTTLValue } from "@/server/config/utils";
+import path from "node:path";
 
 describe("getEnvironmentValue", () => {
   const OLD_ENV = process.env;

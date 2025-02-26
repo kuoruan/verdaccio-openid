@@ -1,6 +1,5 @@
-import { fileURLToPath } from "node:url";
-
 import { pluginKey } from "@/constants";
+import { fileURLToPath } from "node:url";
 
 export const staticPath = `/-/static/${pluginKey}`;
 export const publicRoot = fileURLToPath(new URL("../client", import.meta.url));

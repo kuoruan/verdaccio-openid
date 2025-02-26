@@ -1,16 +1,15 @@
-import { array, mixed, type Schema, string } from "yup";
-import { number, object } from "yup";
-
 import { plugin } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
+import { array, mixed, type Schema, string } from "yup";
+import { number, object } from "yup";
 
 import { getEnvironmentValue, handleValidationError } from "./utils";
 
 const portSchema = number().min(1).max(65_535);
 const ttlSchema = mixed().test({
-  name: "is-time-string-or-integer",
   message: "must be a time string or integer",
+  name: "is-time-string-or-integer",
   test: (value) => {
     return (
       value === undefined || (typeof value === "string" && value !== "") || (typeof value === "number" && value > 1000) // 1 second
@@ -19,9 +18,9 @@ const ttlSchema = mixed().test({
 });
 
 export const InMemoryConfigSchema = object<InMemoryConfig>({
-  ttl: ttlSchema,
-
   max: number().min(1).optional(),
+
+  ttl: ttlSchema,
 });
 
 const nodeObjectSchema = object({
@@ -30,17 +29,11 @@ const nodeObjectSchema = object({
 });
 
 export const RedisConfigSchema = object<RedisConfig>({
-  username: string().optional(),
-  password: string().optional(),
-  port: portSchema.optional(),
-
-  ttl: ttlSchema,
-
   nodes: array()
     .of(
       mixed().test({
-        name: "is-valid-node",
         message: "must be an object, number, or string.",
+        name: "is-valid-node",
         test: (value) => {
           if (typeof value === "object" && value !== null) {
             return nodeObjectSchema.isValidSync(value);
@@ -51,16 +44,24 @@ export const RedisConfigSchema = object<RedisConfig>({
       }),
     )
     .optional(),
+  password: string().optional(),
+  port: portSchema.optional(),
+
+  ttl: ttlSchema,
+
+  username: string().optional(),
 });
 
 export const FileConfigSchema = object<FileConfig>({
-  ttl: ttlSchema,
-
   dir: string().required(),
+
   expiredInterval: number().min(1).optional(),
+  ttl: ttlSchema,
 });
 
 abstract class StoreConfig<T> {
+  abstract storeType: StoreType;
+
   constructor(
     private config: T,
     private configKey: string,
@@ -87,20 +88,18 @@ abstract class StoreConfig<T> {
 
     return value as T[K];
   }
-
-  abstract storeType: StoreType;
 }
 
 export class RedisStoreConfigHolder extends StoreConfig<RedisConfig> {
-  get username() {
-    return this.getConfigValue("username", string().optional());
-  }
-
   get password() {
     return this.getConfigValue("password", string().optional());
   }
 
   get storeType() {
     return StoreType.Redis;
+  }
+
+  get username() {
+    return this.getConfigValue("username", string().optional());
   }
 }

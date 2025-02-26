@@ -3,29 +3,29 @@ import type { ClusterNode as RedisClusterNode, ClusterOptions as RedisClusterOpt
 import type { InitOptions as FileInitOptions } from "node-persist";
 
 export interface Store {
-  /** set state data to the store */
-  setState(key: string, nonce: string, providerId: string): MaybePromise<void>;
-
-  /** get state data from the store */
-  getState(key: string, providerId: string): MaybePromise<string | null | undefined>;
+  /** close the store */
+  close: () => MaybePromise<void>;
 
   /** delete state data from the store */
   deleteState(key: string, providerId: string): MaybePromise<void>;
 
-  /** set user info to the store */
-  setUserInfo?: (key: string, data: unknown, providerId: string) => MaybePromise<void>;
+  /** get state data from the store */
+  getState(key: string, providerId: string): MaybePromise<null | string | undefined>;
+
+  /** get user groups from the store */
+  getUserGroups?: (key: string, providerId: string) => MaybePromise<null | string[] | undefined>;
 
   /** get user info from the store */
-  getUserInfo?: (key: string, providerId: string) => MaybePromise<Record<string, unknown> | null | undefined>;
+  getUserInfo?: (key: string, providerId: string) => MaybePromise<null | Record<string, unknown> | undefined>;
+
+  /** set state data to the store */
+  setState(key: string, nonce: string, providerId: string): MaybePromise<void>;
 
   /** set user groups to the store */
   setUserGroups?: (key: string, groups: string[], providerId: string) => MaybePromise<void>;
 
-  /** get user groups from the store */
-  getUserGroups?: (key: string, providerId: string) => MaybePromise<string[] | null | undefined>;
-
-  /** close the store */
-  close: () => MaybePromise<void>;
+  /** set user info to the store */
+  setUserInfo?: (key: string, data: unknown, providerId: string) => MaybePromise<void>;
 }
 
 export class BaseStore {
@@ -33,12 +33,12 @@ export class BaseStore {
     return `${providerId}:state:${key}`;
   }
 
-  protected getUserInfoKey(key: string, providerId: string): string {
-    return `${providerId}:userinfo:${key}`;
-  }
-
   protected getUserGroupsKey(key: string, providerId: string): string {
     return `${providerId}:groups:${key}`;
+  }
+
+  protected getUserInfoKey(key: string, providerId: string): string {
+    return `${providerId}:userinfo:${key}`;
   }
 }
 
@@ -52,32 +52,32 @@ export const USER_INFO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 export const USER_GROUPS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export enum StoreType {
+  File = "file",
   InMemory = "in-memory",
   Redis = "redis",
-  File = "file",
 }
 
-interface StoreBaseConfig {
-  ttl?: number;
+export interface FileConfig extends Omit<FileInitOptions, "ttl">, StoreBaseConfig {
+  dir: string;
 }
 
-export type InMemoryConfig = TTLCacheOptions<string, string> & StoreBaseConfig;
-
-interface RedisBaseConfig extends StoreBaseConfig {
-  username?: string;
-  password?: string;
-}
-
-export interface RedisSineleConfig extends RedisBaseConfig, RedisOptions {
-  nodes?: never;
-}
+export type InMemoryConfig = StoreBaseConfig & TTLCacheOptions<string, string>;
 
 export interface RedisClusterConfig extends RedisBaseConfig, RedisClusterOptions {
   nodes: RedisClusterNode[];
 }
 
-export type RedisConfig = RedisSineleConfig | RedisClusterConfig;
+export type RedisConfig = RedisClusterConfig | RedisSineleConfig;
 
-export interface FileConfig extends StoreBaseConfig, Omit<FileInitOptions, "ttl"> {
-  dir: string;
+export interface RedisSineleConfig extends RedisBaseConfig, RedisOptions {
+  nodes?: never;
+}
+
+interface RedisBaseConfig extends StoreBaseConfig {
+  password?: string;
+  username?: string;
+}
+
+interface StoreBaseConfig {
+  ttl?: number;
 }

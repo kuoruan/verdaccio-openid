@@ -1,3 +1,5 @@
+import type { AuthProvider } from "@/server/plugin/AuthProvider";
+import type { PluginMiddleware } from "@/server/plugin/Plugin";
 import type { Application, Handler } from "express";
 
 import { cliPort, cliProviderId } from "@/constants";
@@ -6,8 +8,6 @@ import { getCallbackPath } from "@/redirect";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
-import type { AuthProvider } from "@/server/plugin/AuthProvider";
-import type { PluginMiddleware } from "@/server/plugin/Plugin";
 
 const pluginCallbackeUrl = getCallbackPath(cliProviderId);
 
@@ -16,10 +16,6 @@ export class CliFlow implements PluginMiddleware {
     private readonly core: AuthCore,
     private readonly provider: AuthProvider,
   ) {}
-
-  register_middlewares(app: Application) {
-    app.get(pluginCallbackeUrl, this.callback);
-  }
 
   callback: Handler = async (req, res) => {
     const params: Record<string, string> = {};
@@ -59,4 +55,8 @@ export class CliFlow implements PluginMiddleware {
 
     res.redirect(redirectUrl);
   };
+
+  register_middlewares(app: Application) {
+    app.get(pluginCallbackeUrl, this.callback);
+  }
 }

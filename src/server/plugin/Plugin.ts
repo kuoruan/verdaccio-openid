@@ -1,8 +1,5 @@
-import process from "node:process";
-
 import type { Auth } from "@verdaccio/auth";
 import type { pluginUtils } from "@verdaccio/core";
-import { errorUtils } from "@verdaccio/core";
 import type { AllowAccess, PackageAccess, RemoteUser } from "@verdaccio/types";
 import type { Application } from "express";
 
@@ -14,9 +11,12 @@ import logger, { setLogger } from "@/server/logger";
 import { OpenIDConnectAuthProvider } from "@/server/openid";
 import { registerGlobalProxy } from "@/server/proxy-agent";
 import { createStore } from "@/server/store";
+import { errorUtils } from "@verdaccio/core";
+import process from "node:process";
+
+import type { AuthProvider } from "./AuthProvider";
 
 import { AuthCore, type User } from "./AuthCore";
-import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
 
@@ -30,9 +30,13 @@ export interface PluginMiddleware {
 export class Plugin
   implements pluginUtils.Auth<AllowAccess & OpenIDConfig>, pluginUtils.ExpressMiddleware<OpenIDConfig, unknown, Auth>
 {
-  private readonly parsedConfig: ParsedPluginConfig;
-  private readonly provider: AuthProvider;
+  public get version(): number {
+    return +plugin.version;
+  }
   private readonly core: AuthCore;
+  private readonly parsedConfig: ParsedPluginConfig;
+
+  private readonly provider: AuthProvider;
 
   constructor(
     public config: OpenIDConfig,
@@ -75,27 +79,50 @@ export class Plugin
     this.core = core;
   }
 
-  public get version(): number {
-    return +plugin.version;
-  }
+  allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AccessCallback): void {
+    debug("check access: %s (%j) -> %s", user.name, user.real_groups, config.name);
 
-  public getVersion(): number {
-    return this.version;
-  }
-
-  register_middlewares(app: Application, auth: Auth, _storage: unknown) {
-    this.core.setAuth(auth);
-
-    const children = [
-      new ServeStatic(),
-      new PatchHtml(this.parsedConfig),
-      new WebFlow(this.parsedConfig, this.core, this.provider),
-      new CliFlow(this.core, this.provider),
-    ] satisfies PluginMiddleware[];
-
-    for (const child of children) {
-      child.register_middlewares(app);
+    const grant = this.checkPackageAccess(user, config.access);
+    if (!grant) {
+      logger.debug(
+        { package: config.name, username: user.name },
+        `user "@{username}" is not allowed to access "@{package}"`,
+      );
     }
+    callback(null, grant);
+  }
+
+  allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AuthAccessCallback): void {
+    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
+
+    const grant = this.checkPackageAccess(user, config.publish ?? config.access);
+
+    if (!grant) {
+      logger.warn(
+        { package: config.name, username: user.name },
+        `"@{username}" is not allowed to unpublish "@{package}"`,
+      );
+    }
+
+    callback(null, grant);
+  }
+
+  allow_unpublish(
+    user: RemoteUser,
+    config: AllowAccess & PackageAccess,
+    callback: pluginUtils.AuthAccessCallback,
+  ): void {
+    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
+
+    const grant = this.checkPackageAccess(user, config.unpublish ?? config.access);
+
+    if (!grant) {
+      logger.warn(
+        { package: config.name, username: user.name },
+        `"@{username}" is not allowed to unpublish "@{package}"`,
+      );
+    }
+    callback(null, grant);
   }
 
   async authenticate(username: string, token: string, callback: pluginUtils.AuthCallback): Promise<void> {
@@ -109,7 +136,7 @@ export class Plugin
 
     debug("authenticating user, username: %s, token: %s", username, token);
 
-    let user: User | boolean;
+    let user: boolean | User;
     try {
       user = await this.core.verifyNpmToken(token);
     } catch (e: any) {
@@ -132,7 +159,7 @@ export class Plugin
 
     if (username !== user.name) {
       logger.warn(
-        { expected: user.name, actual: username },
+        { actual: username, expected: user.name },
         `invalid username: expected "@{expected}", actual "@{actual}"`,
       );
 
@@ -141,52 +168,6 @@ export class Plugin
     }
 
     callback(null, user.realGroups);
-  }
-
-  allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AccessCallback): void {
-    debug("check access: %s (%j) -> %s", user.name, user.real_groups, config.name);
-
-    const grant = this.checkPackageAccess(user, config.access);
-    if (!grant) {
-      logger.debug(
-        { username: user.name, package: config.name },
-        `user "@{username}" is not allowed to access "@{package}"`,
-      );
-    }
-    callback(null, grant);
-  }
-
-  allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AuthAccessCallback): void {
-    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
-
-    const grant = this.checkPackageAccess(user, config.publish ?? config.access);
-
-    if (!grant) {
-      logger.warn(
-        { username: user.name, package: config.name },
-        `"@{username}" is not allowed to unpublish "@{package}"`,
-      );
-    }
-
-    callback(null, grant);
-  }
-
-  allow_unpublish(
-    user: RemoteUser,
-    config: AllowAccess & PackageAccess,
-    callback: pluginUtils.AuthAccessCallback,
-  ): void {
-    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
-
-    const grant = this.checkPackageAccess(user, config.unpublish ?? config.access);
-
-    if (!grant) {
-      logger.warn(
-        { username: user.name, package: config.name },
-        `"@{username}" is not allowed to unpublish "@{package}"`,
-      );
-    }
-    callback(null, grant);
   }
 
   checkPackageAccess(user: RemoteUser, requiredGroups: string[] | undefined): boolean {
@@ -202,7 +183,7 @@ export class Plugin
         groups = this.core.getLoggedUserGroups(user);
       } else {
         logger.warn(
-          { username: user.name, groups: JSON.stringify(user.real_groups) },
+          { groups: JSON.stringify(user.real_groups), username: user.name },
           `"@{username}" with groups @{groups} is not authenticated for now, use non-authenticated groups instead.`,
         );
         groups = this.core.getNonLoggedUserGroups(user);
@@ -215,5 +196,24 @@ export class Plugin
     debug("user: %o, required groups: %j, actual groups: %j", user.name, requiredGroups, groups);
 
     return requiredGroups.some((group) => groups.includes(group));
+  }
+
+  public getVersion(): number {
+    return this.version;
+  }
+
+  register_middlewares(app: Application, auth: Auth, _storage: unknown) {
+    this.core.setAuth(auth);
+
+    const children = [
+      new ServeStatic(),
+      new PatchHtml(this.parsedConfig),
+      new WebFlow(this.parsedConfig, this.core, this.provider),
+      new CliFlow(this.core, this.provider),
+    ] satisfies PluginMiddleware[];
+
+    for (const child of children) {
+      child.register_middlewares(app);
+    }
   }
 }

@@ -31,6 +31,22 @@ a {
 
 export type BackOptions = boolean | Record<"backUrl", string>;
 
+export function buildAccessDeniedPage(withBack: BackOptions = false) {
+  return buildStatusPage(
+    `<h1>Access Denied</h1>
+    <p>${messageGroupRequired}</p>`,
+    withBack,
+  );
+}
+
+export function buildErrorPage(error: any, withBack: BackOptions = false) {
+  return buildStatusPage(
+    `<h1>Sorry :(</h1>
+    <p>${error?.message || error}</p>`,
+    withBack,
+  );
+}
+
 export function buildStatusPage(body: string, withBack: BackOptions = false): string {
   return `<!DOCTYPE html>
 <html lang="en">
@@ -46,20 +62,4 @@ export function buildStatusPage(body: string, withBack: BackOptions = false): st
     </div>
   </body>
 </html>`;
-}
-
-export function buildErrorPage(error: any, withBack: BackOptions = false) {
-  return buildStatusPage(
-    `<h1>Sorry :(</h1>
-    <p>${error?.message || error}</p>`,
-    withBack,
-  );
-}
-
-export function buildAccessDeniedPage(withBack: BackOptions = false) {
-  return buildStatusPage(
-    `<h1>Access Denied</h1>
-    <p>${messageGroupRequired}</p>`,
-    withBack,
-  );
 }

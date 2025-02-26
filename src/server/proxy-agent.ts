@@ -1,4 +1,5 @@
 import type { Config } from "@verdaccio/types";
+
 import { bootstrap } from "global-agent";
 
 import logger from "./logger";

@@ -7,7 +7,7 @@ describe("InMemoryConfigSchema", () => {
       { ttl: "1d" },
       { ttl: 3_600_000 }, // 1 hour in ms
       { max: 1000 },
-      { ttl: "2h", max: 500 },
+      { max: 500, ttl: "2h" },
       {}, // empty config is valid too
     ];
 
@@ -42,7 +42,7 @@ describe("InMemoryConfigSchema", () => {
 describe("RedisConfigSchema", () => {
   it("should validate valid config", () => {
     const validConfigs = [
-      { username: "user", password: "pass" },
+      { password: "pass", username: "user" },
       { port: 6379 },
       { nodes: ["localhost:6379"] },
       { nodes: [6379] },
@@ -89,7 +89,7 @@ describe("FileConfigSchema", () => {
       { dir: "./cache", ttl: "1h" },
       { dir: "/data", ttl: 3_600_000 },
       { dir: "cache", expiredInterval: 1000 },
-      { dir: "/cache", ttl: "2h", expiredInterval: 5000 },
+      { dir: "/cache", expiredInterval: 5000, ttl: "2h" },
     ];
 
     for (const config of validConfigs) {

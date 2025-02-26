@@ -1,6 +1,5 @@
-import { type Application, static as expressServeStatic } from "express";
-
 import { publicRoot, staticPath } from "@/server/constants";
+import { type Application, static as expressServeStatic } from "express";
 
 import type { PluginMiddleware } from "./Plugin";
 

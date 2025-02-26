@@ -1,13 +1,13 @@
+import type { ConfigHolder } from "@/server/config/Config";
+import type { AuthProvider } from "@/server/plugin/AuthProvider";
+import type { PluginMiddleware } from "@/server/plugin/Plugin";
 import type { Application, Handler } from "express";
 
 import { stringifyQueryParams } from "@/query-params";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
-import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
-import type { AuthProvider } from "@/server/plugin/AuthProvider";
-import type { PluginMiddleware } from "@/server/plugin/Plugin";
 import { getBaseUrl } from "@/server/plugin/utils";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
@@ -17,11 +17,6 @@ export class WebFlow implements PluginMiddleware {
     private readonly core: AuthCore,
     private readonly provider: AuthProvider,
   ) {}
-
-  register_middlewares(app: Application) {
-    app.get(getAuthorizePath(), this.authorize);
-    app.get(getCallbackPath(), this.callback);
-  }
 
   /**
    * Initiates the auth flow by redirecting to the provider's login URL.
@@ -72,7 +67,7 @@ export class WebFlow implements PluginMiddleware {
         const uiToken = await this.core.issueUiToken(userinfo.name, realGroups);
         const npmToken = await this.core.issueNpmToken(userinfo.name, realGroups, providerToken);
 
-        const params = { username: userinfo.name, uiToken, npmToken };
+        const params = { npmToken, uiToken, username: userinfo.name };
 
         const redirectUrl = `${baseUrl}?${stringifyQueryParams(params)}`;
 
@@ -86,4 +81,9 @@ export class WebFlow implements PluginMiddleware {
       res.status(500).send(buildErrorPage(e, { backUrl: baseUrl }));
     }
   };
+
+  register_middlewares(app: Application) {
+    app.get(getAuthorizePath(), this.authorize);
+    app.get(getCallbackPath(), this.callback);
+  }
 }

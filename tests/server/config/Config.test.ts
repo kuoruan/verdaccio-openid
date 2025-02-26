@@ -1,24 +1,24 @@
-import { defaultSecurity } from "@verdaccio/config";
 import type { Config } from "@verdaccio/types";
-import merge from "deepmerge";
 
 import ParsedPluginConfig from "@/server/config/Config";
 import * as utils from "@/server/config/utils";
 import { ProviderType } from "@/server/plugin/AuthProvider";
 import { StoreType } from "@/server/store/Store";
+import { defaultSecurity } from "@verdaccio/config";
+import merge from "deepmerge";
 
 const mockConfig = {
-  "provider-host": "https://provider.test",
   "client-id": "test-client-id",
   "client-secret": "test-client-secret",
+  "provider-host": "https://provider.test",
 };
 
 const mockVerdaccioConfig = {
+  packages: {},
   secret: "test-secret",
   security: {},
-  packages: {},
-  url_prefix: "/prefix",
   self_path: "/test/path",
+  url_prefix: "/prefix",
 } as Config;
 
 describe("ParsedPluginConfig", () => {
@@ -76,8 +76,8 @@ describe("ParsedPluginConfig", () => {
     const config = new ParsedPluginConfig(
       {
         ...mockConfig,
-        "store-type": StoreType.Redis,
         "store-config": "redis://redis-host:1234/0",
+        "store-type": StoreType.Redis,
       },
       mockVerdaccioConfig,
     );
@@ -88,8 +88,8 @@ describe("ParsedPluginConfig", () => {
     const config1 = new ParsedPluginConfig(
       {
         ...mockConfig,
-        "store-type": StoreType.Redis,
         "store-config": "rediss://redis-host:1234/0",
+        "store-type": StoreType.Redis,
       },
       mockVerdaccioConfig,
     );
@@ -99,19 +99,19 @@ describe("ParsedPluginConfig", () => {
     const config2 = new ParsedPluginConfig(
       {
         ...mockConfig,
-        "store-type": StoreType.Redis,
         "store-config": {
+          db: 0,
           host: "redis-host",
           port: 1234,
-          db: 0,
         },
+        "store-type": StoreType.Redis,
       },
       mockVerdaccioConfig,
     );
     expect(config2.getStoreConfig(StoreType.Redis)).toEqual({
+      db: 0,
       host: "redis-host",
       port: 1234,
-      db: 0,
     });
   });
 
@@ -281,8 +281,8 @@ describe("Invalid ParsedPluginConfig", () => {
     const configInMemory = new ParsedPluginConfig(
       {
         ...mockConfig,
-        "store-type": StoreType.InMemory,
         "store-config": "invalid" as any,
+        "store-type": StoreType.InMemory,
       },
       mockVerdaccioConfig,
     );
@@ -292,8 +292,8 @@ describe("Invalid ParsedPluginConfig", () => {
     const configRedis = new ParsedPluginConfig(
       {
         ...mockConfig,
-        "store-type": StoreType.Redis,
         "store-config": "invalid" as any,
+        "store-type": StoreType.Redis,
       },
       mockVerdaccioConfig,
     );

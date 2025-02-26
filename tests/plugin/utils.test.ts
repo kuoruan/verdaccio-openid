@@ -58,10 +58,10 @@ describe("isNowBefore", () => {
 describe("getBaseUrl", () => {
   it("should return base url with trailing slash", () => {
     const req = {
-      hostname: "localhost",
-      protocol: "http",
-      ip: "127.0.0.1",
       headers: {},
+      hostname: "localhost",
+      ip: "127.0.0.1",
+      protocol: "http",
     } as Request;
 
     vi.mock("@verdaccio/url", () => ({
@@ -73,10 +73,10 @@ describe("getBaseUrl", () => {
 
   it("should return base url without trailing slash", () => {
     const req = {
-      hostname: "localhost",
-      protocol: "http",
-      ip: "127.0.0.1",
       headers: {},
+      hostname: "localhost",
+      ip: "127.0.0.1",
+      protocol: "http",
     } as Request;
 
     vi.mock("@verdaccio/url", () => ({

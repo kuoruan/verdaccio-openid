@@ -13,28 +13,75 @@ import {
 import { copyToClipboard, getBaseUrl, interruptClick, retry } from "./lib";
 import { getUsageInfo } from "./usage-info";
 
-/**
- * Change the current URL to only the current pathname and reload.
- * We don't use `location.href` because we want the query params
- * to be excluded from the history.
- */
-function reloadToPathname() {
-  history.replaceState(null, "", location.pathname);
-
-  // reload the page to refetch the packages
-  location.reload();
+export interface InitOptions {
+  loginButtonSelector: string;
+  loginDialogSelector: string;
+  logoutButtonSelector: string;
+  usageTabsSelector: string;
 }
 
-function parseAndSaveCredentials(): boolean {
-  const credentials: Partial<Credentials> = parseQueryParams(location.search);
-
-  if (!validateCredentials(credentials)) {
-    return false;
+/**
+ * By default the login button opens a form that asks the user to submit credentials.
+ * We replace this behaviour and instead redirect to the route that handles OAuth.
+ */
+export function init({
+  loginButtonSelector,
+  loginDialogSelector,
+  logoutButtonSelector,
+  usageTabsSelector,
+}: InitOptions): void {
+  if (parseAndSaveCredentials()) {
+    // If we are new logged in, reload the page to remove the query params
+    reloadToPathname();
+    return;
   }
 
-  saveCredentials(credentials);
+  if (isUITokenExpired()) {
+    clearCredentials();
+  }
 
-  return true;
+  const baseUrl = getBaseUrl(true);
+
+  const gotoOpenIDLoginUrl = () => {
+    location.href = baseUrl + loginHref;
+  };
+
+  if (window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin) {
+    const updateLoginDialog = () => addOpenIDLoginButton(loginDialogSelector, loginButtonSelector, gotoOpenIDLoginUrl);
+
+    document.addEventListener("click", () => retry(updateLoginDialog, 2));
+  } else {
+    interruptClick(loginButtonSelector, gotoOpenIDLoginUrl);
+  }
+
+  interruptClick(logoutButtonSelector, () => {
+    clearCredentials();
+
+    location.href = baseUrl + logoutHref;
+  });
+
+  const updateUsageInfo = () => updateUsageTabs(usageTabsSelector);
+
+  document.addEventListener("click", () => retry(updateUsageInfo, 2));
+}
+
+function addOpenIDLoginButton(loginDialogSelector: string, loginButtonSelector: string, callback: () => void): void {
+  const loginDialog = document.querySelector(loginDialogSelector);
+
+  if (!loginDialog || loginDialog.getAttribute(updatedAttrKey) === updatedAttrValue) return;
+
+  const loginButton = document.querySelector(loginButtonSelector)!;
+
+  const loginWithOpenIDButton = loginButton.cloneNode(false) as HTMLButtonElement;
+
+  loginWithOpenIDButton.textContent = window.__VERDACCIO_OPENID_OPTIONS?.loginButtonText || "Login with OpenID Connect";
+  loginWithOpenIDButton.dataset.testid = "dialogOpenIDLogin";
+
+  loginWithOpenIDButton.addEventListener("click", callback);
+
+  loginDialog.append(loginWithOpenIDButton);
+
+  loginDialog.setAttribute(updatedAttrKey, updatedAttrValue);
 }
 
 function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: boolean): void {
@@ -54,6 +101,30 @@ function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: b
   });
 
   command.parentElement!.append(cloned);
+}
+
+function parseAndSaveCredentials(): boolean {
+  const credentials: Partial<Credentials> = parseQueryParams(location.search);
+
+  if (!validateCredentials(credentials)) {
+    return false;
+  }
+
+  saveCredentials(credentials);
+
+  return true;
+}
+
+/**
+ * Change the current URL to only the current pathname and reload.
+ * We don't use `location.href` because we want the query params
+ * to be excluded from the history.
+ */
+function reloadToPathname() {
+  history.replaceState(null, "", location.pathname);
+
+  // reload the page to refetch the packages
+  location.reload();
 }
 
 /**
@@ -102,75 +173,4 @@ function updateUsageTabs(usageTabsSelector: string): void {
 
     tab.setAttribute(updatedAttrKey, updatedAttrValue);
   }
-}
-
-function addOpenIDLoginButton(loginDialogSelector: string, loginButtonSelector: string, callback: () => void): void {
-  const loginDialog = document.querySelector(loginDialogSelector);
-
-  if (!loginDialog || loginDialog.getAttribute(updatedAttrKey) === updatedAttrValue) return;
-
-  const loginButton = document.querySelector(loginButtonSelector)!;
-
-  const loginWithOpenIDButton = loginButton.cloneNode(false) as HTMLButtonElement;
-
-  loginWithOpenIDButton.textContent = window.__VERDACCIO_OPENID_OPTIONS?.loginButtonText || "Login with OpenID Connect";
-  loginWithOpenIDButton.dataset.testid = "dialogOpenIDLogin";
-
-  loginWithOpenIDButton.addEventListener("click", callback);
-
-  loginDialog.append(loginWithOpenIDButton);
-
-  loginDialog.setAttribute(updatedAttrKey, updatedAttrValue);
-}
-
-export interface InitOptions {
-  loginButtonSelector: string;
-  loginDialogSelector: string;
-  logoutButtonSelector: string;
-  usageTabsSelector: string;
-}
-
-/**
- * By default the login button opens a form that asks the user to submit credentials.
- * We replace this behaviour and instead redirect to the route that handles OAuth.
- */
-export function init({
-  loginButtonSelector,
-  logoutButtonSelector,
-  usageTabsSelector,
-  loginDialogSelector,
-}: InitOptions): void {
-  if (parseAndSaveCredentials()) {
-    // If we are new logged in, reload the page to remove the query params
-    reloadToPathname();
-    return;
-  }
-
-  if (isUITokenExpired()) {
-    clearCredentials();
-  }
-
-  const baseUrl = getBaseUrl(true);
-
-  const gotoOpenIDLoginUrl = () => {
-    location.href = baseUrl + loginHref;
-  };
-
-  if (window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin) {
-    const updateLoginDialog = () => addOpenIDLoginButton(loginDialogSelector, loginButtonSelector, gotoOpenIDLoginUrl);
-
-    document.addEventListener("click", () => retry(updateLoginDialog, 2));
-  } else {
-    interruptClick(loginButtonSelector, gotoOpenIDLoginUrl);
-  }
-
-  interruptClick(logoutButtonSelector, () => {
-    clearCredentials();
-
-    location.href = baseUrl + logoutHref;
-  });
-
-  const updateUsageInfo = () => updateUsageTabs(usageTabsSelector);
-
-  document.addEventListener("click", () => retry(updateUsageInfo, 2));
 }

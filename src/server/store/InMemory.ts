@@ -14,9 +14,9 @@ const defaultOptions = {
 } satisfies InMemoryConfig;
 
 export default class InMemoryStore extends BaseStore implements Store {
+  private readonly groupsCache: TTLCache<string, string[]>;
   private readonly stateCache: TTLCache<string, string>;
   private readonly userinfoCache: TTLCache<string, Record<string, unknown>>;
-  private readonly groupsCache: TTLCache<string, string[]>;
 
   constructor(opts: InMemoryConfig = {}) {
     super();
@@ -26,10 +26,16 @@ export default class InMemoryStore extends BaseStore implements Store {
     this.groupsCache = new TTLCache({ max: 1000, ttl: USER_GROUPS_CACHE_TTL });
   }
 
-  setState(key: string, nonce: string, providerId: string): void {
+  close(): void {
+    this.stateCache.clear();
+    this.userinfoCache.clear();
+    this.groupsCache.clear();
+  }
+
+  deleteState(key: string, providerId: string): void {
     const stateKey = this.getStateKey(key, providerId);
 
-    this.stateCache.set(stateKey, nonce);
+    this.stateCache.delete(stateKey);
   }
 
   getState(key: string, providerId: string): string | undefined {
@@ -42,16 +48,14 @@ export default class InMemoryStore extends BaseStore implements Store {
     return this.stateCache.get(stateKey);
   }
 
-  deleteState(key: string, providerId: string): void {
-    const stateKey = this.getStateKey(key, providerId);
+  getUserGroups(key: string, providerId: string): string[] | undefined {
+    const userGroupsKey = this.getUserGroupsKey(key, providerId);
 
-    this.stateCache.delete(stateKey);
-  }
+    if (!this.groupsCache.has(userGroupsKey)) {
+      return undefined;
+    }
 
-  setUserInfo(key: string, data: unknown, providerId: string): void {
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-
-    this.userinfoCache.set(userInfoKey, data as Record<string, unknown>);
+    return this.groupsCache.get(userGroupsKey);
   }
 
   getUserInfo(key: string, providerId: string): Record<string, unknown> | undefined {
@@ -64,25 +68,21 @@ export default class InMemoryStore extends BaseStore implements Store {
     return this.userinfoCache.get(userInfoKey);
   }
 
+  setState(key: string, nonce: string, providerId: string): void {
+    const stateKey = this.getStateKey(key, providerId);
+
+    this.stateCache.set(stateKey, nonce);
+  }
+
   setUserGroups(key: string, groups: string[], providerId: string): void {
     const userGroupsKey = this.getUserGroupsKey(key, providerId);
 
     this.groupsCache.set(userGroupsKey, groups);
   }
 
-  getUserGroups(key: string, providerId: string): string[] | undefined {
-    const userGroupsKey = this.getUserGroupsKey(key, providerId);
+  setUserInfo(key: string, data: unknown, providerId: string): void {
+    const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    if (!this.groupsCache.has(userGroupsKey)) {
-      return undefined;
-    }
-
-    return this.groupsCache.get(userGroupsKey);
-  }
-
-  close(): void {
-    this.stateCache.clear();
-    this.userinfoCache.clear();
-    this.groupsCache.clear();
+    this.userinfoCache.set(userInfoKey, data as Record<string, unknown>);
   }
 }

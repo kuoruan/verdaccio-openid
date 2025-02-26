@@ -1,12 +1,10 @@
 #!/usr/bin/env node
 
-import process from "node:process";
-
-import express from "express";
-import open from "open";
-
 import { cliPort, cliProviderId } from "@/constants";
 import { getAuthorizePath } from "@/redirect";
+import express from "express";
+import process from "node:process";
+import open from "open";
 
 import logger from "./logger";
 import { saveNpmToken } from "./npm";

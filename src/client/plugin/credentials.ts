@@ -6,31 +6,33 @@
 import { parseJwt } from "./lib";
 
 export interface Credentials {
-  /** The logged in username */
-  username: string;
-  /** UI token is used to authenticate with the UI */
-  uiToken: string;
   /** NPM token is used to authenticate with the registry */
   npmToken: string;
+  /** UI token is used to authenticate with the UI */
+  uiToken: string;
+  /** The logged in username */
+  username: string;
 }
 
 const LOCAL_STORAGE_KEYS = {
-  USERNAME: "username",
-  UI_TOKEN: "token",
   NPM_TOKEN: "npm",
+  UI_TOKEN: "token",
+  USERNAME: "username",
 } as const;
-
-export function saveCredentials(credentials: Credentials) {
-  // username and ui token are required for verdaccio to think we are logged in
-  localStorage.setItem(LOCAL_STORAGE_KEYS.USERNAME, credentials.username);
-  localStorage.setItem(LOCAL_STORAGE_KEYS.UI_TOKEN, credentials.uiToken);
-  localStorage.setItem(LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken);
-}
 
 export function clearCredentials() {
   for (const key of Object.values(LOCAL_STORAGE_KEYS)) {
     localStorage.removeItem(key);
   }
+}
+
+/**
+ * Get the NPM token from local storage
+ *
+ * @returns {string | null} The NPM token or null if it doesn't exist
+ */
+export function getNPMToken(): null | string {
+  return localStorage.getItem(LOCAL_STORAGE_KEYS.NPM_TOKEN);
 }
 
 /**
@@ -54,15 +56,6 @@ export function isOpenIDLoggedIn(): boolean {
 }
 
 /**
- * Get the NPM token from local storage
- *
- * @returns {string | null} The NPM token or null if it doesn't exist
- */
-export function getNPMToken(): string | null {
-  return localStorage.getItem(LOCAL_STORAGE_KEYS.NPM_TOKEN);
-}
-
-/**
  * Check if the UI token is expired
  *
  * @returns {boolean} True if the UI token is expired
@@ -78,6 +71,13 @@ export function isUITokenExpired() {
   const jsTimestamp = payload.exp * 1000 - 30_000;
 
   return Date.now() >= jsTimestamp;
+}
+
+export function saveCredentials(credentials: Credentials) {
+  // username and ui token are required for verdaccio to think we are logged in
+  localStorage.setItem(LOCAL_STORAGE_KEYS.USERNAME, credentials.username);
+  localStorage.setItem(LOCAL_STORAGE_KEYS.UI_TOKEN, credentials.uiToken);
+  localStorage.setItem(LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken);
 }
 
 /**

@@ -1,11 +1,12 @@
-import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
-import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
+import type { ConfigHolder } from "@/server/config/Config";
 import type { JWTSignOptions, PackageList, RemoteUser, Security } from "@verdaccio/types";
 
-import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
+import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
+import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
+
 import { base64Decode, base64Encode, isNowBefore } from "./utils";
 
 export interface User {
@@ -13,41 +14,41 @@ export interface User {
   realGroups: string[];
 }
 
-interface UserPayload {
-  sub?: string;
-  /** User Name */
-  n: string;
-  /** User Groups */
-  g: string[];
-  /** Expiration Time */
-  exp: number;
-}
 interface AccessTokenPayload {
-  sub?: string;
   /** Access Token */
   at: string;
+  sub?: string;
 }
+type LegacyPayload = AccessTokenPayload | UserPayload;
 
-type LegacyPayload = UserPayload | AccessTokenPayload;
-
-function isAccessTokenPayload(u: LegacyPayload): u is AccessTokenPayload {
-  return !!(u as AccessTokenPayload).at;
+interface UserPayload {
+  /** Expiration Time */
+  exp: number;
+  /** User Groups */
+  g: string[];
+  /** User Name */
+  n: string;
+  sub?: string;
 }
 
 export class AuthCore {
-  private readonly provider: AuthProvider;
+  private auth?: Auth;
+
+  private readonly authenticatedGroups: boolean | string[];
 
   private readonly configSecret: string;
 
-  private readonly security: Security;
+  private readonly configuredGroups: string[];
 
   private readonly groupUsers: Record<string, string[]> | undefined;
 
-  private readonly configuredGroups: string[];
+  private readonly provider: AuthProvider;
 
-  private readonly authenticatedGroups: string[] | boolean;
+  private readonly security: Security;
 
-  private auth?: Auth;
+  private get secret(): string {
+    return this.auth ? this.auth.secret : this.configSecret;
+  }
 
   constructor(config: ConfigHolder, provider: AuthProvider) {
     this.provider = provider;
@@ -60,44 +61,52 @@ export class AuthCore {
     this.authenticatedGroups = this.initAuthenticatedGroups(config.authorizedGroups);
   }
 
-  setAuth(auth: Auth) {
-    this.auth = auth;
-  }
-
-  private get secret(): string {
-    return this.auth ? this.auth.secret : this.configSecret;
-  }
-
-  private initAuthenticatedGroups(val: unknown): string[] | boolean {
-    switch (typeof val) {
-      case "boolean": {
-        return val;
-      }
-      case "string": {
-        return [val].filter(Boolean);
-      }
-      case "object": {
-        return Array.isArray(val) ? val.filter(Boolean) : false;
-      }
-      default: {
-        return false;
-      }
-    }
-  }
-
   /**
-   * Returns all permission groups used in the Verdacio config.
+   * Check if the user is allowed to access the registry
+   *
+   * @param username
+   * @param groups
+   * @returns true if the user is allowed to access the registry
    */
-  private initConfiguredGroups(packages: PackageList = {}): string[] {
-    for (const packageConfig of Object.values(packages)) {
-      const groups = (["access", "publish", "unpublish"] as const)
-        .flatMap((key) => packageConfig[key])
-        .filter(Boolean) as string[];
+  authenticate(username: string, groups: string[] = []): boolean {
+    if (!username) return false;
 
-      return [...new Set(groups)];
+    debug("authenticate user %s with groups %j, required groups: %j", username, groups, this.authenticatedGroups);
+
+    let authenticated: boolean;
+
+    /**
+     * - if authenticatedGroups is true, the user must be in at least one group
+     * - if authenticatedGroups is false, no group authentication is required
+     */
+    if (this.authenticatedGroups === true) {
+      authenticated = groups.length > 0;
+    } else if (this.authenticatedGroups === false) {
+      authenticated = true;
+    } else {
+      /**
+       * if authenticatedGroups is an array, the user must be in one of the groups
+       */
+      authenticated = this.authenticatedGroups.some((group) => username === group || groups.includes(group));
     }
 
-    return [];
+    return authenticated;
+  }
+
+  // get unique and sorted groups
+  filterRealGroups(username: string, groups: string[] = []): string[] {
+    const authenticatedGroups = typeof this.authenticatedGroups === "boolean" ? [] : this.authenticatedGroups;
+
+    const relevantGroups = groups.filter(
+      (group) => this.configuredGroups.includes(group) || authenticatedGroups.includes(group),
+    );
+
+    /**
+     * add the user to the groups
+     */
+    relevantGroups.push(username);
+
+    return relevantGroups.filter((value, index, self) => self.indexOf(value) === index).sort();
   }
 
   /**
@@ -138,54 +147,6 @@ export class AuthCore {
     });
   }
 
-  // get unique and sorted groups
-  filterRealGroups(username: string, groups: string[] = []): string[] {
-    const authenticatedGroups = typeof this.authenticatedGroups === "boolean" ? [] : this.authenticatedGroups;
-
-    const relevantGroups = groups.filter(
-      (group) => this.configuredGroups.includes(group) || authenticatedGroups.includes(group),
-    );
-
-    /**
-     * add the user to the groups
-     */
-    relevantGroups.push(username);
-
-    return relevantGroups.filter((value, index, self) => self.indexOf(value) === index).sort();
-  }
-
-  /**
-   * Check if the user is allowed to access the registry
-   *
-   * @param username
-   * @param groups
-   * @returns true if the user is allowed to access the registry
-   */
-  authenticate(username: string, groups: string[] = []): boolean {
-    if (!username) return false;
-
-    debug("authenticate user %s with groups %j, required groups: %j", username, groups, this.authenticatedGroups);
-
-    let authenticated: boolean;
-
-    /**
-     * - if authenticatedGroups is true, the user must be in at least one group
-     * - if authenticatedGroups is false, no group authentication is required
-     */
-    if (this.authenticatedGroups === true) {
-      authenticated = groups.length > 0;
-    } else if (this.authenticatedGroups === false) {
-      authenticated = true;
-    } else {
-      /**
-       * if authenticatedGroups is an array, the user must be in one of the groups
-       */
-      authenticated = this.authenticatedGroups.some((group) => username === group || groups.includes(group));
-    }
-
-    return authenticated;
-  }
-
   issueNpmToken(username: string, realGroups: string[], providerToken: OpenIDToken): Promise<string> {
     if (isAESLegacy(this.security)) {
       debug("using legacy encryption for npm token");
@@ -202,12 +163,29 @@ export class AuthCore {
   }
 
   /**
+   * The ui token of verdaccio is always a JWT token.
+   *
+   * @param username
+   * @param realGroups
+   * @returns
+   */
+  issueUiToken(username: string, realGroups: string[]): Promise<string> {
+    const jwtSignOptions = this.security.web.sign;
+
+    return this.signJWT(username, realGroups, jwtSignOptions);
+  }
+
+  setAuth(auth: Auth) {
+    this.auth = auth;
+  }
+
+  /**
    * Verify the npm token
    *
    * @param token
    * @returns
    */
-  async verifyNpmToken(token: string): Promise<User | false> {
+  async verifyNpmToken(token: string): Promise<false | User> {
     // if jwt is not enabled, use legacy encryption
     // the token is the password in basic auth
     // decode it and get the token from the payload
@@ -221,7 +199,7 @@ export class AuthCore {
       if (isAccessTokenPayload(legacyPayload)) {
         const { at } = legacyPayload;
 
-        const { name, groups } = await this.provider.getUserinfo(at);
+        const { groups, name } = await this.provider.getUserinfo(at);
         if (!this.authenticate(name, groups)) {
           return false;
         }
@@ -239,47 +217,48 @@ export class AuthCore {
     }
   }
 
-  /**
-   * The ui token of verdaccio is always a JWT token.
-   *
-   * @param username
-   * @param realGroups
-   * @returns
-   */
-  issueUiToken(username: string, realGroups: string[]): Promise<string> {
-    const jwtSignOptions = this.security.web.sign;
-
-    return this.signJWT(username, realGroups, jwtSignOptions);
-  }
-
   verifyUiToken(token: string): User {
     return this.verifyJWT(token);
   }
 
-  private signJWT(username: string, realGroups: string[], jwtSignOptions: JWTSignOptions): Promise<string> {
-    if (!this.auth) {
-      throw new ReferenceError("Unexpected error, auth is not initialized");
+  private initAuthenticatedGroups(val: unknown): boolean | string[] {
+    switch (typeof val) {
+      case "boolean": {
+        return val;
+      }
+      case "object": {
+        return Array.isArray(val) ? val.filter(Boolean) : false;
+      }
+      case "string": {
+        return [val].filter(Boolean);
+      }
+      default: {
+        return false;
+      }
     }
-
-    // providerToken is not needed in the token, we use jwt to check the expiration
-    // remove groups from the user, so that the token is smaller
-    const remoteUser: RemoteUser = {
-      name: username,
-      real_groups: [...realGroups],
-      groups: [],
-    };
-    return this.auth.jwtEncrypt(remoteUser, jwtSignOptions);
   }
 
-  private verifyJWT(token: string): User {
-    // verifyPayload
-    // use internal function to avoid error handling
-    const remoteUser = verifyJWTPayload(token, this.secret);
+  /**
+   * Returns all permission groups used in the Verdacio config.
+   */
+  private initConfiguredGroups(packages: PackageList = {}): string[] {
+    for (const packageConfig of Object.values(packages)) {
+      const groups = (["access", "publish", "unpublish"] as const)
+        .flatMap((key) => packageConfig[key])
+        .filter(Boolean) as string[];
 
-    return {
-      name: remoteUser.name as string | undefined,
-      realGroups: [...remoteUser.real_groups],
-    };
+      return [...new Set(groups)];
+    }
+
+    return [];
+  }
+
+  private legacyDecode(payloadToken: string): LegacyPayload {
+    return JSON.parse(base64Decode(payloadToken)) as LegacyPayload;
+  }
+
+  private legacyEncode(payload: LegacyPayload): string {
+    return base64Encode(JSON.stringify(payload));
   }
 
   private legacyEncrypt(username: string, realGroups: string[], providerToken: OpenIDToken): string {
@@ -299,14 +278,14 @@ export class AuthCore {
       // we use the provider expire time or token to check if the token is still valid
       u = providerToken.expiresAt
         ? {
-            sub: providerToken.subject,
-            n: username,
-            g: [...realGroups],
             exp: providerToken.expiresAt,
+            g: [...realGroups],
+            n: username,
+            sub: providerToken.subject,
           }
         : {
-            sub: providerToken.subject,
             at: providerToken.accessToken,
+            sub: providerToken.subject,
           };
     }
     const payloadToken = this.legacyEncode(u);
@@ -322,11 +301,33 @@ export class AuthCore {
     return typeof token === "string" ? token : base64Encode(token);
   }
 
-  private legacyEncode(payload: LegacyPayload): string {
-    return base64Encode(JSON.stringify(payload));
+  private signJWT(username: string, realGroups: string[], jwtSignOptions: JWTSignOptions): Promise<string> {
+    if (!this.auth) {
+      throw new ReferenceError("Unexpected error, auth is not initialized");
+    }
+
+    // providerToken is not needed in the token, we use jwt to check the expiration
+    // remove groups from the user, so that the token is smaller
+    const remoteUser: RemoteUser = {
+      groups: [],
+      name: username,
+      real_groups: [...realGroups],
+    };
+    return this.auth.jwtEncrypt(remoteUser, jwtSignOptions);
   }
 
-  private legacyDecode(payloadToken: string): LegacyPayload {
-    return JSON.parse(base64Decode(payloadToken)) as LegacyPayload;
+  private verifyJWT(token: string): User {
+    // verifyPayload
+    // use internal function to avoid error handling
+    const remoteUser = verifyJWTPayload(token, this.secret);
+
+    return {
+      name: remoteUser.name as string | undefined,
+      realGroups: [...remoteUser.real_groups],
+    };
   }
+}
+
+function isAccessTokenPayload(u: LegacyPayload): u is AccessTokenPayload {
+  return !!(u as AccessTokenPayload).at;
 }

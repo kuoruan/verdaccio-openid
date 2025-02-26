@@ -11,11 +11,11 @@ export function createStore(config: ConfigHolder): Store {
   const storeConfig = config.getStoreConfig(storeType);
 
   switch (storeType) {
-    case StoreType.Redis: {
-      return new RedisStore(storeConfig);
-    }
     case StoreType.File: {
       return new FileStore(storeConfig);
+    }
+    case StoreType.Redis: {
+      return new RedisStore(storeConfig);
     }
 
     default: {

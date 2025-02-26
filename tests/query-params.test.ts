@@ -11,8 +11,8 @@ describe("parseQueryParams", () => {
 
   it("should parse multiple key-value pairs", () => {
     expect(parseQueryParams("foo=bar&baz=qux")).toEqual({
-      foo: "bar",
       baz: "qux",
+      foo: "bar",
     });
   });
 
@@ -37,7 +37,7 @@ describe("stringifyQueryParams", () => {
   });
 
   it("should stringify multiple key-value pairs", () => {
-    expect(stringifyQueryParams({ foo: "bar", baz: "qux" })).toBe("foo=bar&baz=qux");
+    expect(stringifyQueryParams({ baz: "qux", foo: "bar" })).toBe("foo=bar&baz=qux");
   });
 
   it("should encode URI components", () => {

@@ -1,7 +1,6 @@
-import { describe, expect, it } from "vitest";
-
 import InMemoryStore from "@/server/store/InMemory";
 import { STATE_TTL, USER_GROUPS_CACHE_TTL, USER_INFO_CACHE_TTL } from "@/server/store/Store";
+import { describe, expect, it } from "vitest";
 
 describe("InMemoryStore constructor", () => {
   it("should create instance with default options", () => {

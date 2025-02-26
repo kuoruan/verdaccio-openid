@@ -11,9 +11,9 @@ const dummyLogger: Logger = {
   debug: noop,
   error: noop,
   http: noop,
+  info: noop,
   trace: noop,
   warn: noop,
-  info: noop,
 };
 
 let logger: Logger = dummyLogger;
