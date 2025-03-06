@@ -1,7 +1,7 @@
 import path from "node:path";
 import process from "node:process";
 
-import ms from "ms";
+import ms, { type StringValue } from "ms";
 
 import { pluginKey } from "@/constants";
 import logger from "@/server/logger";
@@ -52,7 +52,7 @@ export function handleValidationError(error: any, ...keyPaths: string[]): never 
  */
 export function getTTLValue(ttl?: number | string): number | undefined {
   if (typeof ttl === "string") {
-    return ms(ttl);
+    return ms(ttl as StringValue);
   }
 
   return ttl;
