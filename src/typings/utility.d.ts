@@ -1,1 +1,1 @@
-declare type MaybePromise<T> = Promise<T> | T;
+declare type MaybePromise<T> = T | Promise<T>;

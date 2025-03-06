@@ -1,5 +1,24 @@
 import type { Request } from "express";
 
+export interface TokenInfo {
+  subject?: string;
+  accessToken: string;
+  idToken?: string;
+  // We not use the expires_in field
+  // because it is only accurate when the access token response is received
+  expiresAt?: number;
+}
+
+/**
+ * When token is string, it is a access token
+ */
+export type OpenIDToken = TokenInfo | string;
+
+export interface ProviderUser {
+  name: string;
+  groups?: string[];
+}
+
 export enum ProviderType {
   Gitlab = "gitlab",
 }
@@ -10,23 +29,4 @@ export interface AuthProvider {
 
   getToken(callbackRequest: Request): Promise<OpenIDToken>;
   getUserinfo(providerToken: OpenIDToken): Promise<ProviderUser>;
-}
-
-/**
- * When token is string, it is a access token
- */
-export type OpenIDToken = string | TokenInfo;
-
-export interface ProviderUser {
-  groups?: string[];
-  name: string;
-}
-
-export interface TokenInfo {
-  accessToken: string;
-  // We not use the expires_in field
-  // because it is only accurate when the access token response is received
-  expiresAt?: number;
-  idToken?: string;
-  subject?: string;
 }

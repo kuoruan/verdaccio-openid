@@ -1,8 +1,10 @@
-import { pluginKey } from "@/constants";
-import { config } from "dotenv";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+
+import { config } from "dotenv";
+
+import { pluginKey } from "@/constants";
 
 import { debug } from "./debugger";
 

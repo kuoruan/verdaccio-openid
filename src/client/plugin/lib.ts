@@ -1,48 +1,7 @@
 /* eslint-disable unicorn/prefer-spread, unicorn/prefer-code-point */
 
-/**
- * Copy text to the clipboard.
- *
- * @param text the text to copy to the clipboard
- */
-export function copyToClipboard(text: string): Promise<void> {
-  return navigator.clipboard.writeText(text);
-}
-
-/**
- * Get the base url from the global options
- *
- * @param noTrailingSlash Whether to include a trailing slash.
- * @returns
- */
-export function getBaseUrl(noTrailingSlash = false): string {
-  const urlPrefix = window.__VERDACCIO_BASENAME_UI_OPTIONS?.url_prefix;
-
-  const base = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
-
-  return noTrailingSlash ? base.replace(/\/$/, "") : base;
-}
-
-/**
- * Interrupt a click event on an element.
- *
- * @param selector the selector of the element to interrupt the click event for
- * @param callback new callback to run instead of the original click event
- */
-export function interruptClick(selector: string, callback: () => void): void {
-  const handleClick = (e: MouseEvent) => {
-    if (pathContainsElement(selector, e)) {
-      e.preventDefault();
-      e.stopPropagation();
-      callback();
-    }
-  };
-  const capture = true;
-  document.addEventListener("click", handleClick, capture);
-}
-
 // This parseJWT implementation is taken from https://stackoverflow.com/a/38552302/1935971
-export function parseJwt(token: string): null | Record<string, any> {
+export function parseJwt(token: string): Record<string, any> | null {
   // JWT has 3 parts separated by ".", the payload is the base64url-encoded part in the middle
   const base64Url = token.split(".")[1];
   // base64url replaced '+' and '/' with '-' and '_', so we undo it here
@@ -82,6 +41,38 @@ export function retry(action: () => void, times = 5): void {
 }
 
 /**
+ * Check if the path of a mouse event contains an element.
+ *
+ * @param selector the selector of the element to check for
+ * @param e the mouse event
+ * @returns
+ */
+function pathContainsElement(selector: string, e: MouseEvent): boolean {
+  const path = e.path || e.composedPath?.();
+  const element = document.querySelector(selector)!;
+
+  return path.includes(element);
+}
+
+/**
+ * Interrupt a click event on an element.
+ *
+ * @param selector the selector of the element to interrupt the click event for
+ * @param callback new callback to run instead of the original click event
+ */
+export function interruptClick(selector: string, callback: () => void): void {
+  const handleClick = (e: MouseEvent) => {
+    if (pathContainsElement(selector, e)) {
+      e.preventDefault();
+      e.stopPropagation();
+      callback();
+    }
+  };
+  const capture = true;
+  document.addEventListener("click", handleClick, capture);
+}
+
+/**
  * Copy from @verdaccio/url#wrapPrefix
  *
  * We can't import it directly because it's a commonjs module.
@@ -104,15 +95,24 @@ export function wrapPrefix(prefix: string | void): string {
 }
 
 /**
- * Check if the path of a mouse event contains an element.
+ * Get the base url from the global options
  *
- * @param selector the selector of the element to check for
- * @param e the mouse event
+ * @param noTrailingSlash Whether to include a trailing slash.
  * @returns
  */
-function pathContainsElement(selector: string, e: MouseEvent): boolean {
-  const path = e.path || e.composedPath?.();
-  const element = document.querySelector(selector)!;
+export function getBaseUrl(noTrailingSlash = false): string {
+  const urlPrefix = window.__VERDACCIO_BASENAME_UI_OPTIONS?.url_prefix;
 
-  return path.includes(element);
+  const base = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
+
+  return noTrailingSlash ? base.replace(/\/$/, "") : base;
+}
+
+/**
+ * Copy text to the clipboard.
+ *
+ * @param text the text to copy to the clipboard
+ */
+export function copyToClipboard(text: string): Promise<void> {
+  return navigator.clipboard.writeText(text);
 }

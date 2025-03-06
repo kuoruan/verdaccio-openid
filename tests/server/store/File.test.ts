@@ -1,9 +1,9 @@
-import type { FileConfig } from "@/server/store/Store";
+import storage from "node-persist";
 import type { MockInstance } from "vitest";
 
 import logger from "@/server/logger";
 import FileStore from "@/server/store/File";
-import storage from "node-persist";
+import type { FileConfig } from "@/server/store/Store";
 
 vi.mock("node-persist");
 vi.mock("@/server/logger");
@@ -18,8 +18,8 @@ describe("FileStore constructor", () => {
     expect(fileStore).not.toBeFalsy();
 
     expect(storage.create).toHaveBeenCalledWith({
-      dir: "/some/dir",
       ttl: expect.any(Number),
+      dir: "/some/dir",
     });
     expect(initMock).toHaveBeenCalled();
   });
@@ -29,9 +29,9 @@ describe("FileStore constructor", () => {
     (storage.create as unknown as MockInstance).mockReturnValue({ init: initMock });
 
     const opts: FileConfig = {
-      dir: "/some/dir",
-      expiredInterval: 250,
       ttl: 1000,
+      expiredInterval: 250,
+      dir: "/some/dir",
     };
     const fileStore = new FileStore(opts);
 
@@ -64,16 +64,16 @@ describe("FileStore constructor", () => {
 describe("FileStore methods", () => {
   let fileStore: FileStore;
   let dbMock: {
+    setItem: MockInstance;
     getItem: MockInstance;
     removeItem: MockInstance;
-    setItem: MockInstance;
   };
 
   beforeEach(() => {
     dbMock = {
+      setItem: vi.fn(),
       getItem: vi.fn(),
       removeItem: vi.fn(),
-      setItem: vi.fn(),
     };
 
     (storage.create as unknown as MockInstance).mockReturnValue({

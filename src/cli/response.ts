@@ -1,8 +1,8 @@
 import type { Response } from "express";
+import colors from "picocolors";
 
 import { messageGroupRequired } from "@/constants";
 import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "@/status-page";
-import colors from "picocolors";
 
 import logger from "./logger";
 import { getNpmConfigFile } from "./npm";
@@ -11,14 +11,14 @@ const messageSuccess = "All done! We've updated your npm configuration.";
 
 export function respondWithCliMessage(status: string, message: string) {
   switch (status) {
-    case "denied": {
-      logger.error(messageGroupRequired);
-      break;
-    }
-
     case "success": {
       logger.success(messageSuccess);
       logger.info("Path:", colors.blackBright(getNpmConfigFile()));
+      break;
+    }
+
+    case "denied": {
+      logger.error(messageGroupRequired);
       break;
     }
 
@@ -33,12 +33,6 @@ export function respondWithWebPage(status: string, message: string, res: Respons
   res.setHeader("Content-Type", "text/html");
 
   switch (status) {
-    case "denied": {
-      res.status(401);
-      res.send(buildAccessDeniedPage());
-      break;
-    }
-
     case "success": {
       res.status(200);
       res.send(
@@ -48,6 +42,12 @@ export function respondWithWebPage(status: string, message: string, res: Respons
           <p><code>${getNpmConfigFile()}</code></p>`,
         ),
       );
+      break;
+    }
+
+    case "denied": {
+      res.status(401);
+      res.send(buildAccessDeniedPage());
       break;
     }
 

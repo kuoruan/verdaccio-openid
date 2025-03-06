@@ -1,3 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { fileURLToPath } from "node:url";
+
 import alias from "@rollup/plugin-alias";
 import { babel } from "@rollup/plugin-babel";
 import commonjs from "@rollup/plugin-commonjs";
@@ -6,10 +11,6 @@ import json from "@rollup/plugin-json";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 import terser from "@rollup/plugin-terser";
-import fs from "node:fs";
-import path from "node:path";
-import process from "node:process";
-import { fileURLToPath } from "node:url";
 import { defineConfig } from "rollup";
 import { nodeExternals } from "rollup-plugin-node-externals";
 
@@ -23,8 +24,8 @@ function getBasePlugins(isBrowser = false) {
       devDeps: true,
     }),
     nodeResolve({
-      browser: isBrowser,
       extensions: [".js", ".ts"],
+      browser: isBrowser,
     }),
     alias({
       entries: [{ find: "@", replacement: fileURLToPath(new URL("src", import.meta.url)) }],
@@ -47,9 +48,9 @@ function getBasePlugins(isBrowser = false) {
         [
           "@babel/preset-env",
           {
-            browserslistEnv: isBrowser ? "browser" : "node",
-            corejs: isBrowser ? { proposals: true, version: "3.40" } : false,
             useBuiltIns: isBrowser ? "usage" : false,
+            corejs: isBrowser ? { version: "3.40", proposals: true } : false,
+            browserslistEnv: isBrowser ? "browser" : "node",
           },
         ],
         "@babel/preset-typescript",

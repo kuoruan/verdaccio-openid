@@ -1,5 +1,6 @@
-import { plugin } from "@/constants";
 import process from "node:process";
+
+import { plugin } from "@/constants";
 
 import logger from "./logger";
 import { getRegistryUrl } from "./npm";

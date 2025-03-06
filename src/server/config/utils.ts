@@ -1,8 +1,10 @@
-import { pluginKey } from "@/constants";
-import logger from "@/server/logger";
-import ms from "ms";
 import path from "node:path";
 import process from "node:process";
+
+import ms from "ms";
+
+import { pluginKey } from "@/constants";
+import logger from "@/server/logger";
 
 /**
  * Get the value of an environment variable.
@@ -33,15 +35,13 @@ export function getEnvironmentValue(name: string): unknown {
   return value;
 }
 
-/**
- * Get the absolute path of a store file.
- *
- * @param configPath - The path to the config file.
- * @param storePath - The path to the store files.
- * @returns The absolute path of the store file.
- */
-export function getStoreFilePath(configPath: string, storePath: string): string {
-  return path.isAbsolute(storePath) ? storePath : path.normalize(path.join(path.dirname(configPath), storePath));
+export function handleValidationError(error: any, ...keyPaths: string[]): never {
+  const message = error.errors ? error.errors[0] : error.message || error;
+  logger.error(
+    { key: ["auth", pluginKey, ...keyPaths].join("."), message },
+    `invalid configuration at "@{key}": @{message} — Please check your verdaccio config.`,
+  );
+  process.exit(1);
 }
 
 /**
@@ -58,11 +58,13 @@ export function getTTLValue(ttl?: number | string): number | undefined {
   return ttl;
 }
 
-export function handleValidationError(error: any, ...keyPaths: string[]): never {
-  const message = error.errors ? error.errors[0] : error.message || error;
-  logger.error(
-    { key: ["auth", pluginKey, ...keyPaths].join("."), message },
-    `invalid configuration at "@{key}": @{message} — Please check your verdaccio config.`,
-  );
-  process.exit(1);
+/**
+ * Get the absolute path of a store file.
+ *
+ * @param configPath - The path to the config file.
+ * @param storePath - The path to the store files.
+ * @returns The absolute path of the store file.
+ */
+export function getStoreFilePath(configPath: string, storePath: string): string {
+  return path.isAbsolute(storePath) ? storePath : path.normalize(path.join(path.dirname(configPath), storePath));
 }
