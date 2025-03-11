@@ -47,11 +47,11 @@ export class PatchHtml implements PluginMiddleware {
     next();
   };
 
-  private insertTags(html: string | Buffer, req: Request): string {
+  private insertTags(html: any, req: Request): any {
     const htmlString = Buffer.isBuffer(html) ? html.toString() : html;
 
-    if (!htmlString.includes("__VERDACCIO_BASENAME_UI_OPTIONS")) {
-      return htmlString;
+    if (typeof htmlString !== "string" || !htmlString.includes("__VERDACCIO_BASENAME_UI_OPTIONS")) {
+      return html;
     }
 
     const bodyLineRegex = /^(\s*)<\/body>/m;
