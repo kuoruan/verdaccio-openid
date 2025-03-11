@@ -33,15 +33,15 @@ export class PatchHtml implements PluginMiddleware {
   patchResponse: Handler = (req, res, next) => {
     const originalSend = res.send;
 
-    res.send = (html) => {
+    res.send = (html, ...args) => {
       try {
         const patchedHtml = this.insertTags(html, req);
 
-        return originalSend.call(res, patchedHtml);
+        return originalSend.call(res, patchedHtml, ...args);
       } catch (err: any) {
         logger.error({ message: err.message }, "Failed to patch HTML: @{message}");
 
-        return originalSend.call(res, html);
+        return originalSend.call(res, html, ...args);
       }
     };
     next();
