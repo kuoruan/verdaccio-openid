@@ -7,6 +7,8 @@ import colors from "picocolors";
 
 import logger from "./logger";
 
+export const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com", "registry.npm.taobao.org"];
+
 let npmConfig: Record<string, unknown>;
 
 function parseCliArgs() {
@@ -35,9 +37,13 @@ function removeTrailingSlash(input: string): string {
 export function getRegistryUrl(): string {
   const cliArgs = parseCliArgs();
 
-  const registry = cliArgs.registry || getNpmConfig().registry;
+  const registry = cliArgs.registry ?? getNpmConfig().registry;
 
-  return removeTrailingSlash(registry as string);
+  if (!registry) {
+    return PUBLIC_REGISTRIES[0];
+  }
+
+  return removeTrailingSlash(registry);
 }
 
 export function getNpmConfigFile(): string {
