@@ -14,12 +14,14 @@ import {
 describe("base64Encode", () => {
   it("should encode string to base64", () => {
     expect(base64Encode("test")).toBe("dGVzdA");
+    expect(base64Encode("t e s t")).toBe("dCBlIHMgdA");
   });
 });
 
 describe("base64Decode", () => {
   it("should decode base64 string", () => {
     expect(base64Decode("dGVzdA")).toBe("test");
+    expect(base64Decode("dCBlIHMgdA")).toBe("t e s t");
   });
 });
 
@@ -30,7 +32,7 @@ describe("hashObject", () => {
 
   it("should hash object to sha256", () => {
     const obj = { test: "value" };
-    expect(hashObject(obj)).toMatch(/^[a-f0-9]{64}$/);
+    expect(hashObject(obj)).toBe("ecacb99652cdca6195f645dd19454c3e8d9a14ca9a137e62506f72f20db4f09e");
   });
 });
 

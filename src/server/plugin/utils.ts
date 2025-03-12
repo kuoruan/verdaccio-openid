@@ -1,8 +1,9 @@
-import { createHash } from "node:crypto";
+import crypto from "node:crypto";
 
 import type { PackageList } from "@verdaccio/types";
 import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
+import stableHash from "stable-hash";
 
 /**
  * Get all permission groups used in the Verdacio config.
@@ -70,9 +71,7 @@ export function base64Decode(str: string): string {
 export function hashObject(obj: any): string {
   if (typeof obj === "string") return obj;
 
-  const str = JSON.stringify(obj);
-
-  return createHash("sha256").update(str).digest("hex");
+  return crypto.createHash("sha256").update(stableHash(obj)).digest("hex");
 }
 
 /**

@@ -75,6 +75,9 @@ importers:
       picocolors:
         specifier: ^1.1.1
         version: 1.1.1
+      stable-hash:
+        specifier: ^0.0.4
+        version: 0.0.4
       yup:
         specifier: ^1.6.1
         version: 1.6.1
@@ -8099,6 +8102,7 @@ snapshots:
       open: 10.1.0
       openid-client: 5.7.1
       picocolors: 1.1.1
+      stable-hash: 0.0.4
       verdaccio: 6.0.5(typanion@3.14.0)
       yup: 1.6.1
     transitivePeerDependencies:
