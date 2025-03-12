@@ -3,9 +3,7 @@ import process from "node:process";
 import { plugin } from "@/constants";
 
 import logger from "./logger";
-import { getRegistryUrl } from "./npm";
-
-const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com"];
+import { getRegistryUrl, PUBLIC_REGISTRIES } from "./npm";
 
 export function getUsageInfo() {
   return [

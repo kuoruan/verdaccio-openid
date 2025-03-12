@@ -36,7 +36,7 @@ export function getEnvironmentValue(name: string): unknown {
 }
 
 export function handleValidationError(error: any, ...keyPaths: string[]): never {
-  const message = error.errors ? error.errors[0] : error.message || error;
+  const message = error.errors ? error.errors[0] : (error.message ?? error);
   logger.error(
     { key: ["auth", pluginKey, ...keyPaths].join("."), message },
     `invalid configuration at "@{key}": @{message} — Please check your verdaccio config.`,

@@ -31,7 +31,7 @@ export class WebFlow implements PluginMiddleware {
       const url = await this.provider.getLoginUrl(req);
       res.redirect(url);
     } catch (e: any) {
-      logger.error({ message: e.message || e }, "auth error: @{message}");
+      logger.error({ message: e.message ?? e }, "auth error: @{message}");
       next(e);
     }
   };
@@ -81,7 +81,7 @@ export class WebFlow implements PluginMiddleware {
         res.status(401).send(buildAccessDeniedPage({ backUrl: baseUrl }));
       }
     } catch (e: any) {
-      logger.error({ message: e.message || e }, "auth error: @{message}");
+      logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
       res.status(500).send(buildErrorPage(e, { backUrl: baseUrl }));
     }

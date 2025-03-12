@@ -51,7 +51,7 @@ export function buildStatusPage(body: string, withBack: BackOptions = false): st
 export function buildErrorPage(error: any, withBack: BackOptions = false) {
   return buildStatusPage(
     `<h1>Sorry :(</h1>
-    <p>${error?.message || error}</p>`,
+    <p>${error?.message ?? error}</p>`,
     withBack,
   );
 }

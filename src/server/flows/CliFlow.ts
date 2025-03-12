@@ -50,7 +50,7 @@ export class CliFlow implements PluginMiddleware {
       }
     } catch (error: any) {
       params.status = "error";
-      params.message = error.message || error;
+      params.message = error.message ?? error;
 
       logger.error({ message: params.message }, "auth error: @{message}");
     }
