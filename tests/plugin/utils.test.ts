@@ -3,6 +3,8 @@ import type { Request } from "express";
 import {
   base64Decode,
   base64Encode,
+  getAllConfiguredGroups,
+  getAuthenticatedGroups,
   getBaseUrl,
   getClaimsFromIdToken,
   hashObject,
@@ -84,5 +86,66 @@ describe("getBaseUrl", () => {
     }));
 
     expect(getBaseUrl("/prefix", req, true)).toBe("http://localhost");
+  });
+});
+
+describe("getAllConfiguredGroups", () => {
+  it("should return empty array for empty packages", () => {
+    expect(getAllConfiguredGroups({})).toEqual([]);
+  });
+
+  it("should extract unique groups from package config", () => {
+    const packages = {
+      "@scope/*": {
+        access: ["group1", "group2"],
+        publish: ["group2", "group3"],
+        unpublish: ["group1"],
+      },
+      package: {
+        access: ["group3"],
+        publish: ["group2"],
+      },
+    };
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2", "group3"]);
+  });
+
+  it("should handle missing permission keys", () => {
+    const packages = {
+      "@scope/*": {
+        access: ["group1"],
+      },
+      package: {
+        publish: ["group2"],
+      },
+    };
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2"]);
+  });
+});
+
+describe("getAuthenticatedGroups", () => {
+  it("should return boolean value directly", () => {
+    expect(getAuthenticatedGroups(true)).toBe(true);
+    expect(getAuthenticatedGroups(false)).toBe(false);
+  });
+
+  it("should convert string to array and filter empty", () => {
+    expect(getAuthenticatedGroups("test")).toEqual(["test"]);
+    expect(getAuthenticatedGroups("")).toEqual([]);
+  });
+
+  it("should filter array and remove empty values", () => {
+    expect(getAuthenticatedGroups(["test1", "", "test2"])).toEqual(["test1", "test2"]);
+    expect(getAuthenticatedGroups([])).toEqual([]);
+  });
+
+  it("should return false for non-array objects", () => {
+    expect(getAuthenticatedGroups({})).toBe(false);
+    expect(getAuthenticatedGroups({ test: "value" })).toBe(false);
+  });
+
+  it("should return false for other types", () => {
+    expect(getAuthenticatedGroups(null)).toBe(false);
+    expect(getAuthenticatedGroups()).toBe(false);
+    expect(getAuthenticatedGroups(42)).toBe(false);
   });
 });

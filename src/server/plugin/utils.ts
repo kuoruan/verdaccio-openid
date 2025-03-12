@@ -1,7 +1,45 @@
 import { createHash } from "node:crypto";
 
+import type { PackageList } from "@verdaccio/types";
 import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
+
+/**
+ * Get all permission groups used in the Verdacio config.
+ *
+ * @param packages The package list.
+ * @returns The configured groups.
+ */
+export function getAllConfiguredGroups(packages: PackageList = {}): string[] {
+  const groups = Object.values(packages).flatMap((packageConfig) => {
+    return (["access", "publish", "unpublish"] as const).flatMap((key) => packageConfig[key] ?? []).filter(Boolean);
+  });
+
+  return [...new Set(groups)];
+}
+
+/**
+ * Get the authenticated groups configured in the Verdaccio config.
+ *
+ * @param val The value to check.
+ * @returns The authenticated groups.
+ */
+export function getAuthenticatedGroups(val?: unknown): string[] | boolean {
+  switch (typeof val) {
+    case "boolean": {
+      return val;
+    }
+    case "string": {
+      return [val].filter(Boolean);
+    }
+    case "object": {
+      return Array.isArray(val) ? val.filter(Boolean) : false;
+    }
+    default: {
+      return false;
+    }
+  }
+}
 
 /**
  * Encode a string to base64

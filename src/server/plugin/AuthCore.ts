@@ -1,12 +1,12 @@
 import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
 import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
-import type { JWTSignOptions, PackageList, RemoteUser, Security } from "@verdaccio/types";
+import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
-import { base64Decode, base64Encode, isNowBefore } from "./utils";
+import { base64Decode, base64Encode, getAllConfiguredGroups, getAuthenticatedGroups, isNowBefore } from "./utils";
 
 export interface User {
   name?: string;
@@ -56,8 +56,8 @@ export class AuthCore {
     this.security = config.security;
     this.groupUsers = config.groupUsers;
 
-    this.configuredGroups = this.initConfiguredGroups(config.packages);
-    this.authenticatedGroups = this.initAuthenticatedGroups(config.authorizedGroups);
+    this.configuredGroups = getAllConfiguredGroups(config.packages);
+    this.authenticatedGroups = getAuthenticatedGroups(config.authorizedGroups);
   }
 
   setAuth(auth: Auth) {
@@ -66,38 +66,6 @@ export class AuthCore {
 
   private get secret(): string {
     return this.auth ? this.auth.secret : this.configSecret;
-  }
-
-  private initAuthenticatedGroups(val: unknown): string[] | boolean {
-    switch (typeof val) {
-      case "boolean": {
-        return val;
-      }
-      case "string": {
-        return [val].filter(Boolean);
-      }
-      case "object": {
-        return Array.isArray(val) ? val.filter(Boolean) : false;
-      }
-      default: {
-        return false;
-      }
-    }
-  }
-
-  /**
-   * Returns all permission groups used in the Verdacio config.
-   */
-  private initConfiguredGroups(packages: PackageList = {}): string[] {
-    for (const packageConfig of Object.values(packages)) {
-      const groups = (["access", "publish", "unpublish"] as const)
-        .flatMap((key) => packageConfig[key])
-        .filter(Boolean) as string[];
-
-      return [...new Set(groups)];
-    }
-
-    return [];
   }
 
   /**
@@ -131,7 +99,7 @@ export class AuthCore {
   getUserGroups(username: string): string[] | undefined {
     if (!this.groupUsers) return undefined;
 
-    const groupUsers = { ...this.groupUsers };
+    const groupUsers = this.groupUsers;
 
     return Object.keys(groupUsers).filter((group) => {
       return groupUsers[group].includes(username);
@@ -151,7 +119,7 @@ export class AuthCore {
      */
     relevantGroups.push(username);
 
-    return relevantGroups.filter((value, index, self) => self.indexOf(value) === index).sort();
+    return [...new Set(relevantGroups)].sort();
   }
 
   /**
