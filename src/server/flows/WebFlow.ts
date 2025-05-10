@@ -59,10 +59,7 @@ export class WebFlow implements PluginMiddleware {
 
       const userinfo = await this.provider.getUserinfo(providerToken);
 
-      let groups = this.core.getUserGroups(userinfo.name);
-      if (!groups) {
-        groups = userinfo.groups;
-      }
+      const groups = this.core.getUserGroups(userinfo.name) ?? userinfo.groups;
 
       if (this.core.authenticate(userinfo.name, groups)) {
         const realGroups = this.core.filterRealGroups(userinfo.name, groups);

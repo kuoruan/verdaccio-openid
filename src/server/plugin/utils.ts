@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import type { PackageList } from "@verdaccio/types";
 import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
-import stableHash from "stable-hash";
+import { stableHash } from "stable-hash";
 
 /**
  * Get all permission groups used in the Verdacio config.

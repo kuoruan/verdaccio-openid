@@ -1,6 +1,6 @@
 import eslint from "@eslint/js";
 import { createNextImportResolver } from "eslint-import-resolver-next";
-import pluginImportX from "eslint-plugin-import-x";
+import { flatConfigs } from "eslint-plugin-import-x";
 import pluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import pluginSimpleImportSort from "eslint-plugin-simple-import-sort";
 import pluginUnicorn from "eslint-plugin-unicorn";
@@ -11,8 +11,8 @@ export default tseslint.config(
   eslint.configs.recommended,
   pluginPrettierRecommended,
   pluginUnicorn.configs["recommended"],
-  pluginImportX.flatConfigs.recommended,
-  pluginImportX.flatConfigs.typescript,
+  flatConfigs.recommended,
+  flatConfigs.typescript,
   ...configs.recommendedTypeChecked,
   ...configs.stylisticTypeChecked,
   {
