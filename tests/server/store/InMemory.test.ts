@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import InMemoryStore from "@/server/store/InMemory";
-import { STATE_TTL, USER_GROUPS_CACHE_TTL, USER_INFO_CACHE_TTL } from "@/server/store/Store";
+import { DATA_CACHE_TTL, STATE_TTL } from "@/server/store/Store";
 
 describe("InMemoryStore constructor", () => {
   it("should create instance with default options", () => {
@@ -22,20 +22,12 @@ describe("InMemoryStore constructor", () => {
     expect(store.stateCache.ttl).toBe(STATE_TTL);
   });
 
-  it("should create userinfoCache with correct TTL and max", () => {
+  it("should create dataCache with correct TTL and max", () => {
     const store = new InMemoryStore();
     // @ts-expect-error accessing private field for testing
-    expect(store.userinfoCache.ttl).toBe(USER_INFO_CACHE_TTL);
+    expect(store.dataCache.ttl).toBe(DATA_CACHE_TTL);
     // @ts-expect-error accessing private field for testing
-    expect(store.userinfoCache.max).toBe(1000);
-  });
-
-  it("should create groupsCache with correct TTL and max", () => {
-    const store = new InMemoryStore();
-    // @ts-expect-error accessing private field for testing
-    expect(store.groupsCache.ttl).toBe(USER_GROUPS_CACHE_TTL);
-    // @ts-expect-error accessing private field for testing
-    expect(store.groupsCache.max).toBe(1000);
+    expect(store.dataCache.max).toBe(2000);
   });
 });
 

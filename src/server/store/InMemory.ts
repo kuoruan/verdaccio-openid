@@ -1,13 +1,6 @@
 import TTLCache from "@isaacs/ttlcache";
 
-import {
-  BaseStore,
-  type InMemoryConfig,
-  STATE_TTL,
-  type Store,
-  USER_GROUPS_CACHE_TTL,
-  USER_INFO_CACHE_TTL,
-} from "./Store";
+import { BaseStore, DATA_CACHE_TTL, type InMemoryConfig, STATE_TTL, type Store } from "./Store";
 
 const defaultOptions = {
   ttl: STATE_TTL,
@@ -15,17 +8,13 @@ const defaultOptions = {
 
 export default class InMemoryStore extends BaseStore implements Store {
   private readonly stateCache: TTLCache<string, string>;
-  private readonly userinfoCache: TTLCache<string, Record<string, unknown>>;
-  private readonly groupsCache: TTLCache<string, string[]>;
-  private readonly webAuthnTokenCache: TTLCache<string, string>;
+  private readonly dataCache: TTLCache<string, any>;
 
   constructor(opts: InMemoryConfig = {}) {
     super();
 
     this.stateCache = new TTLCache({ ...defaultOptions, ...opts });
-    this.webAuthnTokenCache = new TTLCache({ ...defaultOptions, ...opts });
-    this.userinfoCache = new TTLCache({ max: 1000, ttl: USER_INFO_CACHE_TTL });
-    this.groupsCache = new TTLCache({ max: 1000, ttl: USER_GROUPS_CACHE_TTL });
+    this.dataCache = new TTLCache({ max: 2000, ttl: DATA_CACHE_TTL });
   }
 
   setOpenIDState(key: string, nonce: string, providerId: string): void {
@@ -53,59 +42,58 @@ export default class InMemoryStore extends BaseStore implements Store {
   setUserInfo(key: string, data: unknown, providerId: string): void {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    this.userinfoCache.set(userInfoKey, data as Record<string, unknown>);
+    this.dataCache.set(userInfoKey, data as Record<string, unknown>);
   }
 
   getUserInfo(key: string, providerId: string): Record<string, unknown> | undefined {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    if (!this.userinfoCache.has(userInfoKey)) {
+    if (!this.dataCache.has(userInfoKey)) {
       return;
     }
 
-    return this.userinfoCache.get(userInfoKey);
+    return this.dataCache.get(userInfoKey);
   }
 
   setUserGroups(key: string, groups: string[], providerId: string): void {
     const userGroupsKey = this.getUserGroupsKey(key, providerId);
 
-    this.groupsCache.set(userGroupsKey, groups);
+    this.dataCache.set(userGroupsKey, groups);
   }
 
   getUserGroups(key: string, providerId: string): string[] | undefined {
     const userGroupsKey = this.getUserGroupsKey(key, providerId);
 
-    if (!this.groupsCache.has(userGroupsKey)) {
+    if (!this.dataCache.has(userGroupsKey)) {
       return undefined;
     }
 
-    return this.groupsCache.get(userGroupsKey);
+    return this.dataCache.get(userGroupsKey);
   }
 
   setWebAuthnToken(key: string, token: string): void {
     const tokenKey = this.getWebAuthnTokenKey(key);
 
-    this.webAuthnTokenCache.set(tokenKey, token);
+    this.stateCache.set(tokenKey, token);
   }
 
   getWebAuthnToken(key: string): string | undefined {
     const tokenKey = this.getWebAuthnTokenKey(key);
 
-    if (!this.webAuthnTokenCache.has(tokenKey)) {
+    if (!this.stateCache.has(tokenKey)) {
       return undefined;
     }
-    return this.webAuthnTokenCache.get(tokenKey);
+    return this.stateCache.get(tokenKey);
   }
 
   deleteWebAuthnToken(key: string): void {
     const tokenKey = this.getWebAuthnTokenKey(key);
 
-    this.webAuthnTokenCache.delete(tokenKey);
+    this.stateCache.delete(tokenKey);
   }
 
   close(): void {
     this.stateCache.clear();
-    this.userinfoCache.clear();
-    this.groupsCache.clear();
+    this.dataCache.clear();
   }
 }

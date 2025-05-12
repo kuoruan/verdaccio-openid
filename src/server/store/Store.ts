@@ -60,11 +60,8 @@ export class BaseStore {
 /** The State and nonce ttl */
 export const STATE_TTL = 1 * 60 * 1000; // 1 minute
 
-/** The userinfo cache ttl */
-export const USER_INFO_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-
-/** The user groups cache ttl */
-export const USER_GROUPS_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+/** The other data cache ttl */
+export const DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export enum StoreType {
   InMemory = "in-memory",

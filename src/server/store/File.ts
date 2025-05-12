@@ -4,7 +4,7 @@ import storage, { type InitOptions, LocalStorage } from "node-persist";
 
 import logger from "@/server/logger";
 
-import { BaseStore, type FileConfig, STATE_TTL, type Store, USER_GROUPS_CACHE_TTL, USER_INFO_CACHE_TTL } from "./Store";
+import { BaseStore, type FileConfig, STATE_TTL, type Store, USER_GROUPS_CACHE_TTL, DATA_CACHE_TTL } from "./Store";
 
 const defaultOptions = {
   ttl: STATE_TTL,
@@ -50,7 +50,7 @@ export default class FileStore extends BaseStore implements Store {
   async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    await this.db.setItem(userInfoKey, data, { ttl: USER_INFO_CACHE_TTL });
+    await this.db.setItem(userInfoKey, data, { ttl: DATA_CACHE_TTL });
   }
 
   getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {

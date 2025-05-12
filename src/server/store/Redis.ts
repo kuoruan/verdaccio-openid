@@ -7,7 +7,7 @@ import {
   STATE_TTL,
   type Store,
   USER_GROUPS_CACHE_TTL,
-  USER_INFO_CACHE_TTL,
+  DATA_CACHE_TTL,
 } from "./Store";
 
 const defaultOptions = {
@@ -94,7 +94,7 @@ export default class RedisStore extends BaseStore implements Store {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
     await this.redis.hset(userInfoKey, data as Record<string, unknown>);
-    await this.redis.pexpire(userInfoKey, USER_INFO_CACHE_TTL);
+    await this.redis.pexpire(userInfoKey, DATA_CACHE_TTL);
   }
 
   async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | null> {
