@@ -11,6 +11,9 @@ import type { PluginMiddleware } from "@/server/plugin/Plugin";
 import { getBaseUrl } from "@/server/plugin/utils";
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
+const webAuthorizePath = getAuthorizePath();
+const webCallbackPath = getCallbackPath();
+
 export class WebFlow implements PluginMiddleware {
   constructor(
     private readonly config: ConfigHolder,
@@ -19,8 +22,8 @@ export class WebFlow implements PluginMiddleware {
   ) {}
 
   register_middlewares(app: Application) {
-    app.get(getAuthorizePath(), this.authorize);
-    app.get(getCallbackPath(), this.callback);
+    app.get(webAuthorizePath, this.authorize);
+    app.get(webCallbackPath, this.callback);
   }
 
   /**
@@ -28,7 +31,11 @@ export class WebFlow implements PluginMiddleware {
    */
   authorize: Handler = async (req, res, next) => {
     try {
-      const url = await this.provider.getLoginUrl(req);
+      const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
+
+      const redirectUrl = baseUrl + webCallbackPath;
+
+      const url = await this.provider.getLoginUrl(redirectUrl);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");

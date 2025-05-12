@@ -11,7 +11,6 @@ import {
   type OpenIDCallbackChecks,
 } from "openid-client";
 
-import { getCallbackPath } from "@/redirect";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
@@ -111,11 +110,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     return "openid";
   }
 
-  async getLoginUrl(request: Request): Promise<string> {
-    const baseUrl = getBaseUrl(this.config.urlPrefix, request, true);
-    const redirectUrl = baseUrl + getCallbackPath(request.params.id);
-
-    const state = generators.state(32);
+  async getLoginUrl(redirectUrl: string, customState?: string): Promise<string> {
+    const state = customState ?? generators.state(32);
     const nonce = generators.nonce();
 
     await this.store.setState(state, nonce, this.getId());
