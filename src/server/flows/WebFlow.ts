@@ -29,17 +29,18 @@ export class WebFlow implements PluginMiddleware {
   /**
    * Initiates the auth flow by redirecting to the provider's login URL.
    */
-  authorize: Handler = async (req, res, next) => {
-    try {
-      const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
+  authorize: Handler = async (req, res) => {
+    const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
 
+    try {
       const redirectUrl = baseUrl + webCallbackPath;
 
       const url = await this.provider.getLoginUrl(redirectUrl);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
-      next(e);
+
+      res.status(500).send(buildErrorPage(e, { backUrl: baseUrl }));
     }
   };
 
