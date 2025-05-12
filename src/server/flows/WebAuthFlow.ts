@@ -82,15 +82,15 @@ export class WebAuthFlow implements PluginMiddleware {
 
   login: Handler = async (req, res) => {
     try {
-      const state = generators.state(32);
+      const sessionId = generators.random(32);
 
-      await this.store.setWebAuthnToken(state, PENDING_TOKEN);
+      await this.store.setWebAuthnToken(sessionId, PENDING_TOKEN);
 
       const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
 
       res.json({
-        loginUrl: baseUrl + webAuthnAuthorizePath + `?state=${state}`,
-        doneUrl: baseUrl + npmDonePath + `?state=${state}`,
+        loginUrl: baseUrl + webAuthnAuthorizePath + `?sessionId=${sessionId}`,
+        doneUrl: baseUrl + npmDonePath + `?sessionId=${sessionId}`,
       });
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
@@ -99,16 +99,16 @@ export class WebAuthFlow implements PluginMiddleware {
   };
 
   done: Handler = async (req, res) => {
-    const state = req.query.state as string | undefined;
+    const sessionId = req.query.sessionId as string | undefined;
 
-    if (!state) {
-      res.status(400).json({ error: "missing state" });
+    if (!sessionId) {
+      res.status(400).json({ error: "missing sessionId" });
 
       return;
     }
 
     try {
-      const token = await this.store.getWebAuthnToken(state);
+      const token = await this.store.getWebAuthnToken(sessionId);
 
       if (!token) {
         res.status(403).json({ error: "session expired" });
@@ -125,22 +125,22 @@ export class WebAuthFlow implements PluginMiddleware {
         return;
       }
 
-      await this.store.deleteWebAuthnToken(state);
+      await this.store.deleteWebAuthnToken(sessionId);
 
       res.json({ token });
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
-      void this.store.deleteWebAuthnToken(state);
+      void this.store.deleteWebAuthnToken(sessionId);
       res.status(500).json({ error: "internal server error" });
     }
   };
 
   authorize: Handler = async (req, res) => {
-    const state = req.query.state as string | undefined;
+    const sessionId = req.query.sessionId as string | undefined;
 
-    if (!state) {
-      res.status(400).send(buildErrorPage(new Error("missing state"), false));
+    if (!sessionId) {
+      res.status(400).send(buildErrorPage(new Error("missing sessionId"), false));
 
       return;
     }
@@ -150,20 +150,20 @@ export class WebAuthFlow implements PluginMiddleware {
 
       const redirectUrl = baseUrl + webAuthnCallbackPath;
 
-      const url = await this.provider.getLoginUrl(redirectUrl, state);
+      const url = await this.provider.getLoginUrl(redirectUrl, sessionId);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
-      void this.store.deleteWebAuthnToken(state);
+      void this.store.deleteWebAuthnToken(sessionId);
       res.status(500).send(buildErrorPage(e, false));
     }
   };
 
   callback: Handler = async (req, res) => {
-    const state = req.query.state as string | undefined;
-    if (!state) {
-      res.status(400).send(buildErrorPage(new Error("missing state"), false));
+    const sessionId = req.query.sessionId as string | undefined;
+    if (!sessionId) {
+      res.status(400).send(buildErrorPage(new Error("missing sessionId"), false));
 
       return;
     }
@@ -183,19 +183,19 @@ export class WebAuthFlow implements PluginMiddleware {
 
         const npmToken = await this.core.issueNpmToken(userinfo.name, realGroups, providerToken);
 
-        await this.store.setWebAuthnToken(state, npmToken);
+        await this.store.setWebAuthnToken(sessionId, npmToken);
 
         res
           .status(200)
           .send(buildSuccessPage("You have successfully authenticated. You can now close this window.", false));
       } else {
-        void this.store.deleteWebAuthnToken(state);
+        void this.store.deleteWebAuthnToken(sessionId);
         res.status(401).send(buildAccessDeniedPage(false));
       }
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
-      void this.store.deleteWebAuthnToken(state);
+      void this.store.deleteWebAuthnToken(sessionId);
       res.status(500).send(buildErrorPage(e, false));
     }
   };
