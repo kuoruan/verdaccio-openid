@@ -263,7 +263,20 @@ security:
 ## OpenID Callback URL
 
 - Web UI: https://your-registry.com/-/oauth/callback
+- Web Authn: https://your-registry.com/-/oauth/callback/authn
 - CLI: https://your-registry.com/-/oauth/callback/cli
+
+## Auth with Web Authn
+
+Web Auth is a new auth method, added in npm v8.14.0 and higher.
+
+```sh
+npm login --auth-type=web --registry http://your-registry.com
+```
+
+Note: The `--auth-type=web` option can be omitted, as it is the default value in npm v9+.
+
+See: [Sign in from the command line using `--auth-type=web`](https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb)
 
 ## Auth with CLI
 
