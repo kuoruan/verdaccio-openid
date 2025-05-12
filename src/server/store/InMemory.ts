@@ -28,13 +28,13 @@ export default class InMemoryStore extends BaseStore implements Store {
     this.groupsCache = new TTLCache({ max: 1000, ttl: USER_GROUPS_CACHE_TTL });
   }
 
-  setState(key: string, nonce: string, providerId: string): void {
+  setOpenIDState(key: string, nonce: string, providerId: string): void {
     const stateKey = this.getStateKey(key, providerId);
 
     this.stateCache.set(stateKey, nonce);
   }
 
-  getState(key: string, providerId: string): string | undefined {
+  getOpenIDState(key: string, providerId: string): string | undefined {
     const stateKey = this.getStateKey(key, providerId);
 
     if (!this.stateCache.has(stateKey)) {
@@ -44,7 +44,7 @@ export default class InMemoryStore extends BaseStore implements Store {
     return this.stateCache.get(stateKey);
   }
 
-  deleteState(key: string, providerId: string): void {
+  deleteOpenIDState(key: string, providerId: string): void {
     const stateKey = this.getStateKey(key, providerId);
 
     this.stateCache.delete(stateKey);

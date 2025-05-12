@@ -29,19 +29,19 @@ export default class FileStore extends BaseStore implements Store {
     this.db = db;
   }
 
-  async setState(key: string, nonce: string, providerId: string): Promise<void> {
+  async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
     await this.db.setItem(stateKey, nonce);
   }
 
-  getState(key: string, providerId: string): Promise<string | undefined> {
+  getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
     const stateKey = this.getStateKey(key, providerId);
 
     return this.db.getItem(stateKey);
   }
 
-  async deleteState(key: string, providerId: string): Promise<void> {
+  async deleteOpenIDState(key: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
     await this.db.removeItem(stateKey);

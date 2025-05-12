@@ -85,15 +85,15 @@ describe("FileStore methods", () => {
   });
 
   it("should set and get state", async () => {
-    await fileStore.setState("key1", "nonce1", "provider1");
+    await fileStore.setOpenIDState("key1", "nonce1", "provider1");
     dbMock.getItem.mockResolvedValue("nonce1");
 
     expect(dbMock.setItem).toHaveBeenCalledWith("provider1:state:key1", "nonce1");
-    expect(await fileStore.getState("key1", "provider1")).toBe("nonce1");
+    expect(await fileStore.getOpenIDState("key1", "provider1")).toBe("nonce1");
   });
 
   it("should delete state", async () => {
-    await fileStore.deleteState("key1", "provider1");
+    await fileStore.deleteOpenIDState("key1", "provider1");
     expect(dbMock.removeItem).toHaveBeenCalledWith("provider1:state:key1");
   });
 

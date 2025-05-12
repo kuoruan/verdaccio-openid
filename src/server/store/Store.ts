@@ -2,15 +2,17 @@ import type { Options as TTLCacheOptions } from "@isaacs/ttlcache";
 import type { ClusterNode as RedisClusterNode, ClusterOptions as RedisClusterOptions, RedisOptions } from "ioredis";
 import type { InitOptions as FileInitOptions } from "node-persist";
 
+import { webAuthnProviderId } from "@/constants";
+
 export interface Store {
-  /** set state data to the store */
-  setState(key: string, nonce: string, providerId: string): MaybePromise<void>;
+  /** set openid state data to the store */
+  setOpenIDState(key: string, nonce: string, providerId: string): MaybePromise<void>;
 
-  /** get state data from the store */
-  getState(key: string, providerId: string): MaybePromise<string | null | undefined>;
+  /** get openid state data from the store */
+  getOpenIDState(key: string, providerId: string): MaybePromise<string | null | undefined>;
 
-  /** delete state data from the store */
-  deleteState(key: string, providerId: string): MaybePromise<void>;
+  /** delete openid state data from the store */
+  deleteOpenIDState(key: string, providerId: string): MaybePromise<void>;
 
   /** set user info to the store */
   setUserInfo?: (key: string, data: unknown, providerId: string) => MaybePromise<void>;
@@ -51,7 +53,7 @@ export class BaseStore {
   }
 
   protected getWebAuthnTokenKey(sessionId: string): string {
-    return `webauthn:${sessionId}`;
+    return `${webAuthnProviderId}:${sessionId}`;
   }
 }
 

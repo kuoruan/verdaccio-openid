@@ -114,7 +114,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     const state = customState ?? generators.state(32);
     const nonce = generators.nonce();
 
-    await this.store.setState(state, nonce, this.getId());
+    await this.store.setOpenIDState(state, nonce, this.getId());
 
     return this.discoveredClient.authorizationUrl({
       scope: this.scope,
@@ -140,13 +140,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       throw new URIError("No state parameter found in callback request");
     }
 
-    const nonce = await this.store.getState(state, this.getId());
+    const nonce = await this.store.getOpenIDState(state, this.getId());
 
     if (!nonce) {
       throw new URIError("State parameter does not match a known state");
     }
 
-    await this.store.deleteState(state, this.getId());
+    await this.store.deleteOpenIDState(state, this.getId());
 
     const checks: OpenIDCallbackChecks = {
       state,

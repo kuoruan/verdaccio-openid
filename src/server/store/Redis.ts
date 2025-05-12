@@ -68,13 +68,13 @@ export default class RedisStore extends BaseStore implements Store {
     return times > 0;
   }
 
-  async setState(key: string, nonce: string, providerId: string): Promise<void> {
+  async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
     await this.redis.set(stateKey, nonce, "PX", this.ttl);
   }
 
-  async getState(key: string, providerId: string): Promise<string | null> {
+  async getOpenIDState(key: string, providerId: string): Promise<string | null> {
     const stateKey = this.getStateKey(key, providerId);
 
     const exists = await this.isKeyExists(stateKey);
@@ -84,7 +84,7 @@ export default class RedisStore extends BaseStore implements Store {
     return this.redis.get(stateKey);
   }
 
-  async deleteState(key: string, providerId: string): Promise<void> {
+  async deleteOpenIDState(key: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
 
     await this.redis.del(stateKey);

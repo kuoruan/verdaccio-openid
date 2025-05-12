@@ -46,11 +46,11 @@ describe("InMemoryStore methods", () => {
     const nonce = "testNonce";
     const providerId = "testProvider";
 
-    store.setState(key, nonce, providerId);
-    expect(store.getState(key, providerId)).toBe(nonce);
+    store.setOpenIDState(key, nonce, providerId);
+    expect(store.getOpenIDState(key, providerId)).toBe(nonce);
 
-    store.deleteState(key, providerId);
-    expect(store.getState(key, providerId)).toBeUndefined();
+    store.deleteOpenIDState(key, providerId);
+    expect(store.getOpenIDState(key, providerId)).toBeUndefined();
   });
 
   it("should manage user info in cache correctly", () => {
