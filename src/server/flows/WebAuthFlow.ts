@@ -161,7 +161,8 @@ export class WebAuthFlow implements PluginMiddleware {
   };
 
   callback: Handler = async (req, res) => {
-    const sessionId = req.query.sessionId as string | undefined;
+    // The query parameter `state` is the sessionId, added by authorize api
+    const sessionId = req.query.state as string | undefined;
     if (!sessionId) {
       res.status(400).send(buildErrorPage(new Error("missing sessionId"), false));
 
