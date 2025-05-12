@@ -278,6 +278,12 @@ Note: The `--auth-type=web` option can be omitted, as it is the default value in
 
 See: [Sign in from the command line using `--auth-type=web`](https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb)
 
+To use the lagacy username password auth method, use the `--auth-type=legacy` option.
+
+```sh
+npm login --auth-type=legacy --registry http://your-registry.com
+```
+
 ## Auth with CLI
 
 ```sh
