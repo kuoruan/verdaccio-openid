@@ -10,6 +10,7 @@ import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
 import { getBaseUrl } from "@/server/plugin/utils";
+import { buildErrorPage } from "@/status-page";
 
 const cliAuthorizePath = getAuthorizePath(cliProviderId);
 const cliCallbackPath = getCallbackPath(cliProviderId);
@@ -26,17 +27,18 @@ export class CliFlow implements PluginMiddleware {
     app.get(cliCallbackPath, this.callback);
   }
 
-  authorize: Handler = async (req, res, next) => {
-    try {
-      const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
+  authorize: Handler = async (req, res) => {
+    const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
 
+    try {
       const redirectUrl = baseUrl + cliCallbackPath;
 
       const url = await this.provider.getLoginUrl(redirectUrl);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
-      next(e);
+
+      res.status(500).send(buildErrorPage(e, false));
     }
   };
 
