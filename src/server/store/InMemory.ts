@@ -17,11 +17,13 @@ export default class InMemoryStore extends BaseStore implements Store {
   private readonly stateCache: TTLCache<string, string>;
   private readonly userinfoCache: TTLCache<string, Record<string, unknown>>;
   private readonly groupsCache: TTLCache<string, string[]>;
+  private readonly webAuthnTokenCache: TTLCache<string, string>;
 
   constructor(opts: InMemoryConfig = {}) {
     super();
 
     this.stateCache = new TTLCache({ ...defaultOptions, ...opts });
+    this.webAuthnTokenCache = new TTLCache({ ...defaultOptions, ...opts });
     this.userinfoCache = new TTLCache({ max: 1000, ttl: USER_INFO_CACHE_TTL });
     this.groupsCache = new TTLCache({ max: 1000, ttl: USER_GROUPS_CACHE_TTL });
   }
@@ -78,6 +80,27 @@ export default class InMemoryStore extends BaseStore implements Store {
     }
 
     return this.groupsCache.get(userGroupsKey);
+  }
+
+  setWebAuthnToken(key: string, token: string): void {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    this.webAuthnTokenCache.set(tokenKey, token);
+  }
+
+  getWebAuthnToken(key: string): string | undefined {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    if (!this.webAuthnTokenCache.has(tokenKey)) {
+      return undefined;
+    }
+    return this.webAuthnTokenCache.get(tokenKey);
+  }
+
+  deleteWebAuthnToken(key: string): void {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    this.webAuthnTokenCache.delete(tokenKey);
   }
 
   close(): void {

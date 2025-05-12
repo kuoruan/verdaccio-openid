@@ -71,6 +71,24 @@ export default class FileStore extends BaseStore implements Store {
     return this.db.getItem(groupsKey);
   }
 
+  async setWebAuthnToken(key: string, token: string): Promise<void> {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    await this.db.setItem(tokenKey, token);
+  }
+
+  getWebAuthnToken(key: string): Promise<string | null | undefined> {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    return this.db.getItem(tokenKey);
+  }
+
+  async deleteWebAuthnToken(key: string): Promise<void> {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    await this.db.removeItem(tokenKey);
+  }
+
   close(): void {
     // ignore
   }

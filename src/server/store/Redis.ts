@@ -122,6 +122,22 @@ export default class RedisStore extends BaseStore implements Store {
     return this.redis.lrange(groupsKey, 0, -1);
   }
 
+  async setWebAuthnToken(key: string, token: string): Promise<void> {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    await this.redis.set(tokenKey, token);
+  }
+
+  async getWebAuthnToken(key: string): Promise<string | null> {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+    return this.redis.get(tokenKey);
+  }
+
+  async deleteWebAuthnToken(key: string): Promise<void> {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+    await this.redis.del(tokenKey);
+  }
+
   async close(): Promise<void> {
     await this.redis.quit();
   }

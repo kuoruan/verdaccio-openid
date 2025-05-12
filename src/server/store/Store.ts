@@ -24,6 +24,15 @@ export interface Store {
   /** get user groups from the store */
   getUserGroups?: (key: string, providerId: string) => MaybePromise<string[] | null | undefined>;
 
+  /** set webauthn token to the store */
+  setWebAuthnToken: (key: string, token: string) => MaybePromise<void>;
+
+  /** get webauthn token from the store */
+  getWebAuthnToken: (key: string) => MaybePromise<string | null | undefined>;
+
+  /** delete webauthn token from the store */
+  deleteWebAuthnToken: (key: string) => MaybePromise<void>;
+
   /** close the store */
   close: () => MaybePromise<void>;
 }
@@ -39,6 +48,10 @@ export class BaseStore {
 
   protected getUserGroupsKey(key: string, providerId: string): string {
     return `${providerId}:groups:${key}`;
+  }
+
+  protected getWebAuthnTokenKey(sessionId: string): string {
+    return `webauthn:${sessionId}`;
   }
 }
 

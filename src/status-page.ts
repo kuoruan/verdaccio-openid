@@ -56,6 +56,14 @@ export function buildErrorPage(error: any, withBack: BackOptions = false) {
   );
 }
 
+export function buildSuccessPage(success: string, withBack: BackOptions = false) {
+  return buildStatusPage(
+    `<h1>Success!</h1>
+    <p>${success}</p>`,
+    withBack,
+  );
+}
+
 export function buildAccessDeniedPage(withBack: BackOptions = false) {
   return buildStatusPage(
     `<h1>Access Denied</h1>

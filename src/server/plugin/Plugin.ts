@@ -14,7 +14,9 @@ import logger, { setLogger } from "@/server/logger";
 import { OpenIDConnectAuthProvider } from "@/server/openid";
 import { registerGlobalProxy } from "@/server/proxy-agent";
 import { createStore } from "@/server/store";
+import type { Store } from "@/server/store/Store";
 
+import { WebAuthFlow } from "../flows/WebAuthFlow";
 import { AuthCore, type User } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
@@ -33,6 +35,7 @@ export class Plugin
   private readonly parsedConfig: ParsedPluginConfig;
   private readonly provider: AuthProvider;
   private readonly core: AuthCore;
+  private readonly store: Store;
 
   constructor(
     public config: OpenIDConfig,
@@ -73,6 +76,7 @@ export class Plugin
     this.parsedConfig = parsedConfig;
     this.provider = provider;
     this.core = core;
+    this.store = store;
   }
 
   public get version(): number {
@@ -90,7 +94,8 @@ export class Plugin
       new ServeStatic(),
       new PatchHtml(this.parsedConfig),
       new WebFlow(this.parsedConfig, this.core, this.provider),
-      new CliFlow(this.core, this.provider),
+      new CliFlow(this.parsedConfig, this.core, this.provider),
+      new WebAuthFlow(this.parsedConfig, this.core, this.provider, this.store),
     ] satisfies PluginMiddleware[];
 
     for (const child of children) {
