@@ -111,16 +111,16 @@ export class WebAuthFlow implements PluginMiddleware {
       const token = await this.store.getWebAuthnToken(sessionId);
 
       if (!token) {
-        res.status(403).json({ error: "session expired" });
+        res
+          .status(401)
+          .header("NPM-Notice", "Auth failed, please try again")
+          .json({ error: "invalid or expired session" });
 
         return;
       }
 
       if (token === PENDING_TOKEN) {
-        res.header("Retry-After", "3").status(202).json({
-          status: "pending",
-          message: "token not ready yet",
-        });
+        res.header("Retry-After", "3").status(202).json({});
 
         return;
       }
