@@ -1,17 +1,9 @@
 import { Cluster, Redis } from "ioredis";
 
-import {
-  BaseStore,
-  type RedisClusterConfig,
-  type RedisConfig,
-  STATE_TTL,
-  type Store,
-  USER_GROUPS_CACHE_TTL,
-  DATA_CACHE_TTL,
-} from "./Store";
+import { BaseStore, type RedisClusterConfig, type RedisConfig, type Store } from "./Store";
 
 const defaultOptions = {
-  ttl: STATE_TTL,
+  ttl: BaseStore.DefaultStateTTL,
 } satisfies RedisConfig;
 
 export default class RedisStore extends BaseStore implements Store {
@@ -94,7 +86,7 @@ export default class RedisStore extends BaseStore implements Store {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
     await this.redis.hset(userInfoKey, data as Record<string, unknown>);
-    await this.redis.pexpire(userInfoKey, DATA_CACHE_TTL);
+    await this.redis.pexpire(userInfoKey, BaseStore.DefaultDataTTL);
   }
 
   async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | null> {
@@ -110,7 +102,7 @@ export default class RedisStore extends BaseStore implements Store {
     const groupsKey = this.getUserGroupsKey(key, providerId);
 
     await this.redis.lpush(groupsKey, ...groups);
-    await this.redis.pexpire(groupsKey, USER_GROUPS_CACHE_TTL);
+    await this.redis.pexpire(groupsKey, BaseStore.DefaultDataTTL);
   }
 
   async getUserGroups(key: string, providerId: string): Promise<string[] | null> {

@@ -40,6 +40,11 @@ export interface Store {
 }
 
 export class BaseStore {
+  /** The State ttl */
+  public static readonly DefaultStateTTL: number = 1 * 60 * 1000; // 1 minute;
+  /** The other data cache ttl */
+  public static readonly DefaultDataTTL: number = 5 * 60 * 1000; // 5 minutes;
+
   protected getStateKey(key: string, providerId: string): string {
     return `${providerId}:state:${key}`;
   }
@@ -56,12 +61,6 @@ export class BaseStore {
     return `${webAuthnProviderId}:${sessionId}`;
   }
 }
-
-/** The State and nonce ttl */
-export const STATE_TTL = 1 * 60 * 1000; // 1 minute
-
-/** The other data cache ttl */
-export const DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export enum StoreType {
   InMemory = "in-memory",

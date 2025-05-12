@@ -1,9 +1,9 @@
 import TTLCache from "@isaacs/ttlcache";
 
-import { BaseStore, DATA_CACHE_TTL, type InMemoryConfig, STATE_TTL, type Store } from "./Store";
+import { BaseStore, type InMemoryConfig, type Store } from "./Store";
 
 const defaultOptions = {
-  ttl: STATE_TTL,
+  ttl: BaseStore.DefaultStateTTL,
 } satisfies InMemoryConfig;
 
 export default class InMemoryStore extends BaseStore implements Store {
@@ -14,7 +14,7 @@ export default class InMemoryStore extends BaseStore implements Store {
     super();
 
     this.stateCache = new TTLCache({ ...defaultOptions, ...opts });
-    this.dataCache = new TTLCache({ max: 2000, ttl: DATA_CACHE_TTL });
+    this.dataCache = new TTLCache({ max: 2000, ttl: BaseStore.DefaultDataTTL });
   }
 
   setOpenIDState(key: string, nonce: string, providerId: string): void {

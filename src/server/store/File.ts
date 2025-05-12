@@ -4,10 +4,10 @@ import storage, { type InitOptions, LocalStorage } from "node-persist";
 
 import logger from "@/server/logger";
 
-import { BaseStore, type FileConfig, STATE_TTL, type Store, USER_GROUPS_CACHE_TTL, DATA_CACHE_TTL } from "./Store";
+import { BaseStore, type FileConfig, type Store } from "./Store";
 
 const defaultOptions = {
-  ttl: STATE_TTL,
+  ttl: BaseStore.DefaultStateTTL,
 } satisfies InitOptions;
 
 export default class FileStore extends BaseStore implements Store {
@@ -50,7 +50,7 @@ export default class FileStore extends BaseStore implements Store {
   async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    await this.db.setItem(userInfoKey, data, { ttl: DATA_CACHE_TTL });
+    await this.db.setItem(userInfoKey, data, { ttl: BaseStore.DefaultDataTTL });
   }
 
   getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {
@@ -62,7 +62,7 @@ export default class FileStore extends BaseStore implements Store {
   async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
 
-    await this.db.setItem(groupsKey, groups, { ttl: USER_GROUPS_CACHE_TTL });
+    await this.db.setItem(groupsKey, groups, { ttl: BaseStore.DefaultDataTTL });
   }
 
   getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
