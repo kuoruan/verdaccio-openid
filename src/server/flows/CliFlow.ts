@@ -9,8 +9,7 @@ import logger from "@/server/logger";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
-
-import { getBaseUrl } from "../plugin/utils";
+import { getBaseUrl } from "@/server/plugin/utils";
 
 const cliAuthorizePath = getAuthorizePath(cliProviderId);
 const cliCallbackPath = getCallbackPath(cliProviderId);
