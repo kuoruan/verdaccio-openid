@@ -15,15 +15,17 @@ function parseCliArgs() {
   return minimist(process.argv.slice(2));
 }
 
-function runCommand(command: string): string {
-  logger.info("Running command:", colors.blackBright(command));
+function runCommand(command: string, logCommand: boolean | string = true): string {
+  if (logCommand) {
+    logger.info("Running command:", colors.blackBright(typeof logCommand === "string" ? logCommand : command));
+  }
 
   return execSync(command).toString();
 }
 
 function getNpmConfig(): Record<string, unknown> {
   if (!npmConfig) {
-    const npmConfigJson = runCommand("npm config list --json");
+    const npmConfigJson = runCommand("npm config list --json", false);
 
     npmConfig = JSON.parse(npmConfigJson);
   }
@@ -65,5 +67,5 @@ export function saveNpmToken(token: string) {
   const registry = getRegistryUrl();
   const command = getNpmSaveCommand(registry, token);
 
-  runCommand(command);
+  runCommand(command, command.replace(/".*"/, '"<token>"'));
 }
