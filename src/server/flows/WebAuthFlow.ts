@@ -45,7 +45,7 @@
  * Third, while the NPM CLI is waiting for the `doneUrl` to return a token, it offers to open up a web browser to the `loginUrl`.
  */
 
-import type { Application, Handler } from "express";
+import express, { type Application, type Handler } from "express";
 import { generators } from "openid-client";
 
 import { npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
@@ -74,7 +74,7 @@ export class WebAuthFlow implements PluginMiddleware {
   ) {}
 
   register_middlewares(app: Application): void {
-    app.post(npmLoginPath, this.login);
+    app.post(npmLoginPath, express.json(), this.login);
     app.get(npmDonePath, this.done);
     app.get(webAuthnAuthorizePath, this.authorize);
     app.get(webAuthnCallbackPath, this.callback);
