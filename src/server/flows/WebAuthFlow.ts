@@ -20,11 +20,6 @@
  *   }
  *   ```
  *
- * Tips:
- *   > This POST request contains a `hostname` field in its body,
- *   > which can be used to implement some sort of control over who is allowed to call this endpoint,
- *   > for example by setting up a black list or a white list.
- *
  * Second, the NPM CLI will periodically call the `doneUrl`, which is responsible for letting it know when the user is successfully authenticated,
  * and returning the user's token afterward.
  *
@@ -43,6 +38,9 @@
  * and the `doneUrl` is no longer available. Hence, one can use the `loginUrl` to fetch the token only once.
  *
  * Third, while the NPM CLI is waiting for the `doneUrl` to return a token, it offers to open up a web browser to the `loginUrl`.
+ *
+ * When the `adduser` command is used, the `/-/v1/login` endpoint is called with the `{"create":true}` body,
+ * the response should be the same as above.
  */
 
 import express, { type Application, type Handler } from "express";
