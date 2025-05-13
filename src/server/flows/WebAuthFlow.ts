@@ -47,7 +47,7 @@ import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
 import { generators } from "openid-client";
 
-import { npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
+import { messageLoggedAndCloseWindow, npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
@@ -146,7 +146,7 @@ export class WebAuthFlow implements PluginMiddleware {
     const sessionId = req.query.sessionId as string | undefined;
 
     if (!sessionId) {
-      res.status(400).send(buildErrorPage(new Error("missing sessionId"), false));
+      res.status(400).send(buildErrorPage(new Error("missing sessionId")));
 
       return;
     }
@@ -162,7 +162,7 @@ export class WebAuthFlow implements PluginMiddleware {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
       void this.store.deleteWebAuthnToken(sessionId);
-      res.status(500).send(buildErrorPage(e, false));
+      res.status(500).send(buildErrorPage(e));
     }
   };
 
@@ -170,7 +170,7 @@ export class WebAuthFlow implements PluginMiddleware {
     // The query parameter `state` is the sessionId, added by authorize api
     const sessionId = req.query.state as string | undefined;
     if (!sessionId) {
-      res.status(400).send(buildErrorPage(new Error("missing sessionId"), false));
+      res.status(400).send(buildErrorPage(new Error("missing sessionId")));
 
       return;
     }
@@ -192,18 +192,16 @@ export class WebAuthFlow implements PluginMiddleware {
 
         await this.store.setWebAuthnToken(sessionId, npmToken);
 
-        res
-          .status(200)
-          .send(buildSuccessPage("You have successfully authenticated. You can now close this window.", false));
+        res.status(200).send(buildSuccessPage(messageLoggedAndCloseWindow));
       } else {
         void this.store.deleteWebAuthnToken(sessionId);
-        res.status(401).send(buildAccessDeniedPage(false));
+        res.status(401).send(buildAccessDeniedPage());
       }
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
       void this.store.deleteWebAuthnToken(sessionId);
-      res.status(500).send(buildErrorPage(e, false));
+      res.status(500).send(buildErrorPage(e));
     }
   };
 }

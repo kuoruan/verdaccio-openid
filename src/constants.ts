@@ -21,3 +21,4 @@ export const npmDonePath = "/-/v1/done";
 export const webAuthnProviderId = "authn";
 
 export const messageGroupRequired = "You are not a member of the required access group.";
+export const messageLoggedAndCloseWindow = "You have logged in successfully and may close this window.";
