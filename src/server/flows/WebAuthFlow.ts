@@ -43,6 +43,7 @@
  * the response should be the same as above.
  */
 
+import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
 import { generators } from "openid-client";
 
@@ -63,6 +64,9 @@ const PENDING_TOKEN = "__pending__";
 const webAuthnAuthorizePath = getAuthorizePath(webAuthnProviderId);
 const webAuthnCallbackPath = getCallbackPath(webAuthnProviderId);
 
+export const SESSION_ID_BYTES = 32;
+export const SESSION_ID_LENGTH = Math.trunc((SESSION_ID_BYTES * 8 + 5) / 6); // base64url encoding unpadded
+
 export class WebAuthFlow implements PluginMiddleware {
   constructor(
     private readonly config: ConfigHolder,
@@ -78,9 +82,9 @@ export class WebAuthFlow implements PluginMiddleware {
     app.get(webAuthnCallbackPath, this.callback);
   }
 
-  login: Handler = async (req, res) => {
+  login: Handler = async (req, res, next) => {
     try {
-      const sessionId = generators.random(32);
+      const sessionId = generators.random(SESSION_ID_BYTES);
 
       await this.store.setWebAuthnToken(sessionId, PENDING_TOKEN);
 
@@ -92,15 +96,21 @@ export class WebAuthFlow implements PluginMiddleware {
       });
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
-      res.status(500).json({ error: "internal server error" });
+      next(errorUtils.getInternalError(e.message ?? e));
     }
   };
 
-  done: Handler = async (req, res) => {
+  done: Handler = async (req, res, next) => {
     const sessionId = req.query.sessionId as string | undefined;
 
     if (!sessionId) {
-      res.status(400).json({ error: "missing sessionId" });
+      next(errorUtils.getBadRequest("missing sessionId"));
+
+      return;
+    }
+
+    if (sessionId.length !== SESSION_ID_LENGTH) {
+      next(errorUtils.getBadRequest("invalid sessionId"));
 
       return;
     }
@@ -109,10 +119,7 @@ export class WebAuthFlow implements PluginMiddleware {
       const token = await this.store.getWebAuthnToken(sessionId);
 
       if (!token) {
-        res
-          .status(401)
-          .header("NPM-Notice", "Auth failed, please try again")
-          .json({ error: "invalid or expired session" });
+        next(errorUtils.getUnauthorized("invalid or expired session"));
 
         return;
       }
@@ -130,7 +137,8 @@ export class WebAuthFlow implements PluginMiddleware {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
       void this.store.deleteWebAuthnToken(sessionId);
-      res.status(500).json({ error: "internal server error" });
+
+      return next(errorUtils.getInternalError(e.message ?? e));
     }
   };
 
