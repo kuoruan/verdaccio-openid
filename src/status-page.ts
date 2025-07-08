@@ -1,4 +1,4 @@
-import Logo from "@/assets/images/logo.svg";
+import Logo from "@/assets/logo.svg";
 import { messageGroupRequired, plugin } from "@/constants";
 
 const styles = `
