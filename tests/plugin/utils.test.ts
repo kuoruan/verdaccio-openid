@@ -32,7 +32,15 @@ describe("hashObject", () => {
 
   it("should hash object to sha256", () => {
     const obj = { test: "value" };
-    expect(hashObject(obj)).toBe("ecacb99652cdca6195f645dd19454c3e8d9a14ca9a137e62506f72f20db4f09e");
+    expect(hashObject(obj)).toMatchInlineSnapshot(`"#test:"value","`);
+  });
+
+  it("should get the same hash for the same object", () => {
+    const hash1 = hashObject({ test: "value", b: "a" });
+    const hash2 = hashObject({ b: "a", test: "value" });
+
+    expect(hash1).toMatchInlineSnapshot(`"#test:"value",b:"a","`);
+    expect(hash1).toBe(hash2);
   });
 });
 

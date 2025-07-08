@@ -1,5 +1,3 @@
-import crypto from "node:crypto";
-
 import type { PackageList } from "@verdaccio/types";
 import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
@@ -71,7 +69,7 @@ export function base64Decode(str: string): string {
 export function hashObject(obj: any): string {
   if (typeof obj === "string") return obj;
 
-  return crypto.createHash("sha256").update(stableHash(obj)).digest("hex");
+  return stableHash(obj);
 }
 
 /**
