@@ -242,7 +242,7 @@ export class AuthCore {
   private verifyJWT(token: string): User {
     // verifyPayload
     // use internal function to avoid error handling
-    const remoteUser = verifyJWTPayload(token, this.secret);
+    const remoteUser = verifyJWTPayload(token, this.secret, this.security);
 
     return {
       name: remoteUser.name as string | undefined,
