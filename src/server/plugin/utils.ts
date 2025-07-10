@@ -1,5 +1,5 @@
 import type { PackageList } from "@verdaccio/types";
-import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
+import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
 import { stableHash } from "stable-hash";
 
@@ -109,16 +109,7 @@ export function isNowBefore(expireAt: number): boolean {
  * @returns
  */
 export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = false): string {
-  const headers: Record<string, string> = {};
-
-  // transform headers value to string
-  for (const [key, value] of Object.entries(req.headers)) {
-    headers[key] = value?.toString() ?? "";
-  }
-
-  const options: RequestOptions = { host: req.hostname, protocol: req.protocol, remoteAddress: req.ip, headers };
-
-  const base = getPublicUrl(urlPrefix, options);
+  const base = getPublicUrl(urlPrefix, req);
 
   return noTrailingSlash ? base.replace(/\/$/, "") : base;
 }
