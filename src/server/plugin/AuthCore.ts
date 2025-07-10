@@ -1,5 +1,5 @@
 import { type Auth, buildUser, isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
-import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
+import { createRemoteUser, defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/config";
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import type { ConfigHolder } from "@/server/config/Config";
@@ -8,11 +8,6 @@ import { debug } from "@/server/debugger";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
 import { base64Decode, base64Encode, getAllConfiguredGroups, getAuthenticatedGroups, isNowBefore } from "./utils";
-
-export interface User {
-  name?: string;
-  realGroups: string[];
-}
 
 interface UserPayload {
   sub?: string;
@@ -32,7 +27,7 @@ interface AccessTokenPayload {
 type LegacyPayload = UserPayload | AccessTokenPayload;
 
 function isAccessTokenPayload(u: LegacyPayload): u is AccessTokenPayload {
-  return !!(u as AccessTokenPayload).at;
+  return !!(u as any).at;
 }
 
 export class AuthCore {
@@ -175,7 +170,7 @@ export class AuthCore {
    * @param token
    * @returns
    */
-  async verifyNpmToken(token: string): Promise<User | false> {
+  async verifyNpmToken(token: string): Promise<Omit<RemoteUser, "groups"> | false> {
     // if jwt is not enabled, use legacy encryption
     // the token is the password in basic auth
     // decode it and get the token from the payload
@@ -186,22 +181,31 @@ export class AuthCore {
 
       debug("legacy payload: %j", legacyPayload);
 
+      let name: string;
+      let userGroups: string[] = [];
+      let realGroups: string[] = [];
+
       if (isAccessTokenPayload(legacyPayload)) {
-        const { at } = legacyPayload;
+        const res = await this.provider.getUserinfo(legacyPayload.at);
 
-        const { name, groups } = await this.provider.getUserinfo(at);
-        if (!this.authenticate(name, groups)) {
-          return false;
-        }
-
-        return { name: name, realGroups: this.filterRealGroups(name, groups) };
+        name = res.name;
+        userGroups = res.groups ?? [];
+        realGroups = this.filterRealGroups(name, userGroups);
       } else {
         if (!isNowBefore(legacyPayload.exp)) {
           return false;
         }
 
-        return { name: legacyPayload.n, realGroups: legacyPayload.g };
+        name = legacyPayload.n;
+        userGroups = [...legacyPayload.g];
+        realGroups = [...legacyPayload.g];
       }
+
+      if (!this.authenticate(name, userGroups)) {
+        return false;
+      }
+
+      return { name, real_groups: realGroups };
     } else {
       return this.verifyJWT(token);
     }
@@ -220,7 +224,7 @@ export class AuthCore {
     return this.signJWT(username, realGroups, jwtSignOptions);
   }
 
-  verifyUiToken(token: string): User {
+  verifyUiToken(token: string): RemoteUser {
     return this.verifyJWT(token);
   }
 
@@ -229,25 +233,13 @@ export class AuthCore {
       throw new ReferenceError(ERRORS.AUTH_NOT_INITIALIZED);
     }
 
-    // providerToken is not needed in the token, we use jwt to check the expiration
-    // remove groups from the user, so that the token is smaller
-    const remoteUser: RemoteUser = {
-      name: username,
-      real_groups: [...realGroups],
-      groups: [],
-    };
+    const remoteUser = createRemoteUser(username, realGroups);
+
     return this.auth.jwtEncrypt(remoteUser, jwtSignOptions);
   }
 
-  private verifyJWT(token: string): User {
-    // verifyPayload
-    // use internal function to avoid error handling
-    const remoteUser = verifyJWTPayload(token, this.secret, this.security);
-
-    return {
-      name: remoteUser.name as string | undefined,
-      realGroups: [...remoteUser.real_groups],
-    };
+  private verifyJWT(token: string): RemoteUser {
+    return verifyJWTPayload(token, this.secret, this.security);
   }
 
   private legacyEncrypt(username: string, realGroups: string[], providerToken: OpenIDToken): string {
@@ -259,23 +251,13 @@ export class AuthCore {
     let u: LegacyPayload;
 
     if (typeof providerToken === "string") {
-      u = {
-        at: providerToken,
-      };
+      u = { at: providerToken };
     } else {
       // legacy token does not have a expiration time
       // we use the provider expire time or token to check if the token is still valid
       u = providerToken.expiresAt
-        ? {
-            sub: providerToken.subject,
-            n: username,
-            g: [...realGroups],
-            exp: providerToken.expiresAt,
-          }
-        : {
-            sub: providerToken.subject,
-            at: providerToken.accessToken,
-          };
+        ? { sub: providerToken.subject, n: username, g: [...realGroups], exp: providerToken.expiresAt }
+        : { sub: providerToken.subject, at: providerToken.accessToken };
     }
     const payloadToken = this.legacyEncode(u);
 

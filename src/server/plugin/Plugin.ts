@@ -17,7 +17,7 @@ import { createStore } from "@/server/store";
 import type { Store } from "@/server/store/Store";
 
 import { WebAuthFlow } from "../flows/WebAuthFlow";
-import { AuthCore, type User } from "./AuthCore";
+import { AuthCore } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
@@ -114,7 +114,7 @@ export class Plugin
 
     debug("authenticating user, username: %s, token: %s", username, token);
 
-    let user: User | boolean;
+    let user: Omit<RemoteUser, "groups"> | boolean;
     try {
       user = await this.core.verifyNpmToken(token);
     } catch (e: any) {
@@ -145,7 +145,7 @@ export class Plugin
       return;
     }
 
-    callback(null, user.realGroups);
+    callback(null, user.real_groups);
   }
 
   allow_access = this.allow_action("access");
@@ -188,7 +188,7 @@ export class Plugin
         userGroups = this.core.getLoggedUserGroups(user);
       } else {
         logger.info(
-          { user: user.name, groups: JSON.stringify(user.groups) },
+          { user: user.name, groups: JSON.stringify(user.real_groups) },
           `User "@{user}" with groups @{groups} is not authenticated now, treating as non-logged user`,
         );
         userGroups = this.core.getNonLoggedUserGroups();
