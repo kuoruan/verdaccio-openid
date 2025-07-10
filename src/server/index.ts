@@ -10,6 +10,8 @@ import { debug } from "./debugger";
 
 const env = config({
   path: [os.homedir(), process.cwd()].flatMap((dir) => [path.join(dir, ".env"), path.join(dir, `.env.${pluginKey}`)]),
+  quiet: true,
+  override: false,
 });
 
 debug("Loaded environment variables", env.parsed);
