@@ -3,7 +3,7 @@ import process from "node:process";
 import type { ActionsAllowed, AllowAction, AllowActionCallback, Auth } from "@verdaccio/auth";
 import type { pluginUtils } from "@verdaccio/core";
 import { errorUtils } from "@verdaccio/core";
-import type { AllowAccess, AuthPackageAllow, RemoteUser } from "@verdaccio/types";
+import type { AllowAccess, AuthPackageAllow, RemoteUser, Storage } from "@verdaccio/types";
 import type { Application } from "express";
 
 import { plugin } from "@/constants";
@@ -37,6 +37,8 @@ export class Plugin
   private readonly core: AuthCore;
   private readonly store: Store;
 
+  private storeClosing = false;
+
   constructor(
     public config: OpenIDConfig,
     public options: pluginUtils.PluginOptions,
@@ -58,6 +60,9 @@ export class Plugin
     // close store on process termination
     for (const signal of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"]) {
       process.once(signal, async () => {
+        if (this.storeClosing) return;
+        this.storeClosing = true;
+
         try {
           debug("Received signal %s, closing store...", signal);
 
