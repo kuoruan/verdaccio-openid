@@ -30,7 +30,7 @@ export interface PluginMiddleware {
  * Implements the verdaccio plugin interfaces.
  */
 export class Plugin
-  implements pluginUtils.Auth<AllowAccess & OpenIDConfig>, pluginUtils.ExpressMiddleware<OpenIDConfig, unknown, Auth>
+  implements pluginUtils.Auth<AllowAccess & OpenIDConfig>, pluginUtils.ExpressMiddleware<OpenIDConfig, Storage, Auth>
 {
   private readonly parsedConfig: ParsedPluginConfig;
   private readonly provider: AuthProvider;
@@ -87,7 +87,7 @@ export class Plugin
     return this.version;
   }
 
-  register_middlewares(app: Application, auth: Auth, _storage: unknown) {
+  register_middlewares(app: Application, auth: Auth, _storage: Storage) {
     this.core.setAuth(auth);
 
     const children = [
