@@ -2,14 +2,7 @@ import process from "node:process";
 
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
-import {
-  type Client,
-  custom,
-  type CustomHttpOptionsProvider,
-  generators,
-  Issuer,
-  type OpenIDCallbackChecks,
-} from "openid-client";
+import { type Client, custom, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
@@ -27,12 +20,6 @@ import type { Store } from "@/server/store/Store";
 
 const CLIENT_HTTP_TIMEOUT = 30 * 1000; // 30s
 
-const httpOptionsProvider: CustomHttpOptionsProvider = (_, options) => {
-  options.timeout = CLIENT_HTTP_TIMEOUT;
-
-  return options;
-};
-
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private client?: Client;
   private providerHost: string;
@@ -46,7 +33,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     this.scope = this.config.scope;
 
     this.discoverClient().catch((e) => {
-      logger.error({ message: e.message }, "Could not discover client: @{message}");
+      if (e instanceof AggregateError) {
+        logger.error({ messages: e.errors.map((e) => (e as Error).message) }, "Could not discover client: @{messages}");
+      } else {
+        logger.error({ message: e.message }, "Could not discover client: @{message}");
+      }
 
       process.exit(1);
     });
@@ -65,7 +56,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     const configurationUri = this.config.configurationUri;
 
-    Issuer[custom.http_options] = httpOptionsProvider;
+    custom.setHttpOptionsDefaults({
+      timeout: CLIENT_HTTP_TIMEOUT,
+    });
 
     if (configurationUri) {
       issuer = await Issuer.discover(configurationUri);
@@ -93,16 +86,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       }
     }
 
-    issuer[custom.http_options] = httpOptionsProvider;
-    issuer.Client[custom.http_options] = httpOptionsProvider;
-
     const client = new issuer.Client({
       client_id: this.config.clientId,
       client_secret: this.config.clientSecret,
       response_types: ["code"],
     });
-
-    client[custom.http_options] = httpOptionsProvider;
 
     this.client = client;
   }
