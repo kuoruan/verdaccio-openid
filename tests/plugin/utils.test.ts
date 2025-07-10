@@ -1,5 +1,6 @@
 import type { Request } from "express";
 
+import { ERRORS } from "@/server/constants";
 import {
   base64Decode,
   base64Encode,
@@ -51,7 +52,7 @@ describe("getClaimsFromIdToken", () => {
   });
 
   it("should throw on invalid token format", () => {
-    expect(() => getClaimsFromIdToken("invalid")).toThrow("Invalid id token");
+    expect(() => getClaimsFromIdToken("invalid")).toThrow(ERRORS.INVALID_ID_TOKEN);
   });
 });
 

@@ -3,6 +3,7 @@ import { defaultLoggedUserRoles, defaultNonLoggedUserRoles } from "@verdaccio/co
 import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 
 import type { ConfigHolder } from "@/server/config/Config";
+import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
@@ -65,7 +66,7 @@ export class AuthCore {
   }
 
   private get secret(): string {
-    return this.auth ? this.auth.secret : this.configSecret;
+    return this.auth?.secret ?? this.configSecret;
   }
 
   /**
@@ -160,7 +161,7 @@ export class AuthCore {
 
       const npmToken = this.legacyEncrypt(username, realGroups, providerToken);
       if (!npmToken) {
-        throw new Error("Internal server error, failed to encrypt npm token");
+        throw new Error(ERRORS.TOKEN_ENCRYPTION_FAILED_NPM);
       }
 
       return Promise.resolve(npmToken);
@@ -226,7 +227,7 @@ export class AuthCore {
 
   private signJWT(username: string, realGroups: string[], jwtSignOptions: JWTSignOptions): Promise<string> {
     if (!this.auth) {
-      throw new ReferenceError("Unexpected error, auth is not initialized");
+      throw new ReferenceError(ERRORS.AUTH_NOT_INITIALIZED);
     }
 
     // providerToken is not needed in the token, we use jwt to check the expiration
@@ -252,7 +253,7 @@ export class AuthCore {
 
   private legacyEncrypt(username: string, realGroups: string[], providerToken: OpenIDToken): string {
     if (!this.auth) {
-      throw new ReferenceError("Unexpected error, auth is not initialized");
+      throw new ReferenceError(ERRORS.AUTH_NOT_INITIALIZED);
     }
 
     // encode the user info as a token, save it to the final token.
@@ -283,7 +284,7 @@ export class AuthCore {
     const token = this.auth.aesEncrypt(buildUser(username, payloadToken));
 
     if (!token) {
-      throw new Error("Internal server error, failed to encrypt token");
+      throw new Error(ERRORS.TOKEN_ENCRYPTION_FAILED);
     }
 
     // the return value in verdaccio 5 is a buffer, we need to convert it to a string

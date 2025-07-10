@@ -3,6 +3,8 @@ import { getPublicUrl, type RequestOptions } from "@verdaccio/url";
 import type { Request } from "express";
 import { stableHash } from "stable-hash";
 
+import { ERRORS } from "@/server/constants";
+
 /**
  * Get all permission groups used in the Verdacio config.
  *
@@ -81,7 +83,7 @@ export function hashObject(obj: any): string {
 export function getClaimsFromIdToken(idToken: string): Record<string, unknown> {
   const splits = idToken.split(".");
   if (splits.length !== 3) {
-    throw new TypeError("Invalid id token");
+    throw new TypeError(ERRORS.INVALID_ID_TOKEN);
   }
 
   return JSON.parse(base64Decode(splits[1])) as Record<string, unknown>;

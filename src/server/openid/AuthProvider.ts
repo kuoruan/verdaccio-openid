@@ -12,6 +12,7 @@ import {
 } from "openid-client";
 
 import type { ConfigHolder } from "@/server/config/Config";
+import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import {
@@ -53,7 +54,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
   private get discoveredClient(): Client {
     if (!this.client) {
-      throw new ReferenceError("Client has not yet been discovered");
+      throw new ReferenceError(ERRORS.CLIENT_NOT_DISCOVERED);
     }
 
     return this.client;
@@ -86,7 +87,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
         });
       } else {
         if (!providerHost) {
-          throw new ReferenceError("Provider host is not set");
+          throw new ReferenceError(ERRORS.PROVIDER_HOST_NOT_SET);
         }
         issuer = await Issuer.discover(providerHost);
       }
@@ -137,13 +138,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     const state = parameters.state;
     if (!state) {
-      throw new URIError("No state parameter found in callback request");
+      throw new URIError(ERRORS.NO_STATE);
     }
 
     const nonce = await this.store.getOpenIDState(state, this.getId());
 
     if (!nonce) {
-      throw new URIError("State parameter does not match a known state");
+      throw new URIError(ERRORS.STATE_NOT_FOUND);
     }
 
     await this.store.deleteOpenIDState(state, this.getId());
@@ -159,10 +160,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     const tokens = await this.discoveredClient.callback(redirectUrl, parameters, checks);
     if (!tokens.access_token) {
-      throw new Error("No access_token was returned from the provider");
+      throw new Error(ERRORS.NO_ACCESS_TOKEN_RETURNED);
     }
     if (!tokens.id_token && this.scope.includes("openid")) {
-      throw new Error(`"openid" scope is requested but no id_token was returned from the provider`);
+      throw new Error(ERRORS.NO_ID_TOKEN_RETURNED);
     }
 
     let expiresAt = tokens.expires_at;
@@ -188,13 +189,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   /**
    * Get the user info from id_token
    *
-   * @param token
+   * @param tokens
    * @returns
    */
-  private getUserinfoFromIdToken(token: TokenInfo): Record<string, unknown> {
-    const idToken = token.idToken;
+  private getUserinfoFromIdToken(tokens: TokenInfo): Record<string, unknown> {
+    const idToken = tokens.idToken;
     if (!idToken) {
-      throw new TypeError("No id_token found in token");
+      throw new TypeError(ERRORS.ID_TOKEN_NOT_FOUND);
     }
     return getClaimsFromIdToken(idToken);
   }
@@ -329,7 +330,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
         break;
       }
       default: {
-        throw new ReferenceError("Unexpected provider type.");
+        throw new ReferenceError(ERRORS.PROVIDER_NOT_FOUND);
       }
     }
 
