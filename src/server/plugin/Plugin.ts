@@ -129,7 +129,7 @@ export class Plugin
      * the result is false, means the token is not authenticated
      */
     if (user === false || !user.name) {
-      callback(errorUtils.getForbidden(`User "${username}" are not authenticated.`), false);
+      callback(errorUtils.getUnauthorized(`user ${username} is not authenticated`), false);
       return;
     }
 
@@ -141,7 +141,7 @@ export class Plugin
         `invalid username: expected "@{expected}", actual "@{actual}"`,
       );
 
-      callback(errorUtils.getForbidden("Invalid username."), false);
+      callback(errorUtils.getUnauthorized("invalid username"), false);
       return;
     }
 
@@ -201,7 +201,7 @@ export class Plugin
         return;
       }
 
-      callback(errorUtils.getForbidden(`User "${user.name}" is not allowed to "${mainAction}" package "${pkg.name}"`));
+      callback(errorUtils.getForbidden(`user ${user.name} is not allowed to ${mainAction} package ${pkg.name}`));
     };
   }
 }
