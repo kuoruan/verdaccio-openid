@@ -1,9 +1,9 @@
 import process from "node:process";
 
-import type { Auth } from "@verdaccio/auth";
+import type { ActionsAllowed, AllowAction, AllowActionCallback, Auth } from "@verdaccio/auth";
 import type { pluginUtils } from "@verdaccio/core";
 import { errorUtils } from "@verdaccio/core";
-import type { AllowAccess, PackageAccess, RemoteUser } from "@verdaccio/types";
+import type { AllowAccess, AuthPackageAllow, RemoteUser } from "@verdaccio/types";
 import type { Application } from "express";
 
 import { plugin } from "@/constants";
@@ -128,7 +128,7 @@ export class Plugin
     /**
      * the result is false, means the token is not authenticated
      */
-    if (user === false || user.name === undefined) {
+    if (user === false || !user.name) {
       callback(errorUtils.getForbidden(`User "${username}" are not authenticated.`), false);
       return;
     }
@@ -148,77 +148,60 @@ export class Plugin
     callback(null, user.realGroups);
   }
 
-  allow_access(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AccessCallback): void {
-    debug("check access: %s (%j) -> %s", user.name, user.real_groups, config.name);
+  allow_access = this.allow_action("access");
+  allow_publish = this.allow_action("publish");
+  allow_unpublish = this.allow_action(["unpublish", "publish"]);
 
-    const grant = this.checkPackageAccess(user, config.access);
-    if (!grant) {
-      logger.debug(
-        { username: user.name, package: config.name },
-        `user "@{username}" is not allowed to access "@{package}"`,
-      );
-    }
-    callback(null, grant);
-  }
+  allow_action(action: ActionsAllowed | ActionsAllowed[]): AllowAction {
+    const actions = Array.isArray(action) ? action : [action];
 
-  allow_publish(user: RemoteUser, config: AllowAccess & PackageAccess, callback: pluginUtils.AuthAccessCallback): void {
-    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
+    const mainAction = actions[0];
 
-    const grant = this.checkPackageAccess(user, config.publish ?? config.access);
+    return (user: RemoteUser, pkg: AuthPackageAllow, callback: AllowActionCallback): void => {
+      let requiredGroups: string[] | undefined;
 
-    if (!grant) {
-      logger.warn(
-        { username: user.name, package: config.name },
-        `"@{username}" is not allowed to unpublish "@{package}"`,
-      );
-    }
-
-    callback(null, grant);
-  }
-
-  allow_unpublish(
-    user: RemoteUser,
-    config: AllowAccess & PackageAccess,
-    callback: pluginUtils.AuthAccessCallback,
-  ): void {
-    debug("check publish: %s (%j) -> %s", user.name, user.real_groups, config.name);
-
-    const grant = this.checkPackageAccess(user, config.unpublish ?? config.access);
-
-    if (!grant) {
-      logger.warn(
-        { username: user.name, package: config.name },
-        `"@{username}" is not allowed to unpublish "@{package}"`,
-      );
-    }
-    callback(null, grant);
-  }
-
-  checkPackageAccess(user: RemoteUser, requiredGroups: string[] | undefined): boolean {
-    if (!requiredGroups || requiredGroups.length === 0) {
-      return true;
-    }
-
-    let groups: string[];
-    if (user.name) {
-      // check if user is authenticated
-      // the authenticated groups may change after user login
-      if (this.core.authenticate(user.name, user.real_groups)) {
-        groups = this.core.getLoggedUserGroups(user);
-      } else {
-        logger.warn(
-          { username: user.name, groups: JSON.stringify(user.real_groups) },
-          `"@{username}" with groups @{groups} is not authenticated for now, use non-authenticated groups instead.`,
-        );
-        groups = this.core.getNonLoggedUserGroups(user);
+      for (const action of actions) {
+        const groups = pkg[action];
+        if (groups) {
+          requiredGroups = groups;
+          break;
+        }
       }
-    } else {
-      // anonymous user
-      groups = user.groups;
-    }
 
-    debug("user: %o, required groups: %j, actual groups: %j", user.name, requiredGroups, groups);
+      if (!requiredGroups?.length || !user.name) {
+        // let next auth plugin to handle it
+        callback(null, false);
+        return;
+      }
 
-    return requiredGroups.some((group) => groups.includes(group));
+      debug("check %s: %s (%j) -> %s, required: %j", mainAction, user.name, user.real_groups, pkg.name, requiredGroups);
+
+      let userGroups: string[];
+      /**
+       * Check if user is authenticated
+       * The authenticated groups may change after user login.
+       * If the user is authenticated, we use the logged user groups.
+       * If the user is not authenticated, we use the non-logged user groups.
+       * This is to ensure that the user has the correct groups to access the package.
+       */
+      if (this.core.authenticate(user.name, user.real_groups)) {
+        userGroups = this.core.getLoggedUserGroups(user);
+      } else {
+        logger.info(
+          { user: user.name, groups: JSON.stringify(user.groups) },
+          `User "@{user}" with groups @{groups} is not authenticated now, treating as non-logged user`,
+        );
+        userGroups = this.core.getNonLoggedUserGroups();
+      }
+
+      const hasPermission = requiredGroups.some((group) => user.name === group || userGroups.includes(group));
+
+      if (hasPermission) {
+        callback(null, true);
+        return;
+      }
+
+      callback(errorUtils.getForbidden(`User "${user.name}" is not allowed to "${mainAction}" package "${pkg.name}"`));
+    };
   }
 }

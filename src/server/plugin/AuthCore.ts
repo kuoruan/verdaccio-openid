@@ -84,11 +84,10 @@ export class AuthCore {
   /**
    * Get the non-logged user's full groups
    *
-   * @param user
    * @returns
    */
-  getNonLoggedUserGroups(user: RemoteUser): string[] {
-    return [...user.real_groups, ...defaultNonLoggedUserRoles];
+  getNonLoggedUserGroups(): string[] {
+    return [...defaultNonLoggedUserRoles];
   }
 
   /**
