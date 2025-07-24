@@ -2,7 +2,7 @@ import type { Response } from "express";
 import colors from "picocolors";
 
 import { messageGroupRequired, messageLoggedAndCloseWindow } from "@/constants";
-import { buildAccessDeniedPage, buildErrorPage, buildStatusPage } from "@/status-page";
+import { buildAccessDeniedPage, buildErrorPage, buildSuccessPage } from "@/status-page";
 
 import logger from "./logger";
 import { getNpmConfigFile } from "./npm";
@@ -35,11 +35,10 @@ export function respondWithWebPage(status: string, message: string, res: Respons
   switch (status) {
     case "success": {
       res.status(200).send(
-        buildStatusPage(
-          `<h1>Success!</h1>
-          <p>${messageSuccess}</p>
-          <p><code>${getNpmConfigFile()}</code></p>
-          <p>${messageLoggedAndCloseWindow}</p>`,
+        buildSuccessPage(
+          `${messageSuccess}<br>
+          <code>${getNpmConfigFile()}</code><br>
+          ${messageLoggedAndCloseWindow}`,
         ),
       );
       break;
