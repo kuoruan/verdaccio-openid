@@ -123,7 +123,7 @@ export class Plugin
     try {
       user = await this.core.verifyNpmToken(token);
     } catch (e: any) {
-      debug(`%s. user: "%s", token: "%s"`, e.message, username, token);
+      debug(`%s. user: "%s", token: "%s", falling back to legacy auth`, e.message, username, token);
 
       // the token is not valid by us, let the next auth plugin to handle it
       callback(null, false);

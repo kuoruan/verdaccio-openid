@@ -113,3 +113,14 @@ export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = fa
 
   return noTrailingSlash ? base.replace(/\/$/, "") : base;
 }
+
+/**
+ * Check if the token is a JWT
+ *
+ * @param token The token to check.
+ * @returns {boolean} True if the token is a JWT token, false otherwise.
+ */
+export function isJWT(token: string): boolean {
+  // A JWT token typically has three parts separated by dots
+  return typeof token === "string" && token.split(".").length === 3;
+}

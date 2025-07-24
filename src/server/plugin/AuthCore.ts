@@ -7,7 +7,14 @@ import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
-import { base64Decode, base64Encode, getAllConfiguredGroups, getAuthenticatedGroups, isNowBefore } from "./utils";
+import {
+  base64Decode,
+  base64Encode,
+  getAllConfiguredGroups,
+  getAuthenticatedGroups,
+  isJWT,
+  isNowBefore,
+} from "./utils";
 
 interface UserPayload {
   sub?: string;
@@ -206,8 +213,12 @@ export class AuthCore {
       }
 
       return { name, real_groups: realGroups };
-    } else {
+    } else if (isJWT(token)) {
+      debug("verifying npm token using jwt");
       return this.verifyJWT(token);
+    } else {
+      debug("npm token is not a valid jwt");
+      throw new TypeError(ERRORS.INVALID_TOKEN);
     }
   }
 
