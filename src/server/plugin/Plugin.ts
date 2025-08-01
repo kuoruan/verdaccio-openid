@@ -3,7 +3,7 @@ import process from "node:process";
 import type { ActionsAllowed, AllowAction, AllowActionCallback, Auth } from "@verdaccio/auth";
 import type { pluginUtils } from "@verdaccio/core";
 import { errorUtils } from "@verdaccio/core";
-import type { AllowAccess, AuthPackageAllow, RemoteUser, Storage } from "@verdaccio/types";
+import type { AllowAccess, AuthPackageAllow, RemoteUser } from "@verdaccio/types";
 import type { Application } from "express";
 
 import { plugin } from "@/constants";
@@ -30,7 +30,7 @@ export interface PluginMiddleware {
  * Implements the verdaccio plugin interfaces.
  */
 export class Plugin
-  implements pluginUtils.Auth<AllowAccess & OpenIDConfig>, pluginUtils.ExpressMiddleware<OpenIDConfig, Storage, Auth>
+  implements pluginUtils.Auth<AllowAccess & OpenIDConfig>, pluginUtils.ExpressMiddleware<OpenIDConfig, never, Auth>
 {
   private readonly parsedConfig: ParsedPluginConfig;
   private readonly provider: AuthProvider;
@@ -92,7 +92,7 @@ export class Plugin
     return this.version;
   }
 
-  register_middlewares(app: Application, auth: Auth, _storage: Storage) {
+  register_middlewares(app: Application, auth: Auth, _storage: never) {
     this.core.setAuth(auth);
 
     const children = [
