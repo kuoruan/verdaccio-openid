@@ -1,4 +1,5 @@
-import { type Application, static as expressServeStatic } from "express";
+import type { Application } from "express";
+import serveStatic from "serve-static";
 
 import { publicRoot, staticPath } from "@/server/constants";
 
@@ -9,6 +10,6 @@ import type { PluginMiddleware } from "./Plugin";
  */
 export class ServeStatic implements PluginMiddleware {
   register_middlewares(app: Application) {
-    app.use(staticPath, expressServeStatic(publicRoot));
+    app.use(staticPath, serveStatic(publicRoot));
   }
 }
