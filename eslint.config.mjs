@@ -69,8 +69,6 @@ export default tseslint.config(
       "unicorn/prefer-global-this": "off",
       "unicorn/prefer-module": "off",
       "unicorn/prevent-abbreviations": "off",
-      "unicorn/no-array-reverse": "off",
-      "unicorn/no-array-sort": "off",
     },
     settings: {
       "import-x/resolver": [],
