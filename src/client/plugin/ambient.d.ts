@@ -1,7 +1,5 @@
 import type { TemplateUIOptions } from "@verdaccio/types";
 
-export {};
-
 interface OpenIDOptions {
   keepPasswdLogin: boolean;
   loginButtonText: string;

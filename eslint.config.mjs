@@ -61,6 +61,7 @@ export default tseslint.config(
         },
       ],
       "@typescript-eslint/no-var-requires": "off",
+
       "unicorn/catch-error-name": "off",
       "unicorn/filename-case": "off",
       "unicorn/no-null": "off",
@@ -68,6 +69,8 @@ export default tseslint.config(
       "unicorn/prefer-global-this": "off",
       "unicorn/prefer-module": "off",
       "unicorn/prevent-abbreviations": "off",
+      "unicorn/no-array-reverse": "off",
+      "unicorn/no-array-sort": "off",
     },
     settings: {
       "import-x/resolver": [],
