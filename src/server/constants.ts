@@ -13,7 +13,7 @@ export const ERRORS = {
   TOKEN_ENCRYPTION_FAILED_NPM: "Internal server error, failed to encrypt npm token",
   TOKEN_ENCRYPTION_FAILED: "Internal server error, failed to encrypt token",
   AUTH_NOT_INITIALIZED: "Unexpected error, auth is not initialized",
-  CLIENT_NOT_DISCOVERED: "Client has not yet been discovered",
+  CONFIGURATION_NOT_DISCOVERED: "Client has not yet been discovered",
   PROVIDER_HOST_NOT_SET: "Provider host is not set",
   NO_STATE: "No state provided in the request",
   STATE_NOT_FOUND: "The state does not match a known state",
