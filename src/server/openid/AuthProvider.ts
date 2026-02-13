@@ -2,12 +2,12 @@ import process from "node:process";
 
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
-import * as client from "openid-client";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
+import { getOpenIDClient, type OpenIDClient } from "@/server/openid/client";
 import {
   type AuthProvider,
   type OpenIDToken,
@@ -21,7 +21,7 @@ import type { Store } from "@/server/store/Store";
 const CLIENT_HTTP_TIMEOUT = 30; // 30s
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
-  private client?: client.Configuration;
+  private client?: OpenIDClient.Configuration;
   private providerHost: string;
   private scope: string;
 
@@ -43,7 +43,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     });
   }
 
-  private get discoveredClient(): client.Configuration {
+  private get discoveredClient(): OpenIDClient.Configuration {
     if (!this.client) {
       throw new ReferenceError(ERRORS.CLIENT_NOT_DISCOVERED);
     }
@@ -52,23 +52,25 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   private async discoverClient() {
+    const openidClient = await getOpenIDClient();
+
     const configurationUri = this.config.configurationUri;
     const providerHost = this.providerHost;
     const clientId = this.config.clientId;
     const clientSecret = this.config.clientSecret;
 
-    let clientAuth: client.ClientAuth | undefined;
+    let clientAuth: OpenIDClient.ClientAuth | undefined;
     if (clientSecret) {
-      clientAuth = client.ClientSecretPost(clientSecret);
+      clientAuth = openidClient.ClientSecretPost(clientSecret);
     }
 
-    const options: client.DiscoveryRequestOptions = {
+    const options: OpenIDClient.DiscoveryRequestOptions = {
       timeout: CLIENT_HTTP_TIMEOUT,
     };
 
     if (configurationUri) {
       // Use the configuration URI directly
-      this.client = await client.discovery(new URL(configurationUri), clientId, undefined, clientAuth, options);
+      this.client = await openidClient.discovery(new URL(configurationUri), clientId, undefined, clientAuth, options);
     } else {
       const authorizationEndpoint = this.config.authorizationEndpoint;
       const tokenEndpoint = this.config.tokenEndpoint;
@@ -77,7 +79,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
       if ([authorizationEndpoint, tokenEndpoint, userinfoEndpoint, jwksUri].some((endpoint) => !!endpoint)) {
         // Manually construct ServerMetadata
-        const serverMetadata: client.ServerMetadata = {
+        const serverMetadata: OpenIDClient.ServerMetadata = {
           issuer: this.config.issuer ?? providerHost,
           authorization_endpoint: authorizationEndpoint,
           token_endpoint: tokenEndpoint,
@@ -85,7 +87,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
           jwks_uri: jwksUri,
         };
 
-        this.client = new client.Configuration(
+        this.client = new openidClient.Configuration(
           serverMetadata,
           clientId,
           clientSecret ? { client_secret: clientSecret } : undefined,
@@ -98,7 +100,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
         if (!providerHost) {
           throw new ReferenceError(ERRORS.PROVIDER_HOST_NOT_SET);
         }
-        this.client = await client.discovery(new URL(providerHost), clientId, undefined, clientAuth, options);
+        this.client = await openidClient.discovery(new URL(providerHost), clientId, undefined, clientAuth, options);
       }
     }
   }
@@ -108,12 +110,14 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   async getLoginUrl(redirectUrl: string, customState?: string): Promise<string> {
-    const state = customState ?? client.randomState();
-    const nonce = client.randomNonce();
+    const openidClient = await getOpenIDClient();
+
+    const state = customState ?? openidClient.randomState();
+    const nonce = openidClient.randomNonce();
 
     await this.store.setOpenIDState(state, nonce, this.getId());
 
-    const url = client.buildAuthorizationUrl(this.discoveredClient, {
+    const url = openidClient.buildAuthorizationUrl(this.discoveredClient, {
       scope: this.scope,
       redirect_uri: redirectUrl,
       state: state,
@@ -130,6 +134,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @returns
    */
   async getToken(callbackRequest: Request): Promise<TokenInfo> {
+    const openidClient = await getOpenIDClient();
+
     const basUrl = getBaseUrl(this.config.urlPrefix, callbackRequest, true);
 
     const url = new URL(callbackRequest.url, basUrl);
@@ -151,7 +157,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     await this.store.deleteOpenIDState(state, this.getId());
 
-    const tokens = await client.authorizationCodeGrant(this.discoveredClient, url, {
+    const tokens = await openidClient.authorizationCodeGrant(this.discoveredClient, url, {
       expectedState: state,
       expectedNonce: nonce,
     });
@@ -228,7 +234,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     if (!userinfo) {
-      userinfo = await client.fetchUserInfo(this.discoveredClient, accessToken, client.skipSubjectCheck);
+      const openidClient = await getOpenIDClient();
+
+      userinfo = await openidClient.fetchUserInfo(this.discoveredClient, accessToken, openidClient.skipSubjectCheck);
 
       try {
         await this.store.setUserInfo?.(key, userinfo, this.getId());

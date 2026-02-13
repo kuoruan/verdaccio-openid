@@ -45,13 +45,13 @@
 
 import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
-import * as client from "openid-client";
 
 import { messageLoggedAndCloseWindow, npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
+import { getOpenIDClient } from "@/server/openid/client";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
@@ -83,7 +83,8 @@ export class WebAuthFlow implements PluginMiddleware {
 
   login: Handler = async (req, res, next) => {
     try {
-      const sessionId = client.randomState();
+      const openidClient = await getOpenIDClient();
+      const sessionId = openidClient.randomState();
 
       await this.store.setWebAuthnToken(sessionId, PENDING_TOKEN);
 
