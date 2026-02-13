@@ -101,6 +101,8 @@ Now you can use the openid-connect auth in the webUI.
 | <details><summary>authorized-groups</summary>The groups that are allowed to login. Use `true` to ensure the user has at least one group, `false` means no groups check</details> | string \| string \| boolean      | `false`                     | No       | `true`                                                 |
 | <details><summary>group-users</summary>The custom group users. If set, `groups-claim` and `provider-type` take no effect</details>                                               | object                           |                             | No       | `{"animal": ["Tom", "Jack"]}`                          |
 
+Note: When `configuration-uri` is set, the issuer verification is skipped, see: [OpenID Client Discovery](https://github.com/panva/openid-client/blob/main/docs/functions/discovery.md).
+
 #### store-config
 
 1. in-memory
