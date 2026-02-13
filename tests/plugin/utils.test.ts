@@ -105,6 +105,10 @@ describe("getAllConfiguredGroups", () => {
     expect(getAllConfiguredGroups({})).toEqual([]);
   });
 
+  it("should return empty array for undefined packages", () => {
+    expect(getAllConfiguredGroups()).toEqual([]);
+  });
+
   it("should extract unique groups from package config", () => {
     const packages = {
       "@scope/*": {
@@ -130,6 +134,92 @@ describe("getAllConfiguredGroups", () => {
       },
     };
     expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2"]);
+  });
+
+  it("should handle string type permissions", () => {
+    const packages = {
+      package1: {
+        access: "group1",
+        publish: "group2",
+      },
+      package2: {
+        access: "group3",
+      },
+    } as any;
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2", "group3"]);
+  });
+
+  it("should handle mixed string and array permissions", () => {
+    const packages = {
+      package1: {
+        access: "group1",
+        publish: ["group2", "group3"],
+      },
+      package2: {
+        access: ["group4"],
+        publish: "group5",
+      },
+    } as any;
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2", "group3", "group4", "group5"]);
+  });
+
+  it("should filter out empty strings and maintain unique values", () => {
+    const packages = {
+      package1: {
+        access: ["group1", "", "group2"],
+        publish: ["group2", "", "group3"],
+      },
+      package2: {
+        access: ["group3", "group1"],
+      },
+    };
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2", "group3"]);
+  });
+
+  it("should handle packages with no permission fields", () => {
+    const packages = {
+      package1: {
+        name: "test",
+      },
+      package2: {
+        access: ["group1"],
+      },
+    } as any;
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1"]);
+  });
+
+  it("should handle unpublish permission", () => {
+    const packages = {
+      package1: {
+        unpublish: ["group1", "group2"],
+      },
+      package2: {
+        access: ["group2", "group3"],
+        unpublish: "group4",
+      },
+    } as any;
+    expect(getAllConfiguredGroups(packages)).toEqual(["group1", "group2", "group3", "group4"]);
+  });
+
+  it("should deduplicate groups across all permission types", () => {
+    const packages = {
+      package1: {
+        access: ["admin", "developer"],
+        publish: ["admin", "publisher"],
+        unpublish: false,
+      },
+    };
+    expect(getAllConfiguredGroups(packages)).toEqual(["admin", "developer", "publisher"]);
+  });
+
+  it("should handle special characters in group names", () => {
+    const packages = {
+      package1: {
+        access: ["@org/team", "group-name", "group_name"],
+        publish: ["group.name"],
+      },
+    };
+    expect(getAllConfiguredGroups(packages)).toEqual(["@org/team", "group-name", "group_name", "group.name"]);
   });
 });
 

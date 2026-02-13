@@ -1,4 +1,4 @@
-import TTLCache from "@isaacs/ttlcache";
+import { TTLCache } from "@isaacs/ttlcache";
 
 import { BaseStore, type InMemoryConfig, type Store } from "./Store";
 
@@ -8,7 +8,7 @@ const defaultOptions = {
 
 export default class InMemoryStore extends BaseStore implements Store {
   private readonly stateCache: TTLCache<string, string>;
-  private readonly dataCache: TTLCache<string, any>;
+  private readonly dataCache: TTLCache<string, Record<string, unknown> | string[]>;
 
   constructor(opts: InMemoryConfig = {}) {
     super();
@@ -52,7 +52,7 @@ export default class InMemoryStore extends BaseStore implements Store {
       return;
     }
 
-    return this.dataCache.get(userInfoKey);
+    return this.dataCache.get(userInfoKey) as Record<string, unknown>;
   }
 
   setUserGroups(key: string, groups: string[], providerId: string): void {
@@ -68,7 +68,7 @@ export default class InMemoryStore extends BaseStore implements Store {
       return undefined;
     }
 
-    return this.dataCache.get(userGroupsKey);
+    return this.dataCache.get(userGroupsKey) as string[];
   }
 
   setWebAuthnToken(key: string, token: string): void {

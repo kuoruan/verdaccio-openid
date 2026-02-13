@@ -45,7 +45,7 @@
 
 import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
-import { generators } from "openid-client";
+import * as client from "openid-client";
 
 import { messageLoggedAndCloseWindow, npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/redirect";
@@ -64,8 +64,7 @@ const PENDING_TOKEN = "__pending__";
 const webAuthnAuthorizePath = getAuthorizePath(webAuthnProviderId);
 const webAuthnCallbackPath = getCallbackPath(webAuthnProviderId);
 
-export const SESSION_ID_BYTES = 32;
-export const SESSION_ID_LENGTH = Math.trunc((SESSION_ID_BYTES * 8 + 5) / 6); // base64url encoding unpadded
+export const SESSION_ID_LENGTH = 43; // openid-client default length for state parameter
 
 export class WebAuthFlow implements PluginMiddleware {
   constructor(
@@ -84,7 +83,7 @@ export class WebAuthFlow implements PluginMiddleware {
 
   login: Handler = async (req, res, next) => {
     try {
-      const sessionId = generators.random(SESSION_ID_BYTES);
+      const sessionId = client.randomState();
 
       await this.store.setWebAuthnToken(sessionId, PENDING_TOKEN);
 

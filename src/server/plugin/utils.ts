@@ -13,7 +13,18 @@ import { ERRORS } from "@/server/constants";
  */
 export function getAllConfiguredGroups(packages: PackageList = {}): string[] {
   const groups = Object.values(packages).flatMap((packageConfig) => {
-    return (["access", "publish", "unpublish"] as const).flatMap((key) => packageConfig[key] ?? []).filter(Boolean);
+    return (["access", "publish", "unpublish"] as const)
+      .flatMap((key) => {
+        const v = packageConfig[key];
+
+        if (typeof v === "string") {
+          return [v];
+        } else if (Array.isArray(v)) {
+          return v;
+        }
+        return [];
+      })
+      .filter(Boolean);
   });
 
   return [...new Set(groups)];

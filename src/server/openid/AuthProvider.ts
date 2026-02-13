@@ -2,7 +2,7 @@ import process from "node:process";
 
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
-import { type Client, custom, generators, Issuer, type OpenIDCallbackChecks } from "openid-client";
+import * as client from "openid-client";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
@@ -18,10 +18,10 @@ import {
 import { getBaseUrl, getClaimsFromIdToken, hashObject } from "@/server/plugin/utils";
 import type { Store } from "@/server/store/Store";
 
-const CLIENT_HTTP_TIMEOUT = 30 * 1000; // 30s
+const CLIENT_HTTP_TIMEOUT = 30; // 30s
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
-  private client?: Client;
+  private client?: client.Configuration;
   private providerHost: string;
   private scope: string;
 
@@ -43,7 +43,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     });
   }
 
-  private get discoveredClient(): Client {
+  private get discoveredClient(): client.Configuration {
     if (!this.client) {
       throw new ReferenceError(ERRORS.CLIENT_NOT_DISCOVERED);
     }
@@ -52,47 +52,55 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   private async discoverClient() {
-    let issuer: Issuer;
-
     const configurationUri = this.config.configurationUri;
+    const providerHost = this.providerHost;
+    const clientId = this.config.clientId;
+    const clientSecret = this.config.clientSecret;
 
-    custom.setHttpOptionsDefaults({
+    let clientAuth: client.ClientAuth | undefined;
+    if (clientSecret) {
+      clientAuth = client.ClientSecretPost(clientSecret);
+    }
+
+    const options: client.DiscoveryRequestOptions = {
       timeout: CLIENT_HTTP_TIMEOUT,
-    });
+    };
 
     if (configurationUri) {
-      issuer = await Issuer.discover(configurationUri);
+      // Use the configuration URI directly
+      this.client = await client.discovery(new URL(configurationUri), clientId, undefined, clientAuth, options);
     } else {
-      const providerHost = this.providerHost;
-
       const authorizationEndpoint = this.config.authorizationEndpoint;
       const tokenEndpoint = this.config.tokenEndpoint;
       const userinfoEndpoint = this.config.userinfoEndpoint;
       const jwksUri = this.config.jwksUri;
 
       if ([authorizationEndpoint, tokenEndpoint, userinfoEndpoint, jwksUri].some((endpoint) => !!endpoint)) {
-        issuer = new Issuer({
+        // Manually construct ServerMetadata
+        const serverMetadata: client.ServerMetadata = {
           issuer: this.config.issuer ?? providerHost,
           authorization_endpoint: authorizationEndpoint,
           token_endpoint: tokenEndpoint,
           userinfo_endpoint: userinfoEndpoint,
           jwks_uri: jwksUri,
-        });
+        };
+
+        this.client = new client.Configuration(
+          serverMetadata,
+          clientId,
+          clientSecret ? { client_secret: clientSecret } : undefined,
+          clientAuth,
+        );
+
+        // Set timeout
+        this.client.timeout = CLIENT_HTTP_TIMEOUT;
       } else {
         if (!providerHost) {
           throw new ReferenceError(ERRORS.PROVIDER_HOST_NOT_SET);
         }
-        issuer = await Issuer.discover(providerHost);
+        this.client = await client.discovery(new URL(providerHost), clientId, undefined, clientAuth, options);
       }
     }
-
-    const client = new issuer.Client({
-      client_id: this.config.clientId,
-      client_secret: this.config.clientSecret,
-      response_types: ["code"],
-    });
-
-    this.client = client;
   }
 
   getId(): string {
@@ -100,17 +108,19 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   async getLoginUrl(redirectUrl: string, customState?: string): Promise<string> {
-    const state = customState ?? generators.state(32);
-    const nonce = generators.nonce();
+    const state = customState ?? client.randomState();
+    const nonce = client.randomNonce();
 
     await this.store.setOpenIDState(state, nonce, this.getId());
 
-    return this.discoveredClient.authorizationUrl({
+    const url = client.buildAuthorizationUrl(this.discoveredClient, {
       scope: this.scope,
       redirect_uri: redirectUrl,
       state: state,
       nonce: nonce,
     });
+
+    return url.toString();
   }
 
   /**
@@ -120,11 +130,15 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @returns
    */
   async getToken(callbackRequest: Request): Promise<TokenInfo> {
-    const parameters = this.discoveredClient.callbackParams(callbackRequest.url);
+    const basUrl = getBaseUrl(this.config.urlPrefix, callbackRequest, true);
 
-    debug("Receive callback parameters, %j", parameters);
+    const url = new URL(callbackRequest.url, basUrl);
 
-    const state = parameters.state;
+    debug("Receive callback URL, %s", url.toString());
+
+    const params = new URLSearchParams(url.search);
+    const state = params.get("state");
+
     if (!state) {
       throw new URIError(ERRORS.NO_STATE);
     }
@@ -137,16 +151,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     await this.store.deleteOpenIDState(state, this.getId());
 
-    const checks: OpenIDCallbackChecks = {
-      state,
-      nonce,
-      scope: this.scope,
-    };
+    const tokens = await client.authorizationCodeGrant(this.discoveredClient, url, {
+      expectedState: state,
+      expectedNonce: nonce,
+    });
 
-    const baseUrl = getBaseUrl(this.config.urlPrefix, callbackRequest, true);
-    const redirectUrl = baseUrl + callbackRequest.path;
-
-    const tokens = await this.discoveredClient.callback(redirectUrl, parameters, checks);
     if (!tokens.access_token) {
       throw new Error(ERRORS.NO_ACCESS_TOKEN_RETURNED);
     }
@@ -154,15 +163,19 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       throw new Error(ERRORS.NO_ID_TOKEN_RETURNED);
     }
 
-    let expiresAt = tokens.expires_at;
     const claims = tokens.claims();
+    if (!claims) {
+      throw new Error("No claims found in token response");
+    }
 
-    if (!expiresAt && tokens.expires_in) {
+    let expiresAt: number | undefined;
+
+    if (tokens.expires_in) {
       expiresAt = Math.trunc(Date.now() / 1000) + tokens.expires_in;
     }
 
     // if expires_at is not set, try to get it from the id_token
-    if (!expiresAt && tokens.id_token) {
+    if (!expiresAt && tokens.id_token && claims.exp) {
       expiresAt = claims.exp;
     }
 
@@ -215,7 +228,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     if (!userinfo) {
-      userinfo = await this.discoveredClient.userinfo<Record<string, unknown>>(accessToken);
+      userinfo = await client.fetchUserInfo(this.discoveredClient, accessToken, client.skipSubjectCheck);
 
       try {
         await this.store.setUserInfo?.(key, userinfo, this.getId());
