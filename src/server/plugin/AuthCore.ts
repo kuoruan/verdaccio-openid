@@ -121,7 +121,7 @@ export class AuthCore {
      */
     relevantGroups.push(username);
 
-    return [...new Set(relevantGroups)].sort();
+    return [...new Set(relevantGroups)].toReversed();
   }
 
   /**

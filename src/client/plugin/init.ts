@@ -85,7 +85,7 @@ function updateUsageTabs(usageTabsSelector: string): void {
 
   if (tabs.length === 0) return;
 
-  const usageInfoLines = getUsageInfo(openIDLoggedIn).split("\n").reverse();
+  const usageInfoLines = getUsageInfo(openIDLoggedIn).split("\n").toReversed();
 
   for (const tab of tabs) {
     const commands = [...tab.querySelectorAll("button")]
