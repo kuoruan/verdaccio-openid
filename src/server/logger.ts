@@ -14,6 +14,7 @@ const dummyLogger: Logger = {
   trace: noop,
   warn: noop,
   info: noop,
+  fatal: noop,
 };
 
 let logger: Logger = dummyLogger;
