@@ -13,6 +13,10 @@ import {
   isNowBefore,
 } from "@/server/plugin/utils";
 
+vi.mock("@verdaccio/url", () => ({
+  getPublicUrl: vi.fn().mockReturnValue("http://localhost/"),
+}));
+
 describe("base64Encode", () => {
   it("should encode string to base64", () => {
     expect(base64Encode("test")).toBe("dGVzdA");
@@ -78,10 +82,6 @@ describe("getBaseUrl", () => {
       headers: {},
     } as Request;
 
-    vi.mock("@verdaccio/url", () => ({
-      getPublicUrl: vi.fn().mockReturnValue("http://localhost/"),
-    }));
-
     expect(getBaseUrl("/prefix", req)).toBe("http://localhost/");
   });
 
@@ -92,10 +92,6 @@ describe("getBaseUrl", () => {
       ip: "127.0.0.1",
       headers: {},
     } as Request;
-
-    vi.mock("@verdaccio/url", () => ({
-      getPublicUrl: vi.fn().mockReturnValue("http://localhost/"),
-    }));
 
     expect(getBaseUrl("/prefix", req, true)).toBe("http://localhost");
   });
