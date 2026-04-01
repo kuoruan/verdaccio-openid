@@ -8,6 +8,7 @@ import {
   getAuthenticatedGroups,
   getBaseUrl,
   getClaimsFromIdToken,
+  getPackageSpec,
   hashObject,
   isNowBefore,
 } from "@/server/plugin/utils";
@@ -248,5 +249,60 @@ describe("getAuthenticatedGroups", () => {
     expect(getAuthenticatedGroups(null)).toBe(false);
     expect(getAuthenticatedGroups()).toBe(false);
     expect(getAuthenticatedGroups(42)).toBe(false);
+  });
+});
+
+describe("getPackageSpec", () => {
+  it("should return package name with version when version is present", () => {
+    const pkg = { name: "my-package", version: "1.0.0" };
+    expect(getPackageSpec(pkg)).toBe("my-package@1.0.0");
+  });
+
+  it("should return package name with tag when tag is present", () => {
+    const pkg = { name: "my-package", tag: "latest" };
+    expect(getPackageSpec(pkg)).toBe("my-package@latest");
+  });
+
+  it("should return package name only when neither version nor tag is present", () => {
+    const pkg = { name: "my-package" };
+    expect(getPackageSpec(pkg)).toBe("my-package");
+  });
+
+  it("should prioritize version over tag when both are present", () => {
+    const pkg = { name: "my-package", version: "1.0.0", tag: "latest" };
+    expect(getPackageSpec(pkg)).toBe("my-package@1.0.0");
+  });
+
+  it("should handle scoped packages with version", () => {
+    const pkg = { name: "@scope/package", version: "2.0.0" };
+    expect(getPackageSpec(pkg)).toBe("@scope/package@2.0.0");
+  });
+
+  it("should handle scoped packages with tag", () => {
+    const pkg = { name: "@scope/package", tag: "beta" };
+    expect(getPackageSpec(pkg)).toBe("@scope/package@beta");
+  });
+
+  it("should handle scoped packages without version or tag", () => {
+    const pkg = { name: "@scope/package" };
+    expect(getPackageSpec(pkg)).toBe("@scope/package");
+  });
+
+  it("should handle semver versions", () => {
+    const pkg = { name: "my-package", version: "1.2.3-alpha.1" };
+    expect(getPackageSpec(pkg)).toBe("my-package@1.2.3-alpha.1");
+  });
+
+  it("should handle caret range in version", () => {
+    const pkg = { name: "my-package", version: "^1.0.0" };
+    expect(getPackageSpec(pkg)).toBe("my-package@^1.0.0");
+  });
+
+  it("should handle common tags", () => {
+    const tags = ["latest", "next", "beta", "alpha", "canary"];
+    for (const tag of tags) {
+      const pkg = { name: "my-package", tag };
+      expect(getPackageSpec(pkg)).toBe(`my-package@${tag}`);
+    }
   });
 });
