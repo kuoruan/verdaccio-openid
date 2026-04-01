@@ -1,5 +1,3 @@
-import process from "node:process";
-
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
 
@@ -18,12 +16,25 @@ import {
 import { getBaseUrl, getClaimsFromIdToken, hashObject } from "@/server/plugin/utils";
 import type { Store } from "@/server/store/Store";
 
+import { createDiscoveryCooldownError, createDiscoveryError } from "./DiscoveryErrorUtils";
+
 const CLIENT_HTTP_TIMEOUT = 30; // 30s
+const DISCOVERY_RETRY_BASE_MS = 5 * 1000; // initial retry interval (5s)
+const DISCOVERY_RETRY_MAX_MS = 60 * 1000; // max retry interval (60s)
+
+interface DiscoveryFailure {
+  error: Error;
+  timestamp: number;
+  attempts: number;
+  intervalMs: number;
+}
 
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private configuration?: OpenIDClient.Configuration;
   private providerHost: string;
   private scope: string;
+  private discoveryPromise?: Promise<OpenIDClient.Configuration>;
+  private lastDiscoveryFailure?: DiscoveryFailure;
 
   constructor(
     private readonly config: ConfigHolder,
@@ -32,29 +43,65 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     this.providerHost = this.config.providerHost;
     this.scope = this.config.scope;
 
-    this.discoverConfiguration().catch((e) => {
-      if (e instanceof AggregateError) {
-        logger.error(
-          { messages: e.errors.map((e) => (e as Error).message) },
-          "Could not discover configuration: @{messages}",
-        );
-      } else {
-        logger.error({ message: e.message }, "Could not discover configuration: @{message}");
-      }
-
-      process.exit(1);
-    });
+    // Start configuration discovery in the background
+    void this.ensureConfiguration()
+      .catch((e) => {
+        logger.error({ message: e.message }, "@{message}");
+      })
+      .then(() => {
+        logger.info("OpenID Connect configuration discovery completed successfully");
+      });
   }
 
-  private get discoveredConfiguration(): OpenIDClient.Configuration {
-    if (!this.configuration) {
-      throw new ReferenceError(ERRORS.CONFIGURATION_NOT_DISCOVERED);
+  /**
+   * Get the discovered configuration, triggering discovery if not already done.
+   */
+  private ensureConfiguration(): Promise<OpenIDClient.Configuration> {
+    if (this.configuration) {
+      return Promise.resolve(this.configuration);
     }
 
-    return this.configuration;
+    if (!this.discoveryPromise && this.lastDiscoveryFailure) {
+      const elapsed = Date.now() - this.lastDiscoveryFailure.timestamp;
+
+      if (elapsed < this.lastDiscoveryFailure.intervalMs) {
+        const discoveryCooldownError = createDiscoveryCooldownError(
+          this.lastDiscoveryFailure.error,
+          this.lastDiscoveryFailure.intervalMs - elapsed,
+        );
+
+        throw discoveryCooldownError;
+      }
+    }
+
+    this.discoveryPromise ??= this.discoverConfiguration()
+      .then((configuration) => {
+        this.configuration = configuration;
+        this.lastDiscoveryFailure = undefined;
+
+        return configuration;
+      })
+      .catch((error) => {
+        const discoveryError = createDiscoveryError(error);
+
+        const attempts = (this.lastDiscoveryFailure?.attempts ?? 0) + 1;
+        const intervalMs = Math.min(DISCOVERY_RETRY_BASE_MS * Math.pow(2, attempts - 1), DISCOVERY_RETRY_MAX_MS);
+
+        this.lastDiscoveryFailure = {
+          error: discoveryError,
+          timestamp: Date.now(),
+          attempts,
+          intervalMs,
+        };
+        this.discoveryPromise = undefined;
+
+        throw discoveryError;
+      });
+
+    return this.discoveryPromise;
   }
 
-  private async discoverConfiguration() {
+  private async discoverConfiguration(): Promise<OpenIDClient.Configuration> {
     const openidClient = await getOpenIDClient();
 
     const configurationUri = this.config.configurationUri;
@@ -68,46 +115,37 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     if (configurationUri) {
       // Use the configuration URI directly
-      this.configuration = await openidClient.discovery(
-        new URL(configurationUri),
-        clientId,
-        clientSecret,
-        undefined,
-        options,
-      );
-    } else {
-      const authorizationEndpoint = this.config.authorizationEndpoint;
-      const tokenEndpoint = this.config.tokenEndpoint;
-      const userinfoEndpoint = this.config.userinfoEndpoint;
-      const jwksUri = this.config.jwksUri;
-
-      if ([authorizationEndpoint, tokenEndpoint, userinfoEndpoint, jwksUri].some((endpoint) => !!endpoint)) {
-        // Manually construct ServerMetadata
-        const serverMetadata: OpenIDClient.ServerMetadata = {
-          issuer: this.config.issuer ?? providerHost,
-          authorization_endpoint: authorizationEndpoint,
-          token_endpoint: tokenEndpoint,
-          userinfo_endpoint: userinfoEndpoint,
-          jwks_uri: jwksUri,
-        };
-
-        this.configuration = new openidClient.Configuration(serverMetadata, clientId, clientSecret);
-
-        // Set timeout
-        this.configuration.timeout = CLIENT_HTTP_TIMEOUT;
-      } else {
-        if (!providerHost) {
-          throw new ReferenceError(ERRORS.PROVIDER_HOST_NOT_SET);
-        }
-        this.configuration = await openidClient.discovery(
-          new URL(providerHost),
-          clientId,
-          clientSecret,
-          undefined,
-          options,
-        );
-      }
+      return openidClient.discovery(new URL(configurationUri), clientId, clientSecret, undefined, options);
     }
+
+    const authorizationEndpoint = this.config.authorizationEndpoint;
+    const tokenEndpoint = this.config.tokenEndpoint;
+    const userinfoEndpoint = this.config.userinfoEndpoint;
+    const jwksUri = this.config.jwksUri;
+
+    if ([authorizationEndpoint, tokenEndpoint, userinfoEndpoint, jwksUri].some((endpoint) => !!endpoint)) {
+      // Manually construct ServerMetadata
+      const serverMetadata: OpenIDClient.ServerMetadata = {
+        issuer: this.config.issuer ?? providerHost,
+        authorization_endpoint: authorizationEndpoint,
+        token_endpoint: tokenEndpoint,
+        userinfo_endpoint: userinfoEndpoint,
+        jwks_uri: jwksUri,
+      };
+
+      const configuration = new openidClient.Configuration(serverMetadata, clientId, clientSecret);
+
+      // Set timeout
+      configuration.timeout = CLIENT_HTTP_TIMEOUT;
+
+      return configuration;
+    }
+
+    if (!providerHost) {
+      throw new ReferenceError(ERRORS.PROVIDER_HOST_NOT_SET);
+    }
+
+    return openidClient.discovery(new URL(providerHost), clientId, clientSecret, undefined, options);
   }
 
   getId(): string {
@@ -122,7 +160,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     await this.store.setOpenIDState(state, nonce, this.getId());
 
-    const url = openidClient.buildAuthorizationUrl(this.discoveredConfiguration, {
+    const configuration = await this.ensureConfiguration();
+
+    const url = openidClient.buildAuthorizationUrl(configuration, {
       scope: this.scope,
       redirect_uri: redirectUrl,
       state: state,
@@ -162,7 +202,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     await this.store.deleteOpenIDState(state, this.getId());
 
-    const tokens = await openidClient.authorizationCodeGrant(this.discoveredConfiguration, url, {
+    const configuration = await this.ensureConfiguration();
+
+    const tokens = await openidClient.authorizationCodeGrant(configuration, url, {
       expectedState: state,
       expectedNonce: nonce,
     });
@@ -241,11 +283,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     if (!userinfo) {
       const openidClient = await getOpenIDClient();
 
-      userinfo = await openidClient.fetchUserInfo(
-        this.discoveredConfiguration,
-        accessToken,
-        openidClient.skipSubjectCheck,
-      );
+      const configuration = await this.ensureConfiguration();
+
+      userinfo = await openidClient.fetchUserInfo(configuration, accessToken, openidClient.skipSubjectCheck);
 
       try {
         await this.store.setUserInfo?.(key, userinfo, this.getId());

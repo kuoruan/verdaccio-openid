@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
+import { setTimeout as delay } from "node:timers/promises";
+
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -192,6 +194,46 @@ describe("OpenIDConnectAuthProvider", () => {
 
       expect(loginUrl).toContain(`state=${customState}`);
       expect(mockStore.setOpenIDState).toHaveBeenCalledWith(customState, "mock-nonce-67890", "openid");
+    });
+
+    it("should reuse in-flight discovery started by the constructor", async () => {
+      const { discovery } = await import("openid-client");
+
+      mockConfig.authorizationEndpoint = undefined;
+      mockConfig.tokenEndpoint = undefined;
+      mockConfig.userinfoEndpoint = undefined;
+      mockConfig.jwksUri = undefined;
+
+      let resolveDiscovery!: (value: any) => void;
+      const discoveryPromise = new Promise((resolve) => {
+        resolveDiscovery = resolve;
+      });
+
+      vi.mocked(discovery).mockReturnValueOnce(discoveryPromise as any);
+
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
+
+      const loginUrlPromise = provider.getLoginUrl("https://registry.example.com/callback");
+
+      await delay(0);
+
+      expect(discovery).toHaveBeenCalledTimes(1);
+
+      resolveDiscovery({
+        serverMetadata: () => ({
+          issuer: "https://provider.example.com",
+          authorization_endpoint: "https://provider.example.com/authorize",
+          token_endpoint: "https://provider.example.com/token",
+        }),
+        clientMetadata: () => ({
+          client_id: "test-client-id",
+        }),
+      });
+
+      const loginUrl = await loginUrlPromise;
+
+      expect(loginUrl).toContain("https://provider.example.com/authorize");
+      expect(discovery).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -481,7 +523,50 @@ describe("OpenIDConnectAuthProvider", () => {
 
       const logger = await import("@/server/logger");
       expect(logger.default.error).toHaveBeenCalled();
-      expect(processExitSpy).toHaveBeenCalledWith(1);
+      // Configuration discovery fails but process should not exit
+      expect(processExitSpy).not.toHaveBeenCalled();
+    });
+
+    it("should fail fast during retry cooldown and retry after it expires", async () => {
+      const { discovery } = await import("openid-client");
+      let now = 1_700_000_000_000;
+
+      vi.spyOn(Date, "now").mockImplementation(() => now);
+
+      mockConfig.authorizationEndpoint = undefined;
+      mockConfig.tokenEndpoint = undefined;
+      mockConfig.userinfoEndpoint = undefined;
+      mockConfig.jwksUri = undefined;
+
+      vi.mocked(discovery)
+        .mockRejectedValueOnce(new Error("Discovery failed"))
+        .mockResolvedValueOnce({
+          serverMetadata: () => ({
+            issuer: "https://provider.example.com",
+            authorization_endpoint: "https://provider.example.com/authorize",
+            token_endpoint: "https://provider.example.com/token",
+          }),
+          clientMetadata: () => ({
+            client_id: "test-client-id",
+          }),
+        } as any);
+
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
+
+      await delay(0);
+
+      await expect(provider.getLoginUrl("https://registry.example.com/callback")).rejects.toThrow(
+        "OpenID configuration discovery is cooling down after a recent failure. Retry after 5s. Last error: Could not discover OpenID configuration: Discovery failed",
+      );
+
+      expect(discovery).toHaveBeenCalledTimes(1);
+
+      now += 5001;
+
+      const loginUrl = await provider.getLoginUrl("https://registry.example.com/callback");
+
+      expect(loginUrl).toContain("https://provider.example.com/authorize");
+      expect(discovery).toHaveBeenCalledTimes(2);
     });
   });
 });
