@@ -45,6 +45,7 @@ export class Plugin
   private readonly store: Store;
 
   private storeClosing = false;
+  private signalHandlers = new Map<NodeJS.Signals, () => void>();
 
   constructor(
     public config: OpenIDConfig,
@@ -64,24 +65,6 @@ export class Plugin
 
     const store = createStore(parsedConfig);
 
-    // close store on process termination
-    for (const signal of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"]) {
-      process.once(signal, async () => {
-        if (this.storeClosing) return;
-        this.storeClosing = true;
-
-        try {
-          debug("Received signal %s, closing store...", signal);
-
-          await store.close();
-
-          debug("Store closed, good bye!");
-        } catch (e: any) {
-          debug("Error closing store: %s", e.message);
-        }
-      });
-    }
-
     const provider = new OpenIDConnectAuthProvider(parsedConfig, store);
     const core = new AuthCore(parsedConfig, provider);
 
@@ -89,6 +72,9 @@ export class Plugin
     this.provider = provider;
     this.core = core;
     this.store = store;
+
+    // close store on process termination
+    this.registerSignalHandlers();
   }
 
   public get version(): number {
@@ -97,6 +83,47 @@ export class Plugin
 
   public getVersion(): number {
     return this.version;
+  }
+
+  /**
+   * Register signal handlers for graceful shutdown
+   * This method is called automatically in the constructor,
+   * but can be called explicitly if needed for testing or re-registration.
+   */
+  public registerSignalHandlers(): void {
+    // Unregister any existing handlers first
+    this.unregisterSignalHandlers();
+
+    for (const signal of ["SIGINT", "SIGQUIT", "SIGTERM", "SIGHUP"] as const) {
+      const handler = async () => {
+        if (this.storeClosing) return;
+        this.storeClosing = true;
+
+        try {
+          debug("Received signal %s, closing store...", signal);
+
+          await this.store.close();
+
+          debug("Store closed, good bye!");
+        } catch (e: any) {
+          debug("Error closing store: %s", e.message);
+        }
+      };
+
+      process.once(signal, handler);
+      this.signalHandlers.set(signal, handler);
+    }
+  }
+
+  /**
+   * Unregister all signal handlers
+   * This method is useful for testing to clean up after test runs
+   */
+  public unregisterSignalHandlers(): void {
+    for (const [signal, handler] of this.signalHandlers) {
+      process.removeListener(signal, handler);
+    }
+    this.signalHandlers.clear();
   }
 
   public register_middlewares(app: Application, auth: Auth, _storage: never) {
