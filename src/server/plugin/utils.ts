@@ -1,4 +1,4 @@
-import type { PackageList } from "@verdaccio/types";
+import type { AllowAccess, PackageList } from "@verdaccio/types";
 import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
 import { stableHash } from "stable-hash";
@@ -134,4 +134,20 @@ export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = fa
 export function isJWT(token: string): boolean {
   // A JWT token typically has three parts separated by dots
   return typeof token === "string" && token.split(".").length === 3;
+}
+
+/**
+ * Get the package specifier from the package info
+ *
+ * @param pkg The package info.
+ * @returns The package specifier, which can be in the form of "name@version", "name@tag", or just "name".
+ */
+export function getPackageSpec(pkg: AllowAccess): string {
+  if (pkg.version) {
+    return `${pkg.name}@${pkg.version}`;
+  } else if (pkg.tag) {
+    return `${pkg.name}@${pkg.tag}`;
+  } else {
+    return pkg.name;
+  }
 }

@@ -1,6 +1,6 @@
 import process from "node:process";
 
-import type { ActionsAllowed, AllowAction, AllowActionCallback, Auth } from "@verdaccio/auth";
+import type { ActionsAllowed, AllowActionCallback, Auth } from "@verdaccio/auth";
 import type { pluginUtils } from "@verdaccio/core";
 import { errorUtils } from "@verdaccio/core";
 import type { AllowAccess, AuthPackageAllow, RemoteUser } from "@verdaccio/types";
@@ -21,9 +21,16 @@ import { AuthCore } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
+import { getPackageSpec } from "./utils";
 
 export interface PluginMiddleware {
   register_middlewares(app: Application): void;
+}
+
+interface AllowActionMeta {
+  packageSpec: string;
+  action: ActionsAllowed;
+  requiredGroups?: string[];
 }
 
 /**
@@ -92,7 +99,7 @@ export class Plugin
     return this.version;
   }
 
-  register_middlewares(app: Application, auth: Auth, _storage: never) {
+  public register_middlewares(app: Application, auth: Auth, _storage: never) {
     this.core.setAuth(auth);
 
     const children = [
@@ -108,7 +115,7 @@ export class Plugin
     }
   }
 
-  async authenticate(username: string, token: string, callback: pluginUtils.AuthCallback): Promise<void> {
+  public async authenticate(username: string, token: string, callback: pluginUtils.AuthCallback): Promise<void> {
     if (!username || !token) {
       debug("username or token is empty, skip authentication");
 
@@ -153,60 +160,78 @@ export class Plugin
     callback(null, user.real_groups);
   }
 
-  allow_access = this.allow_action("access");
-  allow_publish = this.allow_action("publish");
-  allow_unpublish = this.allow_action(["unpublish", "publish"]);
+  private allow_action(user: RemoteUser, meta: AllowActionMeta, callback: AllowActionCallback): void {
+    if (!user.name) {
+      // let next auth plugin to handle it
+      callback(null, false);
+      return;
+    }
 
-  allow_action(action: ActionsAllowed | ActionsAllowed[]): AllowAction {
-    const actions = Array.isArray(action) ? action : [action];
+    debug(
+      "check %s: %s (%j) -> %s, required: %j",
+      meta.action,
+      user.name,
+      user.real_groups,
+      meta.packageSpec,
+      meta.requiredGroups,
+    );
 
-    const mainAction = actions[0];
+    let userGroups: string[];
+    /**
+     * Check if user is authenticated
+     * The authenticated groups may change after user login.
+     * If the user is authenticated, we use the logged user groups.
+     * If the user is not authenticated, we use the non-logged user groups.
+     * This is to ensure that the user has the correct groups to access the package.
+     */
+    if (this.core.authenticate(user.name, user.real_groups)) {
+      userGroups = this.core.getLoggedUserGroups(user);
+    } else {
+      logger.info(
+        { user: user.name, groups: JSON.stringify(user.real_groups) },
+        `User "@{user}" with groups @{groups} is not authenticated now, treating as non-logged user`,
+      );
+      userGroups = this.core.getNonLoggedUserGroups();
+    }
 
-    return (user: RemoteUser, pkg: AuthPackageAllow, callback: AllowActionCallback): void => {
-      let requiredGroups: string[] | undefined;
+    const grant = !!meta.requiredGroups?.some((group) => user.name === group || userGroups.includes(group));
 
-      for (const action of actions) {
-        const groups = pkg[action];
-        if (groups) {
-          requiredGroups = groups;
-          break;
-        }
-      }
+    if (grant) {
+      callback(null, true);
+      return;
+    }
 
-      if (!requiredGroups?.length || !user.name) {
-        // let next auth plugin to handle it
-        callback(null, false);
-        return;
-      }
+    callback(errorUtils.getForbidden(`user ${user.name} is not allowed to ${meta.action} package ${meta.packageSpec}`));
+  }
 
-      debug("check %s: %s (%j) -> %s, required: %j", mainAction, user.name, user.real_groups, pkg.name, requiredGroups);
+  public allow_access(user: RemoteUser, pkg: AuthPackageAllow, callback: AllowActionCallback): void {
+    this.allow_action(
+      user,
+      { packageSpec: getPackageSpec(pkg), action: "access", requiredGroups: pkg.access },
+      callback,
+    );
+  }
 
-      let userGroups: string[];
-      /**
-       * Check if user is authenticated
-       * The authenticated groups may change after user login.
-       * If the user is authenticated, we use the logged user groups.
-       * If the user is not authenticated, we use the non-logged user groups.
-       * This is to ensure that the user has the correct groups to access the package.
-       */
-      if (this.core.authenticate(user.name, user.real_groups)) {
-        userGroups = this.core.getLoggedUserGroups(user);
-      } else {
-        logger.info(
-          { user: user.name, groups: JSON.stringify(user.real_groups) },
-          `User "@{user}" with groups @{groups} is not authenticated now, treating as non-logged user`,
-        );
-        userGroups = this.core.getNonLoggedUserGroups();
-      }
+  public allow_publish(user: RemoteUser, pkg: AuthPackageAllow, callback: AllowActionCallback): void {
+    this.allow_action(
+      user,
+      { packageSpec: getPackageSpec(pkg), action: "publish", requiredGroups: pkg.publish },
+      callback,
+    );
+  }
 
-      const hasPermission = requiredGroups.some((group) => user.name === group || userGroups.includes(group));
+  public allow_unpublish(user: RemoteUser, pkg: AuthPackageAllow, callback: AllowActionCallback): void {
+    const requiredGroups = pkg.unpublish;
 
-      if (hasPermission) {
-        callback(null, true);
-        return;
-      }
+    if (requiredGroups === false) {
+      // verdaccio will call allow_unpublish() automatically
+      callback(null);
+      return;
+    } else if (requiredGroups === true) {
+      callback(errorUtils.getInternalError(`invalid unpublish configuration for package ${pkg.name}`));
+      return;
+    }
 
-      callback(errorUtils.getForbidden(`user ${user.name} is not allowed to ${mainAction} package ${pkg.name}`));
-    };
+    this.allow_action(user, { packageSpec: getPackageSpec(pkg), action: "unpublish", requiredGroups }, callback);
   }
 }
