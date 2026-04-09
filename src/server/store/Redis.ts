@@ -1,10 +1,10 @@
 import { Cluster, Redis } from "ioredis";
 
-import { BaseStore, type RedisClusterConfig, type RedisConfig, type Store } from "./Store";
+import { BaseStore, type RedisClusterConfig, type RedisConfig, type RedisSingleConfig, type Store } from "./Store";
 
 const defaultOptions = {
   ttl: BaseStore.DefaultStateTTL,
-} satisfies RedisConfig;
+} satisfies RedisSingleConfig;
 
 export default class RedisStore extends BaseStore implements Store {
   private readonly ttl: number;
@@ -13,51 +13,45 @@ export default class RedisStore extends BaseStore implements Store {
   constructor(opts?: RedisConfig | string) {
     super();
 
-    if (!opts) {
-      const { ttl, ...restOpts } = defaultOptions;
+    const { redis, ttl } = this.createClient(opts);
 
-      this.redis = new Redis(restOpts);
-
-      this.ttl = ttl;
-    } else if (typeof opts === "string") {
-      const { ttl, ...restOpts } = defaultOptions;
-
-      this.redis = new Redis(opts, restOpts);
-
-      this.ttl = ttl;
-    } else {
-      if (opts?.nodes) {
-        const { ttl: defaultTTL, ...restDefaultOpts } = defaultOptions;
-
-        const {
-          ttl = defaultTTL,
-          nodes,
-          username,
-          password,
-          redisOptions,
-          ...restOpts
-        } = opts satisfies RedisClusterConfig;
-
-        this.redis = new Redis.Cluster(nodes, {
-          redisOptions: { ...restDefaultOpts, username, password, ...redisOptions },
-          ...restOpts,
-        });
-
-        this.ttl = ttl;
-      } else {
-        const { ttl, nodes: _, ...restOpts } = { ...defaultOptions, ...opts } satisfies RedisConfig;
-
-        this.redis = new Redis(restOpts);
-
-        this.ttl = ttl;
-      }
-    }
+    this.redis = redis;
+    this.ttl = ttl;
   }
 
-  private async isKeyExists(key: string): Promise<boolean> {
-    const times = await this.redis.exists(key);
+  private createClient(opts?: RedisConfig | string): { redis: Cluster | Redis; ttl: number } {
+    const { ttl: defaultTTL, ...restDefaultOpts } = defaultOptions;
 
-    return times > 0;
+    if (!opts) {
+      return { redis: new Redis(restDefaultOpts), ttl: defaultTTL };
+    }
+
+    if (typeof opts === "string") {
+      return { redis: new Redis(opts, restDefaultOpts), ttl: defaultTTL };
+    }
+
+    if (opts?.nodes?.length) {
+      const {
+        ttl = defaultTTL,
+        nodes,
+        username,
+        password,
+        redisOptions,
+        ...restOpts
+      } = opts satisfies RedisClusterConfig;
+
+      return {
+        redis: new Redis.Cluster(nodes, {
+          redisOptions: { ...restDefaultOpts, username, password, ...redisOptions },
+          ...restOpts,
+        }),
+        ttl,
+      };
+    }
+
+    const { ttl, nodes: _, ...restOpts } = { ...defaultOptions, ...opts } satisfies RedisConfig;
+
+    return { redis: new Redis(restOpts), ttl };
   }
 
   async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
@@ -68,11 +62,6 @@ export default class RedisStore extends BaseStore implements Store {
 
   async getOpenIDState(key: string, providerId: string): Promise<string | null> {
     const stateKey = this.getStateKey(key, providerId);
-
-    const exists = await this.isKeyExists(stateKey);
-
-    if (!exists) return null;
-
     return this.redis.get(stateKey);
   }
 
@@ -85,52 +74,70 @@ export default class RedisStore extends BaseStore implements Store {
   async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
-    await this.redis.hset(userInfoKey, data as Record<string, unknown>);
-    await this.redis.pexpire(userInfoKey, BaseStore.DefaultDataTTL);
+    const pipeline = this.redis.multi();
+
+    pipeline.hset(userInfoKey, data as Record<string, unknown>);
+    pipeline.pexpire(userInfoKey, BaseStore.DefaultDataTTL);
+
+    await pipeline.exec();
   }
 
   async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | null> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
+    const userInfo = await this.redis.hgetall(userInfoKey);
 
-    const exists = await this.redis.exists(userInfoKey);
-    if (!exists) return null;
+    if (Object.keys(userInfo).length === 0) return null;
 
-    return this.redis.hgetall(userInfoKey);
+    return userInfo;
   }
 
   async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
 
-    await this.redis.lpush(groupsKey, ...groups);
-    await this.redis.pexpire(groupsKey, BaseStore.DefaultDataTTL);
+    const pipeline = this.redis.multi();
+
+    pipeline.del(groupsKey);
+
+    if (groups.length > 0) {
+      pipeline.rpush(groupsKey, ...groups);
+      pipeline.pexpire(groupsKey, BaseStore.DefaultDataTTL);
+    }
+
+    await pipeline.exec();
   }
 
   async getUserGroups(key: string, providerId: string): Promise<string[] | null> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
+    const groups = await this.redis.lrange(groupsKey, 0, -1);
 
-    const exists = await this.redis.exists(groupsKey);
-    if (!exists) return null;
+    if (groups.length === 0) return null;
 
-    return this.redis.lrange(groupsKey, 0, -1);
+    return groups;
   }
 
   async setWebAuthnToken(key: string, token: string): Promise<void> {
     const tokenKey = this.getWebAuthnTokenKey(key);
 
-    await this.redis.set(tokenKey, token);
+    await this.redis.set(tokenKey, token, "PX", this.ttl);
   }
 
   async getWebAuthnToken(key: string): Promise<string | null> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+
     return this.redis.get(tokenKey);
   }
 
   async deleteWebAuthnToken(key: string): Promise<void> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+
     await this.redis.del(tokenKey);
   }
 
   async close(): Promise<void> {
-    await this.redis.quit();
+    try {
+      await this.redis.quit();
+    } catch {
+      this.redis.disconnect();
+    }
   }
 }
