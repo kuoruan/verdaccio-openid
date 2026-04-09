@@ -151,13 +151,13 @@ export class Plugin
       return;
     }
 
-    debug("authenticating user, username: %s, token: %s", username, token);
+    debug("authenticating user, username: %s", username);
 
     let user: Omit<RemoteUser, "groups"> | boolean;
     try {
       user = await this.core.verifyNpmToken(token);
     } catch (e: any) {
-      debug(`%s. user: "%s", token: "%s", falling back to legacy auth`, e.message, username, token);
+      debug(`%s. user: "%s", falling back to legacy auth`, e.message, username);
 
       // the token is not valid by us, let the next auth plugin to handle it
       callback(null, false);

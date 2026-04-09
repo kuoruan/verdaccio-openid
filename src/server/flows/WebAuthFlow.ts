@@ -177,7 +177,8 @@ export class WebAuthFlow implements PluginMiddleware {
 
     try {
       const providerToken = await this.provider.getToken(req);
-      debug(`provider auth success, token: "%s"`, providerToken);
+
+      debug("provider auth success");
 
       const userinfo = await this.provider.getUserinfo(providerToken);
 

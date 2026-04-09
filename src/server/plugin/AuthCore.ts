@@ -186,7 +186,7 @@ export class AuthCore {
 
       const legacyPayload = this.legacyDecode(token);
 
-      debug("legacy payload: %j", legacyPayload);
+      debug("legacy payload decoded");
 
       let name: string;
       let userGroups: string[] = [];
