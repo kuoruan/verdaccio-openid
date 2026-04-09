@@ -189,8 +189,8 @@ export class AuthCore {
       debug("legacy payload decoded");
 
       let name: string;
-      let userGroups: string[] = [];
-      let realGroups: string[] = [];
+      let userGroups: string[];
+      let realGroups: string[];
 
       if (isAccessTokenPayload(legacyPayload)) {
         const res = await this.provider.getUserinfo(legacyPayload.at);
