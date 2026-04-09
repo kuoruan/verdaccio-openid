@@ -68,6 +68,7 @@ vi.mock("@gitbeaker/rest", () => ({
 // Mock logger
 vi.mock("@/server/logger", () => ({
   default: {
+    info: vi.fn(),
     error: vi.fn(),
     warn: vi.fn(),
   },

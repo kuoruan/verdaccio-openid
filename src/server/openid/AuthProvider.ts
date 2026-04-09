@@ -45,11 +45,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     // Start configuration discovery in the background
     void this.ensureConfiguration()
-      .catch((e) => {
-        logger.error({ message: e.message }, "@{message}");
-      })
       .then(() => {
         logger.info("OpenID Connect configuration discovery completed successfully");
+      })
+      .catch((e) => {
+        logger.error({ message: e.message }, "@{message}");
       });
   }
 

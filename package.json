@@ -37,10 +37,10 @@
   "dependencies": {
     "@gitbeaker/rest": "^43.8.0",
     "@isaacs/ttlcache": "^2.1.4",
-    "@verdaccio/auth": "8.0.0-next-8.35",
-    "@verdaccio/config": "8.0.0-next-8.35",
-    "@verdaccio/core": "8.0.0-next-8.35",
-    "@verdaccio/url": "13.0.0-next-8.35",
+    "@verdaccio/auth": "8.0.0-next-8.37",
+    "@verdaccio/config": "8.0.0-next-8.37",
+    "@verdaccio/core": "8.0.0-next-8.37",
+    "@verdaccio/url": "13.0.0-next-8.37",
     "debug": "^4.4.3",
     "deepmerge": "^4.3.1",
     "dotenv": "^17.3.1",
@@ -96,7 +96,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.58.0",
     "verdaccio": "^6.3.2",
-    "verdaccio-htpasswd": "13.0.0-next-8.35",
+    "verdaccio-htpasswd": "13.0.0-next-8.37",
     "verdaccio-openid": "file:",
     "verdaccio5": "npm:verdaccio@5.0.0",
     "vitest": "^4.1.2"
