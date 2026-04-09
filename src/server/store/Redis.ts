@@ -2,6 +2,17 @@ import { Cluster, Redis } from "ioredis";
 
 import { BaseStore, type RedisClusterConfig, type RedisConfig, type RedisSingleConfig, type Store } from "./Store";
 
+const TAKE_WEB_AUTHN_TOKEN_SCRIPT = `
+local value = redis.call("GET", KEYS[1])
+if not value then
+  return false
+end
+if value ~= ARGV[1] then
+  redis.call("DEL", KEYS[1])
+end
+return value
+`;
+
 const defaultOptions = {
   ttl: BaseStore.DefaultStateTTL,
 } satisfies RedisSingleConfig;
@@ -129,18 +140,6 @@ export default class RedisStore extends BaseStore implements Store {
 
   async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | null> {
     const tokenKey = this.getWebAuthnTokenKey(key);
-
-    const TAKE_WEB_AUTHN_TOKEN_SCRIPT = `
-local value = redis.call("GET", KEYS[1])
-if not value then
-  return false
-end
-if value ~= ARGV[1] then
-  redis.call("DEL", KEYS[1])
-end
-return value
-`;
-
     const response = await this.redis.eval(TAKE_WEB_AUTHN_TOKEN_SCRIPT, 1, tokenKey, pendingToken);
 
     if (typeof response !== "string") {
