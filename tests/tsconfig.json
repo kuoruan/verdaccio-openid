@@ -1,8 +1,8 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "baseUrl": "..",
     "types": ["vitest/globals"],
   },
-  "include": ["**/*.ts"]
+  "exclude": [],
+  "include": ["./**/*.ts", "../src/**/*.d.ts"]
 }

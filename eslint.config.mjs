@@ -1,20 +1,21 @@
 import eslint from "@eslint/js";
+import { defineConfig } from "eslint/config";
 import { createNextImportResolver } from "eslint-import-resolver-next";
-import { flatConfigs } from "eslint-plugin-import-x";
+import { flatConfigs as importConfigs } from "eslint-plugin-import-x";
 import pluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 import pluginSimpleImportSort from "eslint-plugin-simple-import-sort";
 import pluginUnicorn from "eslint-plugin-unicorn";
 import globals from "globals";
-import tseslint, { configs } from "typescript-eslint";
+import { configs as tsConfigs } from "typescript-eslint";
 
-export default tseslint.config(
+export default defineConfig(
   eslint.configs.recommended,
   pluginPrettierRecommended,
   pluginUnicorn.configs["recommended"],
-  flatConfigs.recommended,
-  flatConfigs.typescript,
-  ...configs.recommendedTypeChecked,
-  ...configs.stylisticTypeChecked,
+  importConfigs.recommended,
+  importConfigs.typescript,
+  tsConfigs.recommendedTypeChecked,
+  tsConfigs.stylisticTypeChecked,
   {
     ignores: ["node_modules/", "dist/", ".history/"],
   },
@@ -77,7 +78,7 @@ export default tseslint.config(
   },
   {
     files: ["*.mjs", "*.js"],
-    ...configs.disableTypeChecked,
+    extends: [tsConfigs.disableTypeChecked],
   },
   {
     files: ["src/client/**/*.ts"],
