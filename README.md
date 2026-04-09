@@ -12,7 +12,7 @@ This is a Verdaccio plugin that offers OIDC OAuth integration for both the brows
 ## Compatibility
 
 - Verdaccio 5, 6
-- Node >=18
+- Node >=20
 - Browsers which support [ES5](https://caniuse.com/?search=es5)
 
 ## Setup

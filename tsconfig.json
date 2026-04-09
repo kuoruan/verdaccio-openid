@@ -1,22 +1,18 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "@tsconfig/node20/tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2023"], // Node 18
-    "module": "ESNext",
-    "target": "ES2022",
-    "baseUrl": ".",
     "esModuleInterop": true,
     "isolatedModules": true,
     "forceConsistentCasingInFileNames": true,
     "verbatimModuleSyntax": true,
-    "moduleResolution": "Node",
     "noEmit": true,
     "noImplicitAny": false,
     "strict": true,
     "skipLibCheck": true,
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     }
   },
