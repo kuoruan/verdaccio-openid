@@ -21,6 +21,7 @@ const { redisClient, pipeline, RedisCtor, ClusterCtor } = vi.hoisted(() => {
     exists: vi.fn().mockResolvedValue(0),
     hgetall: vi.fn().mockResolvedValue({}),
     lrange: vi.fn().mockResolvedValue([]),
+    eval: vi.fn().mockResolvedValue(false),
     quit: vi.fn().mockResolvedValue("OK"),
     disconnect: vi.fn(),
     multi: vi.fn().mockReturnValue(pipeline),
@@ -51,6 +52,7 @@ describe("RedisStore", () => {
     redisClient.get.mockResolvedValue(null);
     redisClient.hgetall.mockResolvedValue({});
     redisClient.lrange.mockResolvedValue([]);
+    redisClient.eval.mockResolvedValue(false);
     redisClient.quit.mockResolvedValue("OK");
     pipeline.exec.mockResolvedValue([]);
   });
@@ -189,6 +191,32 @@ describe("RedisStore", () => {
     await store.setWebAuthnToken("session-id", "token-value");
 
     expect(redisClient.set).toHaveBeenCalledWith("authn:session-id", "token-value", "PX", BaseStore.DefaultStateTTL);
+  });
+
+  it("should take ready webauthn token atomically", async () => {
+    const store = new RedisStore();
+
+    redisClient.eval.mockResolvedValueOnce("issued-token");
+
+    await expect(store.takeWebAuthnToken("session-id", "__pending__")).resolves.toBe("issued-token");
+
+    expect(redisClient.eval).toHaveBeenCalledWith(expect.any(String), 1, "authn:session-id", "__pending__");
+  });
+
+  it("should keep pending webauthn token while taking", async () => {
+    const store = new RedisStore();
+
+    redisClient.eval.mockResolvedValueOnce("__pending__");
+
+    await expect(store.takeWebAuthnToken("session-id", "__pending__")).resolves.toBe("__pending__");
+  });
+
+  it("should return null when webauthn token is missing", async () => {
+    const store = new RedisStore();
+
+    redisClient.eval.mockResolvedValueOnce(false);
+
+    await expect(store.takeWebAuthnToken("session-id", "__pending__")).resolves.toBeNull();
   });
 
   it("should disconnect when quit fails", async () => {

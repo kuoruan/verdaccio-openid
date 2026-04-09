@@ -65,6 +65,11 @@ const webAuthnAuthorizePath = getAuthorizePath(webAuthnProviderId);
 const webAuthnCallbackPath = getCallbackPath(webAuthnProviderId);
 
 export const SESSION_ID_LENGTH = 43; // openid-client default length for state parameter
+const SESSION_ID_REGEX = /^[A-Za-z0-9_-]+$/;
+
+export function isValidSessionId(sessionId: string): boolean {
+  return sessionId.length === SESSION_ID_LENGTH && SESSION_ID_REGEX.test(sessionId);
+}
 
 export class WebAuthFlow implements PluginMiddleware {
   constructor(
@@ -109,14 +114,14 @@ export class WebAuthFlow implements PluginMiddleware {
       return;
     }
 
-    if (sessionId.length !== SESSION_ID_LENGTH) {
+    if (!isValidSessionId(sessionId)) {
       next(errorUtils.getBadRequest("invalid sessionId"));
 
       return;
     }
 
     try {
-      const token = await this.store.getWebAuthnToken(sessionId);
+      const token = await this.store.takeWebAuthnToken(sessionId, PENDING_TOKEN);
 
       if (!token) {
         next(errorUtils.getUnauthorized("invalid or expired session"));
@@ -130,13 +135,9 @@ export class WebAuthFlow implements PluginMiddleware {
         return;
       }
 
-      await this.store.deleteWebAuthnToken(sessionId);
-
       res.json({ token });
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
-
-      void this.store.deleteWebAuthnToken(sessionId);
 
       return next(errorUtils.getInternalError(e.message ?? e));
     }
@@ -147,6 +148,12 @@ export class WebAuthFlow implements PluginMiddleware {
 
     if (!sessionId) {
       res.status(400).send(buildErrorPage(new Error("missing sessionId")));
+
+      return;
+    }
+
+    if (!isValidSessionId(sessionId)) {
+      res.status(400).send(buildErrorPage(new Error("invalid sessionId")));
 
       return;
     }
@@ -169,13 +176,28 @@ export class WebAuthFlow implements PluginMiddleware {
   callback: Handler = async (req, res) => {
     // The query parameter `state` is the sessionId, added by authorize api
     const sessionId = req.query.state as string | undefined;
+
     if (!sessionId) {
       res.status(400).send(buildErrorPage(new Error("missing sessionId")));
 
       return;
     }
 
+    if (!isValidSessionId(sessionId)) {
+      res.status(400).send(buildErrorPage(new Error("invalid sessionId")));
+
+      return;
+    }
+
     try {
+      const sessionToken = await this.store.getWebAuthnToken(sessionId);
+
+      if (sessionToken !== PENDING_TOKEN) {
+        res.status(401).send(buildErrorPage(new Error("invalid or expired session")));
+
+        return;
+      }
+
       const providerToken = await this.provider.getToken(req);
 
       debug("provider auth success");

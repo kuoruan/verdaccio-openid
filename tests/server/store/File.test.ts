@@ -114,4 +114,20 @@ describe("FileStore methods", () => {
     expect(dbMock.setItem).toHaveBeenCalledWith("provider1:groups:key1", groups, expect.any(Object));
     expect(await fileStore.getUserGroups("key1", "provider1")).toEqual(groups);
   });
+
+  it("should take ready webauthn token and delete it", async () => {
+    dbMock.getItem.mockResolvedValue("issued-token");
+
+    await expect(fileStore.takeWebAuthnToken("session1", "__pending__")).resolves.toBe("issued-token");
+
+    expect(dbMock.removeItem).toHaveBeenCalledWith("authn:session1");
+  });
+
+  it("should keep pending webauthn token when taking", async () => {
+    dbMock.getItem.mockResolvedValue("__pending__");
+
+    await expect(fileStore.takeWebAuthnToken("session1", "__pending__")).resolves.toBe("__pending__");
+
+    expect(dbMock.removeItem).not.toHaveBeenCalled();
+  });
 });

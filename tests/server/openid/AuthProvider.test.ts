@@ -150,6 +150,9 @@ describe("OpenIDConnectAuthProvider", () => {
       getWebAuthnToken: vi.fn(() => {
         // no-op
       }),
+      takeWebAuthnToken: vi.fn(() => {
+        // no-op
+      }),
       deleteWebAuthnToken: vi.fn(() => {
         // no-op
       }),

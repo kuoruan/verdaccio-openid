@@ -86,6 +86,22 @@ export default class InMemoryStore extends BaseStore implements Store {
     return this.stateCache.get(tokenKey);
   }
 
+  takeWebAuthnToken(key: string, pendingToken: string): string | undefined {
+    const tokenKey = this.getWebAuthnTokenKey(key);
+
+    if (!this.stateCache.has(tokenKey)) {
+      return undefined;
+    }
+
+    const token = this.stateCache.get(tokenKey);
+
+    if (token !== pendingToken) {
+      this.stateCache.delete(tokenKey);
+    }
+
+    return token;
+  }
+
   deleteWebAuthnToken(key: string): void {
     const tokenKey = this.getWebAuthnTokenKey(key);
 

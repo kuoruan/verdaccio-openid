@@ -66,4 +66,22 @@ describe("InMemoryStore methods", () => {
     expect(store.getUserGroups(key, providerId)).toEqual(groups);
     expect(store.getUserGroups("wrongKey", providerId)).toBeUndefined();
   });
+
+  it("should take ready webauthn token and delete it", () => {
+    const store = new InMemoryStore();
+
+    store.setWebAuthnToken("session-1", "issued-token");
+
+    expect(store.takeWebAuthnToken("session-1", "__pending__")).toBe("issued-token");
+    expect(store.getWebAuthnToken("session-1")).toBeUndefined();
+  });
+
+  it("should keep pending webauthn token when taking", () => {
+    const store = new InMemoryStore();
+
+    store.setWebAuthnToken("session-1", "__pending__");
+
+    expect(store.takeWebAuthnToken("session-1", "__pending__")).toBe("__pending__");
+    expect(store.getWebAuthnToken("session-1")).toBe("__pending__");
+  });
 });

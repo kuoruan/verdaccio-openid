@@ -32,6 +32,12 @@ export interface Store {
   /** get webauthn token from the store */
   getWebAuthnToken: (key: string) => MaybePromise<string | null | undefined>;
 
+  /**
+   * Atomically get a webauthn token and delete it if it is ready.
+   * If the current token equals pendingToken, it must not be deleted.
+   */
+  takeWebAuthnToken: (key: string, pendingToken: string) => MaybePromise<string | null | undefined>;
+
   /** delete webauthn token from the store */
   deleteWebAuthnToken: (key: string) => MaybePromise<void>;
 
