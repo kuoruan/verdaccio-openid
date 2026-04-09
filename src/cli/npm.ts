@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import process from "node:process";
 import { URL } from "node:url";
 
@@ -15,17 +15,19 @@ function parseCliArgs() {
   return minimist(process.argv.slice(2));
 }
 
-function runCommand(command: string, logCommand: boolean | string = true): string {
+function runCommand(command: string, args: string[] = [], logCommand: boolean | string = true): string {
   if (logCommand) {
-    logger.info("Running command:", colors.blackBright(typeof logCommand === "string" ? logCommand : command));
+    const displayCommand = typeof logCommand === "string" ? logCommand : [command, ...args].join(" ");
+
+    logger.info("Running command:", colors.blackBright(displayCommand));
   }
 
-  return execSync(command).toString();
+  return execFileSync(command, args, { encoding: "utf8" });
 }
 
 function getNpmConfig(): Record<string, unknown> {
   if (!npmConfig) {
-    const npmConfigJson = runCommand("npm config list --json", false);
+    const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
 
     npmConfig = JSON.parse(npmConfigJson);
   }
@@ -52,7 +54,8 @@ export function getNpmConfigFile(): string {
   return getNpmConfig().userconfig as string;
 }
 
-export function getNpmSaveCommand(registry: string, token: string): string {
+export function saveNpmToken(token: string) {
+  const registry = getRegistryUrl();
   const url = new URL(registry);
 
   let baseUrl = `${url.host}${url.pathname}`;
@@ -60,12 +63,7 @@ export function getNpmSaveCommand(registry: string, token: string): string {
     baseUrl = `${baseUrl}/`;
   }
 
-  return `npm config set //${baseUrl}:_authToken "${token}"`;
-}
+  const key = `//${baseUrl}:_authToken`;
 
-export function saveNpmToken(token: string) {
-  const registry = getRegistryUrl();
-  const command = getNpmSaveCommand(registry, token);
-
-  runCommand(command, command.replace(/".*"/, '"<token>"'));
+  runCommand("npm", ["config", "set", key, token], `npm config set ${key} "<token>"`);
 }
