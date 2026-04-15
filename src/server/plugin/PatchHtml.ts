@@ -2,7 +2,11 @@ import type { Application, Handler, Request } from "express";
 
 import { plugin } from "@/constants";
 import type { ConfigHolder } from "@/server/config/Config";
-import { staticPath } from "@/server/constants";
+import {
+  staticPath,
+  VERDACCIO_BASENAME_UI_OPTIONS_MARKER,
+  VERDACCIO_UI_OPTIONS_SCRIPT_MARKER,
+} from "@/server/constants";
 import logger from "@/server/logger";
 
 import type { PluginMiddleware } from "./Plugin";
@@ -50,7 +54,13 @@ export class PatchHtml implements PluginMiddleware {
   private insertTags(html: any, req: Request): any {
     const htmlString = Buffer.isBuffer(html) ? html.toString() : html;
 
-    if (typeof htmlString !== "string" || !htmlString.includes("__VERDACCIO_BASENAME_UI_OPTIONS")) {
+    const shouldPatchHtml =
+      typeof htmlString === "string" &&
+      [VERDACCIO_BASENAME_UI_OPTIONS_MARKER, VERDACCIO_UI_OPTIONS_SCRIPT_MARKER].some((marker) =>
+        htmlString.includes(marker),
+      );
+
+    if (!shouldPatchHtml) {
       return html;
     }
 

@@ -5,6 +5,11 @@ import { pluginKey } from "@/constants";
 export const staticPath = `/-/static/${pluginKey}`;
 export const publicRoot = fileURLToPath(new URL("../client", import.meta.url));
 
+// for Verdaccio <= 6.4, we patch the HTML at a known variable
+export const VERDACCIO_BASENAME_UI_OPTIONS_MARKER = "__VERDACCIO_BASENAME_UI_OPTIONS";
+// for Verdaccio >= 6.5, we patch the HTML at a known script tag that includes ui-options.js
+export const VERDACCIO_UI_OPTIONS_SCRIPT_MARKER = "ui-options.js";
+
 export const CONFIG_ENV_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
 export const ERRORS = {
