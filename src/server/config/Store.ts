@@ -3,7 +3,13 @@ import { number, object } from "yup";
 
 import { plugin } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
-import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
+import {
+  type DynamoConfig,
+  type FileConfig,
+  type InMemoryConfig,
+  type RedisConfig,
+  StoreType,
+} from "@/server/store/Store";
 
 import { getEnvironmentValue, handleValidationError } from "./utils";
 
@@ -60,6 +66,13 @@ export const FileConfigSchema = object<FileConfig>({
   expiredInterval: number().min(1).optional(),
 });
 
+export const DynamoConfigSchema = object<DynamoConfig>({
+  ttl: ttlSchema,
+  tableName: string().required(),
+  region: string().required(),
+  partitionKey: string().optional(),
+});
+
 abstract class StoreConfig<T> {
   constructor(
     private config: T,
@@ -102,5 +115,23 @@ export class RedisStoreConfigHolder extends StoreConfig<RedisConfig> {
 
   get storeType() {
     return StoreType.Redis;
+  }
+}
+
+export class DynamoStoreConfigHolder extends StoreConfig<DynamoConfig> {
+  get tableName() {
+    return this.getConfigValue("tableName", string().required());
+  }
+
+  get region() {
+    return this.getConfigValue("region", string().required());
+  }
+
+  get partitionKey() {
+    return this.getConfigValue("partitionKey", string().optional());
+  }
+
+  get storeType() {
+    return StoreType.DynamoDB;
   }
 }

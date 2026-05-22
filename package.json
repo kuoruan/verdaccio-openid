@@ -55,7 +55,9 @@
     "picocolors": "^1.1.1",
     "serve-static": "^2.2.1",
     "stable-hash": "^0.0.6",
-    "yup": "^1.7.1"
+    "yup": "^1.7.1",
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0"
   },
   "devDependencies": {
     "@babel/core": "^7.29.0",

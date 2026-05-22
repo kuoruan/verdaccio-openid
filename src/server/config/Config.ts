@@ -6,9 +6,22 @@ import { boolean, mixed, object, Schema, string } from "yup";
 import { plugin, pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import { ProviderType } from "@/server/plugin/AuthProvider";
-import { type FileConfig, type InMemoryConfig, type RedisConfig, StoreType } from "@/server/store/Store";
+import {
+  type DynamoConfig,
+  type FileConfig,
+  type InMemoryConfig,
+  type RedisConfig,
+  StoreType,
+} from "@/server/store/Store";
 
-import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema, RedisStoreConfigHolder } from "./Store";
+import {
+  DynamoConfigSchema,
+  DynamoStoreConfigHolder,
+  FileConfigSchema,
+  InMemoryConfigSchema,
+  RedisConfigSchema,
+  RedisStoreConfigHolder,
+} from "./Store";
 import { getEnvironmentValue, getStoreFilePath, getTTLValue, handleValidationError } from "./utils";
 
 export interface ConfigHolder {
@@ -218,7 +231,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
       this.getConfigValue<StoreType>(
         "store-type",
         string()
-          .oneOf([StoreType.InMemory, StoreType.Redis, StoreType.File] satisfies StoreType[])
+          .oneOf([StoreType.InMemory, StoreType.Redis, StoreType.File, StoreType.DynamoDB] satisfies StoreType[])
           .optional(),
       ) ?? StoreType.InMemory
     );
@@ -302,6 +315,34 @@ export default class ParsedPluginConfig implements ConfigHolder {
           dir: getStoreFilePath(configPath, config.dir),
           ttl: getTTLValue(config.ttl),
         } satisfies FileConfig;
+      }
+
+      case StoreType.DynamoDB: {
+        const storeConfig = this.getConfigValue<DynamoConfig>(
+          configKey,
+          mixed().test({
+            name: "is-dynamo-config",
+            message: "must be a DynamoConfig object",
+            test: (value) => {
+              if (typeof value === "object" && value !== null) {
+                return DynamoConfigSchema.isValidSync(value);
+              }
+              return false;
+            },
+          }),
+        );
+
+        if (storeConfig === undefined) return;
+
+        const configHolder = new DynamoStoreConfigHolder(storeConfig, configKey);
+
+        return {
+          ...storeConfig,
+          tableName: configHolder.tableName,
+          region: configHolder.region,
+          partitionKey: configHolder.partitionKey,
+          ttl: getTTLValue(storeConfig.ttl),
+        } satisfies DynamoConfig;
       }
 
       default: {
