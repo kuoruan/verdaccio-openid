@@ -72,6 +72,7 @@ export enum StoreType {
   InMemory = "in-memory",
   Redis = "redis",
   File = "file",
+  DynamoDB = "dynamodb",
 }
 
 interface StoreBaseConfig {
@@ -97,4 +98,17 @@ export type RedisConfig = RedisSingleConfig | RedisClusterConfig;
 
 export interface FileConfig extends StoreBaseConfig, Omit<FileInitOptions, "ttl"> {
   dir: string;
+}
+
+export interface DynamoConfig extends StoreBaseConfig {
+  /** DynamoDB table name. Must already exist with pk (S) hash key,
+   *  sk (S) range key, and `expires` configured as the TTL attribute. */
+  tableName: string;
+  /** AWS region of the table. */
+  region: string;
+  /** Partition-key value to namespace this plugin's rows. Default
+   *  "OIDC". Set a unique value when sharing the table with other
+   *  writers (e.g. verdaccio-aws-s3-storage which uses pk=PACKAGE
+   *  / pk=CONFIG). */
+  partitionKey?: string;
 }
