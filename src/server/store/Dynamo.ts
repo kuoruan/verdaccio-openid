@@ -22,6 +22,45 @@ function assertSize(label: string, value: string, max: number): void {
 }
 
 /**
+ * Wraps an AWS SDK error so the verdaccio plugin layer sees a small,
+ * deterministic message — never the raw stack trace, which can be
+ * huge and includes internal SDK paths. Crucially, keeping write
+ * errors typed (rather than letting the raw SDK error propagate)
+ * means a stray `unhandledRejection` from a fire-and-forget caller
+ * doesn't kill the whole verdaccio process on a transient DNS or
+ * 5xx blip.
+ */
+class DynamoStoreError extends Error {
+  constructor(op: string, cause: unknown) {
+    const ce = cause as { name?: string; code?: string; message?: string } | undefined;
+    const code = ce?.code ?? ce?.name ?? "unknown";
+    super(`DynamoStore.${op} failed: ${code}`);
+    this.name = "DynamoStoreError";
+    if (cause instanceof Error) this.cause = cause;
+  }
+}
+
+/** Transient errors are expected (DNS hiccup, throttling, brief
+ *  endpoint flap). We still log them, but at warn — not error — to
+ *  avoid alert fatigue. Caller decides whether to fail-open. */
+const TRANSIENT_AWS_ERRORS = new Set([
+  "EAI_AGAIN",
+  "ENOTFOUND",
+  "ECONNRESET",
+  "ETIMEDOUT",
+  "ProvisionedThroughputExceededException",
+  "ThrottlingException",
+  "InternalServerError",
+  "ServiceUnavailable",
+]);
+
+function classify(err: unknown): "transient" | "permanent" {
+  const code = (err as { code?: string; name?: string } | undefined)?.code
+    ?? (err as { code?: string; name?: string } | undefined)?.name;
+  return code && TRANSIENT_AWS_ERRORS.has(code) ? "transient" : "permanent";
+}
+
+/**
  * DynamoDB-backed store for verdaccio-openid.
  *
  * ─── Threat model ────────────────────────────────────────────────────
@@ -99,17 +138,29 @@ export default class DynamoStore extends BaseStore implements Store {
   }
 
   private async put(sk: string, item: Record<string, unknown>, ttlSeconds: number): Promise<void> {
-    await this.client.send(
-      new PutCommand({
-        TableName: this.tableName,
-        Item: {
-          pk: this.pk,
-          sk,
-          expires: this.expiresAt(ttlSeconds),
-          ...item,
+    try {
+      await this.client.send(
+        new PutCommand({
+          TableName: this.tableName,
+          Item: {
+            pk: this.pk,
+            sk,
+            expires: this.expiresAt(ttlSeconds),
+            ...item,
+          },
+        }),
+      );
+    } catch (err) {
+      const level = classify(err) === "transient" ? "warn" : "error";
+      logger[level](
+        {
+          error: (err as { name?: string })?.name ?? "unknown",
+          code: (err as { code?: string })?.code,
         },
-      }),
-    );
+        "DynamoStore.put failed: @{error} (@{code})",
+      );
+      throw new DynamoStoreError("put", err);
+    }
   }
 
   private async get<T = Record<string, unknown>>(sk: string): Promise<T | undefined> {
@@ -126,10 +177,13 @@ export default class DynamoStore extends BaseStore implements Store {
       }
       return out.Item as T | undefined;
     } catch (err: any) {
-      logger.debug(
-        { error: err?.name ?? "unknown", message: err?.message ?? String(err) },
-        "DynamoStore.get failed: @{error} - @{message}",
+      const level = classify(err) === "transient" ? "warn" : "error";
+      logger[level](
+        { error: err?.name ?? "unknown", code: err?.code },
+        "DynamoStore.get failed: @{error} (@{code})",
       );
+      // Fail-closed reads: undefined forces the auth flow to re-issue
+      // state rather than acting on stale / unavailable data.
       return undefined;
     }
   }
@@ -143,10 +197,13 @@ export default class DynamoStore extends BaseStore implements Store {
         }),
       );
     } catch (err: any) {
-      logger.debug(
-        { error: err?.name ?? "unknown", message: err?.message ?? String(err) },
-        "DynamoStore.del failed: @{error} - @{message}",
+      const level = classify(err) === "transient" ? "warn" : "error";
+      logger[level](
+        { error: err?.name ?? "unknown", code: err?.code },
+        "DynamoStore.del failed: @{error} (@{code})",
       );
+      // Swallow on delete — a stale row will expire via TTL anyway,
+      // and propagating here can break a logout flow without value.
     }
   }
 
@@ -234,7 +291,17 @@ export default class DynamoStore extends BaseStore implements Store {
           ExpressionAttributeValues: { ":current": current },
         }),
       );
-    } catch {
+    } catch (err: any) {
+      // ConditionalCheckFailedException = lost the race; anything
+      // else = transient/permanent — either way the safe answer is
+      // "we didn't consume the token", so the caller must retry.
+      if (err?.name && err.name !== "ConditionalCheckFailedException") {
+        const level = classify(err) === "transient" ? "warn" : "error";
+        logger[level](
+          { error: err?.name, code: err?.code },
+          "DynamoStore.takeWebAuthnToken delete failed: @{error} (@{code})",
+        );
+      }
       return undefined;
     }
     return current;
