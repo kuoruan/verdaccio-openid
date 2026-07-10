@@ -86,6 +86,6 @@ export function isUITokenExpired() {
  * @param credentials The credentials object to validate
  * @returns {boolean} True if the credentials object is valid
  */
-export function validateCredentials(credentials: Partial<Credentials>): credentials is Credentials {
+export function isValidCredentials(credentials: Partial<Credentials>): credentials is Credentials {
   return (["username", "uiToken", "npmToken"] satisfies (keyof Credentials)[]).every((key) => !!credentials[key]);
 }

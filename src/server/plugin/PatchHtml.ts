@@ -70,7 +70,7 @@ export class PatchHtml implements PluginMiddleware {
 
     const scriptTag = this.generateScriptTag(req, indent);
 
-    return htmlString.replace(bodyLineRegex, `${scriptTag}</body>`);
+    return htmlString.replace(bodyLineRegex, () => `${scriptTag}</body>`);
   }
 
   private generateScriptTag(req: Request, indent: string): string {

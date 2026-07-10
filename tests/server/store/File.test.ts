@@ -50,7 +50,7 @@ describe("FileStore constructor", () => {
 
     expect(() => new FileStore("/some/dir")).not.toThrow();
 
-    process.nextTick(() => {
+    queueMicrotask(() => {
       expect(exitMock).toHaveBeenCalledWith(1);
 
       expect(logger.error).toHaveBeenCalledWith(

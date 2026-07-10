@@ -136,24 +136,24 @@ export class AuthCore {
 
     debug("authenticate user %s with groups %j, required groups: %j", username, groups, this.authenticatedGroups);
 
-    let authenticated: boolean;
+    let isAuthenticated: boolean;
 
     /**
      * - if authenticatedGroups is true, the user must be in at least one group
      * - if authenticatedGroups is false, no group authentication is required
      */
     if (this.authenticatedGroups === true) {
-      authenticated = groups.length > 0;
+      isAuthenticated = groups.length > 0;
     } else if (this.authenticatedGroups === false) {
-      authenticated = true;
+      isAuthenticated = true;
     } else {
       /**
        * if authenticatedGroups is an array, the user must be in one of the groups
        */
-      authenticated = this.authenticatedGroups.some((group) => username === group || groups.includes(group));
+      isAuthenticated = this.authenticatedGroups.some((group) => username === group || groups.includes(group));
     }
 
-    return authenticated;
+    return isAuthenticated;
   }
 
   issueNpmToken(username: string, realGroups: string[], providerToken: OpenIDToken): Promise<string> {
@@ -166,9 +166,8 @@ export class AuthCore {
       }
 
       return Promise.resolve(npmToken);
-    } else {
-      return this.signJWT(username, realGroups, this.security.api.jwt!.sign);
     }
+    return this.signJWT(username, realGroups, this.security.api.jwt!.sign);
   }
 
   /**
@@ -213,13 +212,13 @@ export class AuthCore {
       }
 
       return { name, real_groups: realGroups };
-    } else if (isJWT(token)) {
+    }
+    if (isJWT(token)) {
       debug("verifying npm token using jwt");
       return this.verifyJWT(token);
-    } else {
-      debug("npm token is not a valid jwt");
-      throw new TypeError(ERRORS.INVALID_TOKEN);
     }
+    debug("npm token is not a valid jwt");
+    throw new TypeError(ERRORS.INVALID_TOKEN);
   }
 
   /**

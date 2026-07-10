@@ -9,7 +9,7 @@ import logger from "./logger";
 
 export const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com", "registry.npm.taobao.org"];
 
-let npmConfig: Record<string, unknown>;
+let npmConfig: Record<string, unknown> | undefined;
 
 function parseCliArgs() {
   return minimist(process.argv.slice(2));
@@ -26,10 +26,17 @@ function runCommand(command: string, args: string[] = [], logCommand: boolean | 
 }
 
 function getNpmConfig(): Record<string, unknown> {
-  if (!npmConfig) {
-    const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
+  if (npmConfig) {
+    return npmConfig;
+  }
 
-    npmConfig = JSON.parse(npmConfigJson);
+  const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
+
+  try {
+    // eslint-disable-next-line unicorn/no-top-level-assignment-in-function
+    npmConfig = JSON.parse(npmConfigJson) as Record<string, unknown>;
+  } catch {
+    return {};
   }
   return npmConfig;
 }
@@ -60,7 +67,7 @@ export function saveNpmToken(token: string) {
 
   let baseUrl = `${url.host}${url.pathname}`;
   if (!baseUrl.endsWith("/")) {
-    baseUrl = `${baseUrl}/`;
+    baseUrl += "/";
   }
 
   const key = `//${baseUrl}:_authToken`;

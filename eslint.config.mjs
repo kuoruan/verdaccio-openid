@@ -70,6 +70,10 @@ export default defineConfig(
       "unicorn/prefer-global-this": "off",
       "unicorn/prefer-module": "off",
       "unicorn/prevent-abbreviations": "off",
+      "unicorn/name-replacements": "off",
+      "unicorn/no-computed-property-existence-check": "off",
+      "unicorn/no-incorrect-template-string-interpolation": "off",
+      "unicorn/consistent-class-member-order": "off",
     },
     settings: {
       "import-x/resolver": [],

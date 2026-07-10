@@ -4,8 +4,8 @@
  */
 import { getNPMToken } from "./credentials";
 
-export function getUsageInfo(loggedIn: boolean): string {
-  if (!loggedIn) {
+export function getUsageInfo(isLoggedIn: boolean): string {
+  if (!isLoggedIn) {
     return "Click the login button to authenticate with OIDC.";
   }
 

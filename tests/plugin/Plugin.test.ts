@@ -28,9 +28,11 @@ vi.mock("openid-client", () => ({
     }),
     clientMetadata: () => ({ client_id: "test-client-id" }),
   })),
-  Configuration: vi.fn(function (this: any, serverMetadata, clientId, metadata) {
-    this.serverMetadata = () => serverMetadata;
-    this.clientMetadata = () => ({ client_id: clientId, ...metadata });
+  Configuration: vi.fn(function (serverMetadata, clientId, metadata) {
+    return {
+      serverMetadata: () => serverMetadata,
+      clientMetadata: () => ({ client_id: clientId, ...metadata }),
+    };
   }),
 }));
 

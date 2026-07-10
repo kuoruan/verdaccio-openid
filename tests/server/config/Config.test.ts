@@ -282,7 +282,7 @@ describe("Invalid ParsedPluginConfig", () => {
       {
         ...mockConfig,
         "store-type": StoreType.InMemory,
-        "store-config": "invalid" as any,
+        "store-config": "invalid",
       },
       mockVerdaccioConfig,
     );
@@ -293,7 +293,7 @@ describe("Invalid ParsedPluginConfig", () => {
       {
         ...mockConfig,
         "store-type": StoreType.Redis,
-        "store-config": "invalid" as any,
+        "store-config": "invalid",
       },
       mockVerdaccioConfig,
     );

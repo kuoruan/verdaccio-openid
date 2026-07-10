@@ -7,8 +7,8 @@ import {
   isLoggedIn,
   isOpenIDLoggedIn,
   isUITokenExpired,
+  isValidCredentials,
   saveCredentials,
-  validateCredentials,
 } from "./credentials";
 import { copyToClipboard, getBaseUrl, interruptClick, retry } from "./lib";
 import { getUsageInfo } from "./usage-info";
@@ -25,10 +25,10 @@ function reloadToPathname() {
   location.reload();
 }
 
-function parseAndSaveCredentials(): boolean {
+function didParseAndSavedCredentials(): boolean {
   const credentials: Partial<Credentials> = parseQueryParams(location.search);
 
-  if (!validateCredentials(credentials)) {
+  if (!isValidCredentials(credentials)) {
     return false;
   }
 
@@ -50,7 +50,7 @@ function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: b
     e.preventDefault();
     e.stopPropagation();
 
-    copyToClipboard(info).catch((e) => console.warn(e));
+    void copyToClipboard(info).catch((e) => console.warn(e));
   });
 
   command.parentElement!.append(cloned);
@@ -72,9 +72,9 @@ function removeInvalidCommands(commands: HTMLElement[]): void {
 }
 
 function updateUsageTabs(usageTabsSelector: string): void {
-  const openIDLoggedIn = isOpenIDLoggedIn();
+  const isLoggedInViaOpenID = isOpenIDLoggedIn();
 
-  if (!openIDLoggedIn && isLoggedIn()) {
+  if (!isLoggedInViaOpenID && isLoggedIn()) {
     // If we are logged in but not with OpenID, we don't need to update the usage info
     return;
   }
@@ -85,7 +85,7 @@ function updateUsageTabs(usageTabsSelector: string): void {
 
   if (tabs.length === 0) return;
 
-  const usageInfoLines = getUsageInfo(openIDLoggedIn).split("\n").toReversed();
+  const usageInfoLines = getUsageInfo(isLoggedInViaOpenID).split("\n").toReversed();
 
   for (const tab of tabs) {
     const commands = [...tab.querySelectorAll("button")]
@@ -95,7 +95,7 @@ function updateUsageTabs(usageTabsSelector: string): void {
     if (commands.length === 0) continue;
 
     for (const info of usageInfoLines) {
-      cloneAndAppendCommand(commands[0], info, openIDLoggedIn);
+      cloneAndAppendCommand(commands[0], info, isLoggedInViaOpenID);
     }
 
     removeInvalidCommands(commands);
@@ -140,7 +140,7 @@ export function init({
   usageTabsSelector,
   loginDialogSelector,
 }: InitOptions): void {
-  if (parseAndSaveCredentials()) {
+  if (didParseAndSavedCredentials()) {
     // If we are new logged in, reload the page to remove the query params
     reloadToPathname();
     return;
@@ -153,7 +153,7 @@ export function init({
   const baseUrl = getBaseUrl(true);
 
   const gotoOpenIDLoginUrl = () => {
-    location.href = baseUrl + loginHref;
+    location.assign(baseUrl + loginHref);
   };
 
   if (window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin) {
@@ -167,7 +167,7 @@ export function init({
   interruptClick(logoutButtonSelector, () => {
     clearCredentials();
 
-    location.href = baseUrl + logoutHref;
+    location.assign(baseUrl + logoutHref);
   });
 
   const updateUsageInfo = () => updateUsageTabs(usageTabsSelector);

@@ -61,6 +61,8 @@ export const FileConfigSchema = object<FileConfig>({
 });
 
 abstract class StoreConfig<T> {
+  abstract storeType: StoreType;
+
   constructor(
     private config: T,
     private configKey: string,
@@ -87,8 +89,6 @@ abstract class StoreConfig<T> {
 
     return value as T[K];
   }
-
-  abstract storeType: StoreType;
 }
 
 export class RedisStoreConfigHolder extends StoreConfig<RedisConfig> {

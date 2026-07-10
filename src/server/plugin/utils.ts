@@ -19,7 +19,8 @@ export function getAllConfiguredGroups(packages: PackageList = {}): string[] {
 
         if (typeof v === "string") {
           return [v];
-        } else if (Array.isArray(v)) {
+        }
+        if (Array.isArray(v)) {
           return v;
         }
         return [];
@@ -119,6 +120,7 @@ export function isNowBefore(expireAt: number): boolean {
  * @param noTrailingSlash Whether to include a trailing slash.
  * @returns
  */
+// eslint-disable-next-line unicorn/consistent-boolean-name
 export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = false): string {
   const base = getPublicUrl(urlPrefix, req);
 
@@ -147,7 +149,7 @@ export function getFullUrl(urlPrefix: string, req: Request): URL {
   // 2. `/prefix` incorrectly matches `reqPath = "/prefix-other"` (substring match)
   const cleanPrefix = urlPrefix.replace(/\/+$/, "");
 
-  const hasPrefix = cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/"));
+  const hasPrefix = !!(cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/")));
 
   return hasPrefix ? new URL(reqPath, baseUrl) : new URL(baseUrl + reqPath);
 }
@@ -172,9 +174,11 @@ export function isJWT(token: string): boolean {
 export function getPackageSpec(pkg: AllowAccess): string {
   if (pkg.version) {
     return `${pkg.name}@${pkg.version}`;
-  } else if (pkg.tag) {
-    return `${pkg.name}@${pkg.tag}`;
-  } else {
-    return pkg.name;
   }
+
+  if (pkg.tag) {
+    return `${pkg.name}@${pkg.tag}`;
+  }
+
+  return pkg.name;
 }

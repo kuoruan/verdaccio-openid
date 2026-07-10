@@ -11,6 +11,8 @@ const logger = {
   error: (...args: any[]) => console.error(prefix, colors.red(args.join(" "))),
 };
 
-logger.info(`Version: ${plugin.name}@${plugin.version}`);
+export function logPluginInfo() {
+  logger.info(`Version: ${plugin.name}@${plugin.version}`);
+}
 
 export default logger;

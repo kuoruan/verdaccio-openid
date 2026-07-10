@@ -68,22 +68,6 @@ export default class ParsedPluginConfig implements ConfigHolder {
     private readonly verdaccioConfig: Config,
   ) {}
 
-  public get secret(): string {
-    return this.verdaccioConfig.secret;
-  }
-
-  public get security(): Security {
-    return merge(defaultSecurity, this.verdaccioConfig.security ?? {});
-  }
-
-  public get packages(): PackageList {
-    return this.verdaccioConfig.packages ?? {};
-  }
-
-  public get urlPrefix(): string {
-    return this.verdaccioConfig.url_prefix ?? "";
-  }
-
   private getConfigValue<T>(key: keyof OpenIDConfig, schema: Schema): T {
     const valueOrEnvironmentName =
       this.config[key] ??
@@ -112,6 +96,22 @@ export default class ParsedPluginConfig implements ConfigHolder {
     }
 
     return value as T;
+  }
+
+  public get secret(): string {
+    return this.verdaccioConfig.secret;
+  }
+
+  public get security(): Security {
+    return merge(defaultSecurity, this.verdaccioConfig.security ?? {});
+  }
+
+  public get packages(): PackageList {
+    return this.verdaccioConfig.packages ?? {};
+  }
+
+  public get urlPrefix(): string {
+    return this.verdaccioConfig.url_prefix ?? "";
   }
 
   public get providerHost() {

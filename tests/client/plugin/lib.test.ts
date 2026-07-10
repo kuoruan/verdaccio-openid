@@ -3,13 +3,11 @@ import { describe, expect, it } from "vitest";
 import { parseJwt } from "@/client/plugin/lib";
 
 // Mock window for Node.js environment
-if (global.window === undefined) {
-  global.window = {
-    atob: (str: string) => {
-      return Buffer.from(str, "base64").toString("binary");
-    },
-  };
-}
+vi.stubGlobal("window", {
+  atob: (str: string) => {
+    return Buffer.from(str, "base64").toString("binary");
+  },
+});
 
 describe("parseJwt", () => {
   it("should parse valid JWT token", () => {

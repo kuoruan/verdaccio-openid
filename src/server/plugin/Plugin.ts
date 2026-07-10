@@ -221,9 +221,9 @@ export class Plugin
       userGroups = this.core.getNonLoggedUserGroups();
     }
 
-    const grant = !!meta.requiredGroups?.some((group) => user.name === group || userGroups.includes(group));
+    const isGranted = !!meta.requiredGroups?.some((group) => user.name === group || userGroups.includes(group));
 
-    if (grant) {
+    if (isGranted) {
       callback(null, true);
       return;
     }
@@ -254,7 +254,8 @@ export class Plugin
       // verdaccio will call allow_unpublish() automatically
       callback(null);
       return;
-    } else if (requiredGroups === true) {
+    }
+    if (requiredGroups === true) {
       callback(errorUtils.getInternalError(`invalid unpublish configuration for package ${pkg.name}`));
       return;
     }

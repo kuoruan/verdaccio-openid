@@ -1,4 +1,4 @@
-/* eslint-disable unicorn/prefer-spread, unicorn/prefer-code-point */
+/* eslint-disable unicorn/prefer-code-point */
 
 // This parseJWT implementation is taken from https://stackoverflow.com/a/38552302/1935971
 export function parseJwt(token: string): Record<string, any> | null {
@@ -49,7 +49,7 @@ export function retry(action: () => void, times = 5): void {
  * @param e the mouse event
  * @returns
  */
-function pathContainsElement(selector: string, e: MouseEvent): boolean {
+function hasElementInPath(selector: string, e: MouseEvent): boolean {
   const path = e.path || e.composedPath?.();
   const element = document.querySelector(selector)!;
 
@@ -64,14 +64,16 @@ function pathContainsElement(selector: string, e: MouseEvent): boolean {
  */
 export function interruptClick(selector: string, callback: () => void): void {
   const handleClick = (e: MouseEvent) => {
-    if (pathContainsElement(selector, e)) {
-      e.preventDefault();
-      e.stopPropagation();
-      callback();
+    if (!hasElementInPath(selector, e)) {
+      return;
     }
+
+    e.preventDefault();
+    e.stopPropagation();
+    callback();
   };
-  const capture = true;
-  document.addEventListener("click", handleClick, capture);
+  const isCapture = true;
+  document.addEventListener("click", handleClick, isCapture);
 }
 
 /**
@@ -83,31 +85,30 @@ export function interruptClick(selector: string, callback: () => void): void {
  * @returns
  */
 export function wrapPrefix(prefix: string | void): string {
-  if (prefix === "" || prefix === undefined || prefix === null) {
+  if (!prefix) {
     return "";
-  } else if (!prefix.startsWith("/") && prefix.endsWith("/")) {
-    return `/${prefix}`;
-  } else if (!prefix.startsWith("/") && !prefix.endsWith("/")) {
-    return `/${prefix}/`;
-  } else if (prefix.startsWith("/") && !prefix.endsWith("/")) {
-    return `${prefix}/`;
-  } else {
-    return prefix;
   }
+  if (!prefix.startsWith("/") && prefix.endsWith("/")) {
+    return `/${prefix}`;
+  }
+  if (!prefix.startsWith("/") && !prefix.endsWith("/")) {
+    return `/${prefix}/`;
+  }
+  return prefix.startsWith("/") && !prefix.endsWith("/") ? `${prefix}/` : prefix;
 }
 
 /**
  * Get the base url from the global options
  *
- * @param noTrailingSlash Whether to include a trailing slash.
+ * @param shouldStripTrailingSlash Whether to include a trailing slash.
  * @returns
  */
-export function getBaseUrl(noTrailingSlash = false): string {
+export function getBaseUrl(shouldStripTrailingSlash = false): string {
   const urlPrefix = window.__VERDACCIO_BASENAME_UI_OPTIONS?.url_prefix;
 
   const base = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
 
-  return noTrailingSlash ? base.replace(/\/$/, "") : base;
+  return shouldStripTrailingSlash ? base.replace(/\/$/, "") : base;
 }
 
 /**

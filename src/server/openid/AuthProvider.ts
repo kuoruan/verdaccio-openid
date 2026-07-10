@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-await */
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
 
@@ -44,13 +45,14 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     this.scope = this.config.scope;
 
     // Start configuration discovery in the background
-    void this.ensureConfiguration()
-      .then(() => {
+    void (async () => {
+      try {
+        await this.ensureConfiguration();
         logger.info("OpenID Connect configuration discovery completed successfully");
-      })
-      .catch((e) => {
+      } catch (e: any) {
         logger.error({ message: e.message }, "@{message}");
-      });
+      }
+    })();
   }
 
   /**

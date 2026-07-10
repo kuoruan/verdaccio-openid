@@ -8,13 +8,15 @@ import open from "open";
 import { cliPort, cliProviderId } from "@/constants";
 import { getAuthorizePath } from "@/redirect";
 
-import logger from "./logger";
+import logger, { logPluginInfo } from "./logger";
 import { saveNpmToken } from "./npm";
 import { respondWithCliMessage, respondWithWebPage } from "./response";
 import { validateRegistry } from "./usage";
 
 const registry = validateRegistry();
 const authorizeUrl = registry + getAuthorizePath(cliProviderId);
+
+logPluginInfo();
 
 const server = express()
   .get("/", (req, res) => {
@@ -38,13 +40,15 @@ const server = express()
 
     process.exit(status === "success" ? 0 : 1);
   })
-  .listen(cliPort, () => {
+  .listen(cliPort, async () => {
     logger.info(`Listening on port ${cliPort}...`);
     logger.info(`Opening ${authorizeUrl} in your browser...`);
 
-    open(authorizeUrl).catch(() => {
+    try {
+      await open(authorizeUrl);
+    } catch {
       logger.error("Failed to open browser window.");
       logger.warn("Please visit the following URL manually:");
       logger.info(authorizeUrl);
-    });
+    }
   });

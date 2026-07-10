@@ -46,9 +46,11 @@ vi.mock("openid-client", () => ({
       client_id: "test-client-id",
     }),
   })),
-  Configuration: vi.fn(function (this: any, serverMetadata, clientId, metadata, _clientAuth) {
-    this.serverMetadata = () => serverMetadata;
-    this.clientMetadata = () => ({ client_id: clientId, ...metadata });
+  Configuration: vi.fn(function (serverMetadata, clientId, metadata, _clientAuth) {
+    return {
+      serverMetadata: () => serverMetadata,
+      clientMetadata: () => ({ client_id: clientId, ...metadata }),
+    };
   }),
   ClientSecretPost: vi.fn((secret) => (as, client, body: URLSearchParams, _headers) => {
     body.set("client_id", client.client_id);
@@ -58,10 +60,12 @@ vi.mock("openid-client", () => ({
 
 // Mock @gitbeaker/rest
 vi.mock("@gitbeaker/rest", () => ({
-  Groups: vi.fn(function (this: any, options) {
-    this.host = options.host;
-    this.oauthToken = options.oauthToken;
-    this.all = vi.fn(() => [{ name: "gitlab-group1" }, { name: "gitlab-group2" }, { name: "gitlab-group3" }]);
+  Groups: vi.fn(function (options) {
+    return {
+      host: options.host,
+      oauthToken: options.oauthToken,
+      all: vi.fn(() => [{ name: "gitlab-group1" }, { name: "gitlab-group2" }, { name: "gitlab-group3" }]),
+    };
   }),
 }));
 
@@ -201,7 +205,8 @@ describe("OpenIDConnectAuthProvider", () => {
       mockConfig.jwksUri = undefined;
 
       let resolveDiscovery!: (value: any) => void;
-      const discoveryPromise = new Promise((resolve) => {
+      // eslint-disable-next-line unicorn/prefer-promise-with-resolvers
+      const discoveryPromise = new Promise<any>((resolve) => {
         resolveDiscovery = resolve;
       });
 
@@ -316,7 +321,7 @@ describe("OpenIDConnectAuthProvider", () => {
 
       const { authorizationCodeGrant } = await import("openid-client");
       const calledUrl = vi.mocked(authorizationCodeGrant).mock.calls[0]?.[1] as URL;
-      expect(calledUrl.toString()).toBe(
+      expect(calledUrl.href).toBe(
         "https://registry.example.com/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
       );
     });
@@ -343,7 +348,7 @@ describe("OpenIDConnectAuthProvider", () => {
 
       const { authorizationCodeGrant } = await import("openid-client");
       const calledUrl = vi.mocked(authorizationCodeGrant).mock.calls[0]?.[1] as URL;
-      expect(calledUrl.toString()).toBe(
+      expect(calledUrl.href).toBe(
         "https://registry.example.com/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
       );
     });

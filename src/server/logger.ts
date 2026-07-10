@@ -22,6 +22,7 @@ let logger: Logger = dummyLogger;
 export function setLogger(l?: Logger) {
   if (!l) return;
 
+  // eslint-disable-next-line unicorn/no-top-level-assignment-in-function
   logger = l.child({ plugin: { name: plugin.name } });
   logger?.info(plugin, "plugin loading: @{name}@@{version}");
 }

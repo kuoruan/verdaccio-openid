@@ -21,7 +21,7 @@ export default class FileStore extends BaseStore implements Store {
       ...(typeof opts === "string" ? { dir: opts } : opts),
     });
 
-    db.init().catch((e) => {
+    void db.init().catch((e) => {
       logger.error({ message: e.message }, "Failed to initialize file store: @{message}");
       process.exit(1);
     });
