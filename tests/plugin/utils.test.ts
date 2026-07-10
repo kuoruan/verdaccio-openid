@@ -179,6 +179,33 @@ describe("getFullUrl", () => {
     const url = getFullUrl("/prefix", req);
     expect(url.toString()).toBe("https://registry.example.com/prefix/prefix-other/callback?code=abc");
   });
+
+  it("should match url_prefix without trailing slash against req.url with trailing slash", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/prefix/",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix", req);
+    expect(url.toString()).toBe("https://registry.example.com/prefix/");
+  });
+
+  it("should normalize url_prefix with multiple trailing slashes", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/prefix/callback?code=abc",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix///", req);
+    // cleanPrefix becomes "/prefix", reqPath starts with "/prefix/" → uses new URL()
+    expect(url.toString()).toBe("https://registry.example.com/prefix/callback?code=abc");
+  });
 });
 
 describe("getAllConfiguredGroups", () => {

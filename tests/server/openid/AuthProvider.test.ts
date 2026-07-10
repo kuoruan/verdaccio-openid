@@ -503,6 +503,46 @@ describe("OpenIDConnectAuthProvider", () => {
 
       expect(tokenInfo.expiresAt).toBe(1_700_000_000);
     });
+
+    it("should propagate error when claims() throws", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: "mock-access-token",
+        id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expires_in: 3600,
+        claims: () => {
+          throw new Error("claims parsing failed");
+        },
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      await expect(provider.getToken(mockRequest)).rejects.toThrow("claims parsing failed");
+    });
+
+    it("should propagate error when getOpenIDState throws", async () => {
+      mockStore.getOpenIDState = vi.fn(() => {
+        throw new Error("store connection failed");
+      });
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      await expect(provider.getToken(mockRequest)).rejects.toThrow("store connection failed");
+    });
   });
 
   describe("getUserinfo", () => {
