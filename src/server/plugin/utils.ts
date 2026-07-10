@@ -142,7 +142,14 @@ export function getFullUrl(urlPrefix: string, req: Request): URL {
   const baseUrl = getBaseUrl(urlPrefix, req, true);
   const reqPath = req.url;
 
-  return urlPrefix && reqPath.startsWith(urlPrefix) ? new URL(reqPath, baseUrl) : new URL(baseUrl + reqPath);
+  // Normalize the prefix (strip trailing slashes) to avoid two edge cases:
+  // 1. `/prefix/` does not match `reqPath = "/prefix"` (trailing slash mismatch)
+  // 2. `/prefix` incorrectly matches `reqPath = "/prefix-other"` (substring match)
+  const cleanPrefix = urlPrefix.replace(/\/+$/, "");
+
+  const hasPrefix = cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/"));
+
+  return hasPrefix ? new URL(reqPath, baseUrl) : new URL(baseUrl + reqPath);
 }
 
 /**

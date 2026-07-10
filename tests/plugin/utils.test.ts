@@ -153,6 +153,32 @@ describe("getFullUrl", () => {
     expect(url.searchParams.get("code")).toBe("abc");
     expect(url.searchParams.get("state")).toBe("xyz");
   });
+
+  it("should handle url_prefix with trailing slash when req.url lacks it", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/prefix",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix/", req);
+    expect(url.toString()).toBe("https://registry.example.com/prefix");
+  });
+
+  it("should not treat substring path as matching the url_prefix", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/prefix-other/callback?code=abc",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix", req);
+    expect(url.toString()).toBe("https://registry.example.com/prefix/prefix-other/callback?code=abc");
+  });
 });
 
 describe("getAllConfiguredGroups", () => {
