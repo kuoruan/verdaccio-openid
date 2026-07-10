@@ -1,5 +1,0 @@
-[browser]
-supports es5
-
-[node]
-node >= 18
