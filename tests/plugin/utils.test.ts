@@ -8,6 +8,7 @@ import {
   getAuthenticatedGroups,
   getBaseUrl,
   getClaimsFromIdToken,
+  getFullUrl,
   getPackageSpec,
   hashObject,
   isNowBefore,
@@ -94,6 +95,63 @@ describe("getBaseUrl", () => {
     } as Request;
 
     expect(getBaseUrl("/prefix", req, true)).toBe("http://localhost");
+  });
+});
+
+describe("getFullUrl", () => {
+  it("should preserve url_prefix when req.url does not include it (reverse proxy scenario)", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/-/oauth/callback/authn?code=abc&state=xyz",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix/", req);
+    expect(url.toString()).toBe("https://registry.example.com/prefix/-/oauth/callback/authn?code=abc&state=xyz");
+  });
+
+  it("should not duplicate url_prefix when req.url already includes it", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/prefix/-/oauth/callback/authn?code=abc&state=xyz",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix/", req);
+    expect(url.toString()).toBe("https://registry.example.com/prefix/-/oauth/callback/authn?code=abc&state=xyz");
+  });
+
+  it("should work correctly when url_prefix is empty", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/");
+
+    const req = {
+      url: "/-/oauth/callback/authn?code=abc&state=xyz",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("", req);
+    expect(url.toString()).toBe("https://registry.example.com/-/oauth/callback/authn?code=abc&state=xyz");
+  });
+
+  it("should return a URL object with correct parts", async () => {
+    const { getPublicUrl } = await import("@verdaccio/url");
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+    const req = {
+      url: "/-/oauth/callback/authn?code=abc&state=xyz",
+      headers: {},
+    } as Request;
+
+    const url = getFullUrl("/prefix/", req);
+    expect(url.hostname).toBe("registry.example.com");
+    expect(url.pathname).toBe("/prefix/-/oauth/callback/authn");
+    expect(url.searchParams.get("code")).toBe("abc");
+    expect(url.searchParams.get("state")).toBe("xyz");
   });
 });
 
