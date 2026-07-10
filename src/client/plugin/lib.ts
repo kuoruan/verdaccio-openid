@@ -1,6 +1,6 @@
 /* eslint-disable unicorn/prefer-code-point */
 
-// This parseJWT implementation is taken from https://stackoverflow.com/a/38552302/1935971
+// This parseJwt implementation is taken from https://stackoverflow.com/a/38552302/1935971
 export function parseJwt(token: string): Record<string, any> | null {
   try {
     // JWT has 3 parts separated by ".", the payload is the base64url-encoded part in the middle
@@ -31,10 +31,12 @@ export function parseJwt(token: string): Record<string, any> | null {
 }
 
 /**
- * Retry an action multiple times.
+ * Schedule an action `times` times via `setTimeout`, each `100 * i` ms apart.
  *
- * @param action
- * @param times
+ * All calls fire unconditionally — this does not stop on success or failure.
+ *
+ * @param action the action to schedule
+ * @param times number of scheduled calls (default 5)
  */
 export function retry(action: () => void, times = 5): void {
   for (let i = 0; i < times; i++) {
@@ -43,11 +45,11 @@ export function retry(action: () => void, times = 5): void {
 }
 
 /**
- * Check if the path of a mouse event contains an element.
+ * Check whether the element matching `selector` is in the mouse event's path.
  *
  * @param selector the selector of the element to check for
  * @param e the mouse event
- * @returns
+ * @returns whether the matched element appears in the event's composed path
  */
 function hasElementInPath(selector: string, e: MouseEvent): boolean {
   const path = e.path || e.composedPath?.();
@@ -57,10 +59,13 @@ function hasElementInPath(selector: string, e: MouseEvent): boolean {
 }
 
 /**
- * Interrupt a click event on an element.
+ * Intercept clicks on the element matching `selector` and run `callback` instead.
  *
- * @param selector the selector of the element to interrupt the click event for
- * @param callback new callback to run instead of the original click event
+ * Registers a capture-phase listener on `document`, so it runs before the target's
+ * own click handlers and calls `preventDefault`/`stopPropagation` on matching events.
+ *
+ * @param selector the selector of the element whose clicks to intercept
+ * @param callback callback to run instead of the original click
  */
 export function interruptClick(selector: string, callback: () => void): void {
   const handleClick = (e: MouseEvent) => {
@@ -77,38 +82,41 @@ export function interruptClick(selector: string, callback: () => void): void {
 }
 
 /**
- * Copy from @verdaccio/url#wrapPrefix
+ * Normalize a URL prefix so it both starts and ends with "/".
  *
- * We can't import it directly because it's a commonjs module.
+ * Copied from `@verdaccio/url#wrapPrefix`, which can't be imported directly
+ * because it's a CommonJS module. Existing slashes are not deduplicated.
  *
- * @param prefix
- * @returns
+ * @param prefix the URL prefix (may omit leading/trailing slashes)
+ * @returns the prefix wrapped in slashes, or "" when falsy
  */
 export function wrapPrefix(prefix: string | void): string {
   if (!prefix) {
     return "";
   }
-  if (!prefix.startsWith("/") && prefix.endsWith("/")) {
-    return `/${prefix}`;
-  }
-  if (!prefix.startsWith("/") && !prefix.endsWith("/")) {
-    return `/${prefix}/`;
-  }
-  return prefix.startsWith("/") && !prefix.endsWith("/") ? `${prefix}/` : prefix;
+  const withLeading = prefix.startsWith("/") ? prefix : `/${prefix}`;
+  return withLeading.endsWith("/") ? withLeading : `${withLeading}/`;
 }
 
 /**
- * Get the base url from the global options
+ * Resolve the UI base URL from the global Verdaccio options.
  *
- * @param shouldStripTrailingSlash Whether to include a trailing slash.
- * @returns
+ * Prefers `base` from `__VERDACCIO_BASENAME_UI_OPTIONS`; otherwise constructs it
+ * from `location` and the `url_prefix` option.
+ *
+ * @param shouldStripTrailingSlash whether to strip a trailing "/" (default false)
+ * @returns the resolved base URL
  */
 export function getBaseUrl(shouldStripTrailingSlash = false): string {
-  const urlPrefix = window.__VERDACCIO_BASENAME_UI_OPTIONS?.url_prefix;
+  let baseUrl = window.__VERDACCIO_BASENAME_UI_OPTIONS?.base;
 
-  const base = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
+  if (!baseUrl) {
+    const urlPrefix = window.__VERDACCIO_BASENAME_UI_OPTIONS?.url_prefix;
 
-  return shouldStripTrailingSlash ? base.replace(/\/$/, "") : base;
+    baseUrl = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
+  }
+
+  return shouldStripTrailingSlash ? baseUrl.replace(/\/$/, "") : baseUrl;
 }
 
 /**
