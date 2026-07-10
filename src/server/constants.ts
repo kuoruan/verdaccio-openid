@@ -27,4 +27,5 @@ export const ERRORS = {
   NO_ID_TOKEN_RETURNED: `"openid" scope is requested but no "id_token" was returned from the provider`,
   ID_TOKEN_NOT_FOUND: "No id_token found in the tokens",
   PROVIDER_NOT_FOUND: "Provider not found",
+  NO_CLAIMS_FOUND: "No claims found in token response",
 } as const;

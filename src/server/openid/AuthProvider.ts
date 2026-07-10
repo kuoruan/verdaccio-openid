@@ -13,7 +13,7 @@ import {
   type ProviderUser,
   type TokenInfo,
 } from "@/server/plugin/AuthProvider";
-import { getBaseUrl, getClaimsFromIdToken, hashObject } from "@/server/plugin/utils";
+import { getClaimsFromIdToken, getFullUrl, hashObject } from "@/server/plugin/utils";
 import type { Store } from "@/server/store/Store";
 
 import { createDiscoveryCooldownError, createDiscoveryError } from "./DiscoveryErrorUtils";
@@ -181,14 +181,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   async getToken(callbackRequest: Request): Promise<TokenInfo> {
     const openidClient = await getOpenIDClient();
 
-    const basUrl = getBaseUrl(this.config.urlPrefix, callbackRequest, true);
-
-    const url = new URL(callbackRequest.url, basUrl);
+    const url = getFullUrl(this.config.urlPrefix, callbackRequest);
 
     debug("Receive callback URL, %s", url.toString());
 
-    const params = new URLSearchParams(url.search);
-    const state = params.get("state");
+    const state = url.searchParams.get("state");
 
     if (!state) {
       throw new URIError(ERRORS.NO_STATE);
@@ -218,7 +215,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     const claims = tokens.claims();
     if (!claims) {
-      throw new Error("No claims found in token response");
+      throw new Error(ERRORS.NO_CLAIMS_FOUND);
     }
 
     let expiresAt: number | undefined;

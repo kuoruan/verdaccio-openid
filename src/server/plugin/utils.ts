@@ -126,6 +126,33 @@ export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = fa
 }
 
 /**
+ * Construct the full absolute URL for the current request, correctly handling
+ * the url_prefix regardless of whether a reverse proxy strips it from req.url.
+ *
+ * When a reverse proxy (e.g. nginx) strips the url_prefix from the path, req.url
+ * does not contain it — we concatenate baseUrl + req.url to add it back. When no
+ * proxy is present, req.url already includes the prefix — we use `new URL(path, base)`
+ * resolution to avoid duplicating it.
+ *
+ * @param urlPrefix The url prefix.
+ * @param req The request.
+ * @returns The full absolute URL of the current request.
+ */
+export function getFullUrl(urlPrefix: string, req: Request): URL {
+  const baseUrl = getBaseUrl(urlPrefix, req, true);
+  const reqPath = req.url;
+
+  // Normalize the prefix (strip trailing slashes) to avoid two edge cases:
+  // 1. `/prefix/` does not match `reqPath = "/prefix"` (trailing slash mismatch)
+  // 2. `/prefix` incorrectly matches `reqPath = "/prefix-other"` (substring match)
+  const cleanPrefix = urlPrefix.replace(/\/+$/, "");
+
+  const hasPrefix = cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/"));
+
+  return hasPrefix ? new URL(reqPath, baseUrl) : new URL(baseUrl + reqPath);
+}
+
+/**
  * Check if the token is a JWT
  *
  * @param token The token to check.

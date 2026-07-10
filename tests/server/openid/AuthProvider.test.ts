@@ -135,24 +135,16 @@ describe("OpenIDConnectAuthProvider", () => {
       setUserInfo: vi.fn(() => {
         // no-op
       }),
-      getUserInfo: vi.fn(() => {
-        // no-op
-      }),
+      getUserInfo: vi.fn(() => null),
       setUserGroups: vi.fn(() => {
         // no-op
       }),
-      getUserGroups: vi.fn(() => {
-        // no-op
-      }),
+      getUserGroups: vi.fn(() => null),
       setWebAuthnToken: vi.fn(() => {
         // no-op
       }),
-      getWebAuthnToken: vi.fn(() => {
-        // no-op
-      }),
-      takeWebAuthnToken: vi.fn(() => {
-        // no-op
-      }),
+      getWebAuthnToken: vi.fn(() => null),
+      takeWebAuthnToken: vi.fn(() => null),
       deleteWebAuthnToken: vi.fn(() => {
         // no-op
       }),
@@ -300,6 +292,216 @@ describe("OpenIDConnectAuthProvider", () => {
       } as unknown as Request;
 
       await expect(provider.getToken(mockRequest)).rejects.toThrow(ERRORS.STATE_NOT_FOUND);
+    });
+
+    it("should preserve url_prefix when req.url does not include it (reverse proxy scenario)", async () => {
+      const { getPublicUrl } = await import("@verdaccio/url");
+      vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+      mockConfig.urlPrefix = "/prefix/";
+
+      const mockRequest = {
+        url: "/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/-/oauth/callback/authn",
+        headers: {},
+        get: vi.fn((header: string) => {
+          if (header === "host") return "registry.example.com";
+          return;
+        }),
+      } as unknown as Request;
+
+      await provider.getToken(mockRequest);
+
+      const { authorizationCodeGrant } = await import("openid-client");
+      const calledUrl = vi.mocked(authorizationCodeGrant).mock.calls[0]?.[1] as URL;
+      expect(calledUrl.toString()).toBe(
+        "https://registry.example.com/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
+      );
+    });
+
+    it("should not duplicate url_prefix when req.url already includes it", async () => {
+      const { getPublicUrl } = await import("@verdaccio/url");
+      vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
+
+      mockConfig.urlPrefix = "/prefix/";
+
+      const mockRequest = {
+        url: "/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/prefix/-/oauth/callback/authn",
+        headers: {},
+        get: vi.fn((header: string) => {
+          if (header === "host") return "registry.example.com";
+          return;
+        }),
+      } as unknown as Request;
+
+      await provider.getToken(mockRequest);
+
+      const { authorizationCodeGrant } = await import("openid-client");
+      const calledUrl = vi.mocked(authorizationCodeGrant).mock.calls[0]?.[1] as URL;
+      expect(calledUrl.toString()).toBe(
+        "https://registry.example.com/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
+      );
+    });
+
+    it("should throw error if access_token is missing", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: undefined,
+        id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expires_in: 3600,
+        claims: () => ({ sub: "user123" }),
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      await expect(provider.getToken(mockRequest)).rejects.toThrow(ERRORS.NO_ACCESS_TOKEN_RETURNED);
+    });
+
+    it("should throw error if id_token is missing when scope includes openid", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: "mock-access-token",
+        id_token: undefined,
+        expires_in: 3600,
+        claims: () => ({ sub: "user123" }),
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      await expect(provider.getToken(mockRequest)).rejects.toThrow(ERRORS.NO_ID_TOKEN_RETURNED);
+    });
+
+    it("should not require id_token when scope does not include openid", async () => {
+      mockConfig.scope = "profile email";
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: "mock-access-token",
+        id_token: undefined,
+        expires_in: 3600,
+        claims: () => ({ sub: "user123" }),
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      const tokenInfo = await provider.getToken(mockRequest);
+      expect(tokenInfo.accessToken).toBe("mock-access-token");
+      expect(tokenInfo.idToken).toBeUndefined();
+    });
+
+    it("should throw error if no claims found in token response", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: "mock-access-token",
+        id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expires_in: 3600,
+        claims: () => null,
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      await expect(provider.getToken(mockRequest)).rejects.toThrow(ERRORS.NO_CLAIMS_FOUND);
+    });
+
+    it("should delete state before token exchange even on failure", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockRejectedValueOnce(new Error("Token exchange failed"));
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      await expect(provider.getToken(mockRequest)).rejects.toThrow("Token exchange failed");
+
+      // State must be consumed (deleted) before exchange to prevent replay attacks
+      expect(mockStore.deleteOpenIDState).toHaveBeenCalledWith("mock-state-12345", "openid");
+    });
+
+    it("should calculate expiresAt from expires_in", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      const nowSec = Math.trunc(Date.now() / 1000);
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: "mock-access-token",
+        id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expires_in: 7200,
+        claims: () => ({ sub: "user123" }),
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      const tokenInfo = await provider.getToken(mockRequest);
+
+      expect(tokenInfo.expiresAt).toBe(nowSec + 7200);
+    });
+
+    it("should fallback expiresAt to claims.exp when expires_in is not set", async () => {
+      const { authorizationCodeGrant } = await import("openid-client");
+      vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
+        access_token: "mock-access-token",
+        id_token: "header.eyJzdWIiOiJ1c2VyMTIzIiwiZXhwIjoxNzAwMDAwMDAwfQ.signature",
+        expires_in: undefined,
+        claims: () => ({ sub: "user123", exp: 1_700_000_000 }),
+      } as any);
+
+      const mockRequest = {
+        url: "/callback?code=auth-code-123&state=mock-state-12345",
+        protocol: "https",
+        hostname: "registry.example.com",
+        path: "/callback",
+        headers: {},
+        get: vi.fn(() => "registry.example.com"),
+      } as unknown as Request;
+
+      const tokenInfo = await provider.getToken(mockRequest);
+
+      expect(tokenInfo.expiresAt).toBe(1_700_000_000);
     });
   });
 
