@@ -11,6 +11,7 @@ import {
   getFullUrl,
   getPackageSpec,
   hashObject,
+  isJWT,
   isNowBefore,
 } from "@/server/plugin/utils";
 
@@ -411,5 +412,31 @@ describe("getPackageSpec", () => {
       const pkg = { name: "my-package", tag };
       expect(getPackageSpec(pkg)).toBe(`my-package@${tag}`);
     }
+  });
+});
+
+describe("isJWT", () => {
+  it("should return true for a valid JWT format (3 parts)", () => {
+    expect(isJWT("header.payload.signature")).toBe(true);
+  });
+
+  it("should return true for JWT with empty parts", () => {
+    expect(isJWT("..")).toBe(true);
+  });
+
+  it("should return false for a string with 2 parts", () => {
+    expect(isJWT("header.payload")).toBe(false);
+  });
+
+  it("should return false for a string with 4 parts", () => {
+    expect(isJWT("a.b.c.d")).toBe(false);
+  });
+
+  it("should return false for a plain string", () => {
+    expect(isJWT("not-a-jwt")).toBe(false);
+  });
+
+  it("should return false for an empty string", () => {
+    expect(isJWT("")).toBe(false);
   });
 });
