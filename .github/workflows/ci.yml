@@ -16,9 +16,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - node-version: 20
-            pnpm-version: 10
           - node-version: 22
+            pnpm-version: 10
+          - node-version: 24
             pnpm-version: latest
 
     steps:
