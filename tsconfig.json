@@ -16,7 +16,10 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "types": [
+      "node"
+    ]
   },
     "include": ["./src/**/*.ts", "./src/**/*.d.ts"],
     "exclude": ["./src/client/**"]
