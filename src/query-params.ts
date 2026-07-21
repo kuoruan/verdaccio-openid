@@ -14,7 +14,7 @@ export function parseQueryParams(search: string): Record<string, string> {
   }
 
   for (const str of search.split("&")) {
-    const [key, value] = str.split("=");
+    const [key, value] = str.split("=", 2);
     params[key] = decodeURIComponent(value);
   }
 
