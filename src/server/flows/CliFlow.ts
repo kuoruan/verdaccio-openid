@@ -1,8 +1,9 @@
 import type { Application, Handler } from "express";
 
+import { buildCliState, parseCliPort } from "@/cli-state";
 import { cliPort, cliProviderId } from "@/constants";
+import { getAuthorizePath, getCallbackPath } from "@/paths";
 import { stringifyQueryParams } from "@/query-params";
-import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
@@ -33,7 +34,16 @@ export class CliFlow implements PluginMiddleware {
     try {
       const redirectUrl = baseUrl + cliCallbackPath;
 
-      const url = await this.provider.getLoginUrl(redirectUrl);
+      // The CLI's actual listening port must travel through the OIDC round-trip to
+      // reach the callback handler so we can redirect back to the right port.
+      //
+      // Flow: CLI ?port=N → this handler reads req.query.port →
+      //       buildCliState(port) → OIDC state param → callback handler →
+      //       parseCliPort(state) → localhost redirect with the correct port.
+      const port = req.query.port as string | undefined;
+      const customState = port && /^\d+$/.test(port) ? buildCliState(port) : undefined;
+
+      const url = await this.provider.getLoginUrl(redirectUrl, customState);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
@@ -73,7 +83,9 @@ export class CliFlow implements PluginMiddleware {
       logger.error({ message: params.message }, "auth error: @{message}");
     }
 
-    const redirectUrl = `http://localhost:${cliPort}?${stringifyQueryParams(params)}`;
+    const port = parseCliPort(req.query.state as string | undefined) ?? cliPort;
+
+    const redirectUrl = `http://localhost:${port}?${stringifyQueryParams(params)}`;
 
     res.redirect(redirectUrl);
   };

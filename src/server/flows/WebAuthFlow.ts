@@ -47,7 +47,7 @@ import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
 
 import { messageLoggedAndCloseWindow, npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
-import { getAuthorizePath, getCallbackPath } from "@/redirect";
+import { getAuthorizePath, getCallbackPath } from "@/paths";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";

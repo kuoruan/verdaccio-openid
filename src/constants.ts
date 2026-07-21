@@ -4,9 +4,6 @@ export const plugin = { name, version };
 
 export const pluginKey = name.replace("verdaccio-", "");
 
-export const updatedAttrKey = `data-${pluginKey}`;
-export const updatedAttrValue = "1";
-
 export const authorizePath = "/-/oauth/authorize";
 export const callbackPath = "/-/oauth/callback";
 export const sessionPath = "/-/oauth/session";
@@ -14,6 +11,7 @@ export const loginHref = authorizePath;
 export const logoutHref = "/";
 
 export const cliPort = 8239;
+export const cliFallbackPort = 18_239;
 export const cliProviderId = "cli";
 
 export const npmLoginPath = "/-/v1/login";

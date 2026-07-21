@@ -1,7 +1,7 @@
 import type { Application, Handler } from "express";
 
+import { getAuthorizePath, getCallbackPath } from "@/paths";
 import { stringifyQueryParams } from "@/query-params";
-import { getAuthorizePath, getCallbackPath } from "@/redirect";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
