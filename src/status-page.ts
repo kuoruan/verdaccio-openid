@@ -1,87 +1,222 @@
+import ErrorIcon from "@/assets/icon-error.svg?raw";
+import SuccessIcon from "@/assets/icon-success.svg?raw";
+import WarningIcon from "@/assets/icon-warning.svg?raw";
 import Logo from "@/assets/logo.svg";
 import { messageGroupRequired, plugin } from "@/constants";
 
+const escapeHtml = (str: string): string =>
+  str
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+
 const styles = `
-html,
-body {
-  padding: 0;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
+  padding: 0;
+}
+
+html {
   height: 100%;
-  background-color: #e0e0e0;
-  color: #24292F;
-  font-family: Helvetica, sans-serif;
-  position: relative;
-  text-align: center;
 }
-.wrap {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--bg);
+  color: var(--fg);
 }
-.img {
-  filter: drop-shadow(0 0.5rem 0.5rem #24292F80);
-  width: 114px;
-  height: 98px;
+
+/* Light theme (default) */
+:root {
+  --bg: #f5f5f5;
+  --card-bg: #ffffff;
+  --fg: #1a1a2e;
+  --fg-muted: #64748b;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --success: #2e7d32;
+  --success-bg: rgba(46, 125, 50, 0.08);
+  --error: #c62828;
+  --error-bg: rgba(198, 40, 40, 0.08);
+  --warning: #e65100;
+  --warning-bg: rgba(230, 81, 0, 0.08);
+  --btn-bg: #4b5e80;
+  --btn-hover-bg: #3d4f6b;
+  --btn-fg: #ffffff;
+  --card-border: #e8e8e8;
 }
-h1 {
-  margin: 20px 0 16px 0;
-  font-size: 28px;
-  font-weight: 600;
-  line-height: 1.2;
+
+/* Dark theme */
+:root.dark {
+  --bg: #121212;
+  --card-bg: #1e1e1e;
+  --fg: #e0e0e0;
+  --fg-muted: #9e9e9e;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
+  --success: #66bb6a;
+  --success-bg: rgba(102, 187, 106, 0.18);
+  --error: #ef5350;
+  --error-bg: rgba(239, 83, 80, 0.18);
+  --warning: #ff9800;
+  --warning-bg: rgba(255, 152, 0, 0.18);
+  --btn-bg: rgba(255, 255, 255, 0.12);
+  --btn-hover-bg: rgba(255, 255, 255, 0.2);
+  --btn-fg: #e0e0e0;
+  --card-border: #3a3a3a;
 }
-h1.success {
-  color: #27ae60;
-}
-h1.error {
-  color: #e74c3c;
-}
-h1.warning {
-  color: #f39c12;
-}
-p {
-  font-size: 16px;
-  line-height: 1.5;
-}
-.message {
-  background: rgba(255, 255, 255, 0.8);
+
+.card {
+  background: var(--card-bg);
   border-radius: 12px;
-  padding: 16px 20px;
-  margin-top: 20px;
-  border-left: 4px solid transparent;
+  box-shadow: var(--shadow);
+  border: 1px solid var(--card-border);
+  padding: 48px 48px 40px 48px;
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  animation: card-in 200ms ease-out both;
 }
-.message.success {
-  border-left-color: #27ae60;
-  background: rgba(39, 174, 96, 0.1);
+
+@media (max-width: 480px) {
+  .card {
+    padding: 32px 24px;
+  }
 }
-.message.error {
-  border-left-color: #e74c3c;
-  background: rgba(231, 76, 60, 0.1);
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
-.message.warning {
-  border-left-color: #f39c12;
-  background: rgba(243, 156, 18, 0.1);
+
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    animation: none;
+  }
 }
-.buttons {
-  margin-top: 30px;
+
+.logo {
+  display: block;
+  width: 72px;
+  height: 62px;
+  margin: 0 auto 32px auto;
+  opacity: 0.9;
 }
-.back {
-  color: #3498db;
-  text-decoration: none;
+
+:root.dark .logo {
+  filter: brightness(1.3);
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  margin-bottom: 20px;
+}
+
+.icon.success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.icon.error {
+  background: var(--error-bg);
+  color: var(--error);
+}
+
+.icon.warning {
+  background: var(--warning-bg);
+  color: var(--warning);
+}
+
+.icon svg {
+  width: 32px;
+  height: 32px;
+  display: block;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.3;
+  margin-bottom: 8px;
+}
+
+h1.success { color: var(--success); }
+h1.error   { color: var(--error); }
+h1.warning { color: var(--warning); }
+
+.message {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  margin-bottom: 24px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 24px;
+  font-size: 14px;
   font-weight: 500;
-  padding: 10px 16px;
-  background: rgba(52, 152, 219, 0.1);
-  border-radius: 6px;
-  display: inline-block;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(52, 152, 219, 0.2);
+  color: var(--btn-fg);
+  background: var(--btn-bg);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background 0.2s ease, transform 0.2s ease;
+  font-family: inherit;
 }
-.back:hover {
-  background: rgba(52, 152, 219, 0.2);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.3);
+
+.btn:hover {
+  background: var(--btn-hover-bg);
+  transform: translateY(-1px);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--fg);
+  outline-offset: 2px;
 }
 `;
+
+const themeScript = `
+<script>
+(function() {
+  var dark;
+  try {
+    var v = localStorage.getItem("darkMode");
+    if (v !== null) {
+      dark = v === "true";
+    } else {
+      dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+  } catch (_) {
+    dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+  if (dark) {
+    document.documentElement.classList.add("dark");
+  }
+})();
+</script>`;
 
 export type BackOptions = boolean | Record<"backUrl", string>;
 
@@ -98,45 +233,46 @@ export function buildStatusPage(body: string, withBack: BackOptions = false): st
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>${plugin.name} - ${plugin.version}</title>
     <style>${styles}</style>
+    ${themeScript}
   </head>
   <body>
-    <div class="wrap">
-      <img src="${Logo}" class="img" alt="logo" />
-      ${body}
-      ${
-        backUrl
-          ? `<div class="buttons">
-              <a class="back" href="${backUrl}">Go back</a>
-            </div>`
-          : ""
-      }
-    </div>
-  </body>
+      <img src="${Logo}" class="logo" alt="logo" />
+      <div class="card">
+        ${body}
+        ${backUrl ? `<a class="btn" href="${backUrl}">Go back</a>` : ""}
+      </div>
+    </body>
 </html>`;
 }
 
 export function buildErrorPage(error: any, withBack: BackOptions = false) {
+  const message = error?.message ?? error ?? "An unknown error occurred";
   return buildStatusPage(
-    `<h1 class="error">Sorry :(</h1>
-    <p class="message error">${error?.message ?? error}</p>`,
+    `<div class="icon error">${ErrorIcon}</div>
+    <h1 class="error">Sorry :(</h1>
+    <p class="message">${escapeHtml(String(message))}</p>`,
     withBack,
   );
 }
 
 export function buildSuccessPage(message: string, withBack: BackOptions = false) {
   return buildStatusPage(
-    `<h1 class="success">Success!</h1>
-    <p class="message success">${message}</p>`,
+    `<div class="icon success">${SuccessIcon}</div>
+    <h1 class="success">Success ^_^</h1>
+    <p class="message">${escapeHtml(message)}</p>`,
     withBack,
   );
 }
 
 export function buildAccessDeniedPage(withBack: BackOptions = false) {
   return buildStatusPage(
-    `<h1 class="warning">Access Denied.</h1>
-    <p class="message warning">${messageGroupRequired}</p>`,
+    `<div class="icon warning">${WarningIcon}</div>
+    <h1 class="warning">Access Denied -_-</h1>
+    <p class="message">${messageGroupRequired}</p>`,
     withBack,
   );
 }
