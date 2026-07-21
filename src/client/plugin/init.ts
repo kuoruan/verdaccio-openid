@@ -1,4 +1,4 @@
-import { loginHref, logoutHref, updatedAttrKey, updatedAttrValue } from "@/constants";
+import { loginHref, logoutHref, pluginKey } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
 import {
@@ -70,6 +70,9 @@ function removeInvalidCommands(commands: HTMLElement[]): void {
     }
   }
 }
+
+const updatedAttrKey = `data-${pluginKey}`;
+const updatedAttrValue = "1";
 
 function updateUsageTabs(usageTabsSelector: string): void {
   const isLoggedInViaOpenID = isOpenIDLoggedIn();
