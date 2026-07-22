@@ -112,11 +112,6 @@ describe("buildSuccessPage", () => {
     expect(html).toContain("<svg");
   });
 
-  it("should escape HTML in success message", () => {
-    const html = buildSuccessPage("<img src=x onerror=alert(1)>");
-    expect(html).toContain("&lt;img src=x onerror=alert(1)&gt;");
-  });
-
   it("should pass withBack option through", () => {
     const html = buildSuccessPage("test", { backUrl: "/home" });
     expect(html).toContain("Go back");

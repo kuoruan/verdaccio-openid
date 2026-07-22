@@ -263,7 +263,7 @@ export function buildSuccessPage(message: string, withBack: BackOptions = false)
   return buildStatusPage(
     `<div class="icon success">${SuccessIcon}</div>
     <h1 class="success">Success ^_^</h1>
-    <p class="message">${escapeHtml(message)}</p>`,
+    <p class="message">${message}</p>`,
     withBack,
   );
 }
