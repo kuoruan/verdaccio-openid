@@ -1,6 +1,7 @@
-import { Cluster, Redis } from "ioredis";
+import type { Cluster, Redis as RedisClient } from "ioredis";
 
-import { BaseStore, type RedisClusterConfig, type RedisConfig, type RedisSingleConfig, type Store } from "./Store";
+import { importOptional } from "@/server/utils";
+import { BaseStore, type RedisClusterConfig, type RedisConfig, type Store } from "./Store";
 
 const TAKE_WEB_AUTHN_TOKEN_SCRIPT = `
 local value = redis.call("GET", KEYS[1])
@@ -15,77 +16,92 @@ return value
 
 const defaultOptions = {
   ttl: BaseStore.DefaultStateTTL,
-} satisfies RedisSingleConfig;
+};
 
 export default class RedisStore extends BaseStore implements Store {
+  private readonly config?: Omit<RedisConfig, "ttl"> | string;
   private readonly ttl: number;
-  private readonly redis: Cluster | Redis;
+  private redis?: RedisClient | Cluster;
+  private redisPromise?: Promise<RedisClient | Cluster>;
 
   constructor(opts?: RedisConfig | string) {
     super();
 
-    const { redis, ttl } = this.createClient(opts);
-
-    this.redis = redis;
-    this.ttl = ttl;
+    if (!!opts && typeof opts === "object") {
+      const { ttl, ...config } = opts;
+      this.config = config;
+      this.ttl = ttl ?? defaultOptions.ttl;
+    } else {
+      this.config = opts;
+      this.ttl = defaultOptions.ttl;
+    }
   }
 
-  private createClient(opts?: RedisConfig | string): { redis: Cluster | Redis; ttl: number } {
-    const { ttl: defaultTTL, ...restDefaultOpts } = defaultOptions;
+  private async getClient(): Promise<RedisClient | Cluster> {
+    if (this.redis) return this.redis;
 
-    if (!opts) {
-      return { redis: new Redis(restDefaultOpts), ttl: defaultTTL };
-    }
+    this.redisPromise ??= (async () => {
+      try {
+        const { Cluster, Redis } = await importOptional(
+          import("ioredis"),
+          `store-type "redis" requires the "ioredis" package. Install it: npm add -g ioredis`,
+        );
 
-    if (typeof opts === "string") {
-      return { redis: new Redis(opts, restDefaultOpts), ttl: defaultTTL };
-    }
+        if (!this.config) {
+          this.redis = new Redis();
+        } else if (typeof this.config === "string") {
+          this.redis = new Redis(this.config);
+        } else if (this.config?.nodes?.length) {
+          const { nodes, username, password, redisOptions, ...restOpts } = this.config as Omit<RedisClusterConfig, "ttl">;
 
-    if (opts?.nodes?.length) {
-      const {
-        ttl = defaultTTL,
-        nodes,
-        username,
-        password,
-        redisOptions,
-        ...restOpts
-      } = opts satisfies RedisClusterConfig;
+          this.redis = new Cluster(nodes, {
+            redisOptions: { username, password, ...redisOptions },
+            ...restOpts,
+          });
+        } else {
+          this.redis = new Redis(this.config);
+        }
 
-      return {
-        redis: new Redis.Cluster(nodes, {
-          redisOptions: { ...restDefaultOpts, username, password, ...redisOptions },
-          ...restOpts,
-        }),
-        ttl,
-      };
-    }
+        return this.redis;
+      } catch (err) {
+        this.redisPromise = undefined;
+        throw err;
+      }
+    })();
 
-    const { ttl, nodes: _, ...restOpts } = { ...defaultOptions, ...opts } satisfies RedisConfig;
-
-    return { redis: new Redis(restOpts), ttl };
+    return this.redisPromise;
   }
 
   async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
+    const redis = await this.getClient();
 
-    await this.redis.set(stateKey, nonce, "PX", this.ttl);
+    await redis.set(stateKey, nonce, "PX", this.ttl);
   }
 
   async getOpenIDState(key: string, providerId: string): Promise<string | null> {
     const stateKey = this.getStateKey(key, providerId);
-    return this.redis.get(stateKey);
+    const redis = await this.getClient();
+
+    return redis.get(stateKey);
   }
 
   async deleteOpenIDState(key: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
+    const redis = await this.getClient();
 
-    await this.redis.del(stateKey);
+    await redis.del(stateKey);
   }
 
   async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
-    const userInfoKey = this.getUserInfoKey(key, providerId);
+    if (typeof data !== "object" || data === null) {
+      throw new TypeError("userinfo data must be an object");
+    }
 
-    const pipeline = this.redis.multi();
+    const userInfoKey = this.getUserInfoKey(key, providerId);
+    const redis = await this.getClient();
+
+    const pipeline = redis.multi();
 
     pipeline.hset(userInfoKey, data as Record<string, unknown>);
     pipeline.pexpire(userInfoKey, BaseStore.DefaultDataTTL);
@@ -95,7 +111,9 @@ export default class RedisStore extends BaseStore implements Store {
 
   async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | null> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
-    const userInfo = await this.redis.hgetall(userInfoKey);
+    const redis = await this.getClient();
+
+    const userInfo = await redis.hgetall(userInfoKey);
 
     if (Object.keys(userInfo).length === 0) return null;
 
@@ -104,8 +122,9 @@ export default class RedisStore extends BaseStore implements Store {
 
   async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
+    const redis = await this.getClient();
 
-    const pipeline = this.redis.multi();
+    const pipeline = redis.multi();
 
     pipeline.del(groupsKey);
 
@@ -119,7 +138,9 @@ export default class RedisStore extends BaseStore implements Store {
 
   async getUserGroups(key: string, providerId: string): Promise<string[] | null> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
-    const groups = await this.redis.lrange(groupsKey, 0, -1);
+    const redis = await this.getClient();
+
+    const groups = await redis.lrange(groupsKey, 0, -1);
 
     if (groups.length === 0) return null;
 
@@ -128,19 +149,23 @@ export default class RedisStore extends BaseStore implements Store {
 
   async setWebAuthnToken(key: string, token: string): Promise<void> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const redis = await this.getClient();
 
-    await this.redis.set(tokenKey, token, "PX", this.ttl);
+    await redis.set(tokenKey, token, "PX", this.ttl);
   }
 
   async getWebAuthnToken(key: string): Promise<string | null> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const redis = await this.getClient();
 
-    return this.redis.get(tokenKey);
+    return redis.get(tokenKey);
   }
 
   async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | null> {
     const tokenKey = this.getWebAuthnTokenKey(key);
-    const response = await this.redis.eval(TAKE_WEB_AUTHN_TOKEN_SCRIPT, 1, tokenKey, pendingToken);
+    const redis = await this.getClient();
+
+    const response = await redis.eval(TAKE_WEB_AUTHN_TOKEN_SCRIPT, 1, tokenKey, pendingToken);
 
     if (typeof response !== "string") {
       return null;
@@ -151,15 +176,29 @@ export default class RedisStore extends BaseStore implements Store {
 
   async deleteWebAuthnToken(key: string): Promise<void> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const redis = await this.getClient();
 
-    await this.redis.del(tokenKey);
+    await redis.del(tokenKey);
   }
 
   async close(): Promise<void> {
+    let redis: RedisClient | Cluster | undefined;
+
     try {
-      await this.redis.quit();
+      redis = this.redis ?? (await this.redisPromise);
     } catch {
-      this.redis.disconnect();
+      // initialization failed, nothing to disconnect
     }
+
+    if (!redis) return;
+
+    try {
+      await redis.quit();
+    } catch {
+      redis.disconnect();
+    }
+
+    this.redis = undefined;
+    this.redisPromise = undefined;
   }
 }

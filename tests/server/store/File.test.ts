@@ -1,7 +1,5 @@
-import storage from "node-persist";
 import type { MockInstance } from "vitest";
 
-import logger from "@/server/logger";
 import FileStore from "@/server/store/File";
 import type { FileConfig } from "@/server/store/Store";
 
@@ -9,55 +7,17 @@ vi.mock("node-persist");
 vi.mock("@/server/logger");
 
 describe("FileStore constructor", () => {
-  it("should initialize with default options when opts is a string", () => {
-    const initMock = vi.fn().mockResolvedValue(true);
-    (storage.create as unknown as MockInstance).mockReturnValue({ init: initMock });
-
-    const fileStore = new FileStore("/some/dir");
-
-    expect(fileStore).not.toBeFalsy();
-
-    expect(storage.create).toHaveBeenCalledWith({
-      ttl: expect.any(Number),
-      dir: "/some/dir",
-    });
-    expect(initMock).toHaveBeenCalled();
+  it("should not throw when opts is a string", () => {
+    expect(() => new FileStore("/some/dir")).not.toThrow();
   });
 
-  it("should initialize with provided options when opts is an object", () => {
-    const initMock = vi.fn().mockResolvedValue(true);
-    (storage.create as unknown as MockInstance).mockReturnValue({ init: initMock });
-
+  it("should not throw when opts is an object", () => {
     const opts: FileConfig = {
       ttl: 1000,
       expiredInterval: 250,
       dir: "/some/dir",
     };
-    const fileStore = new FileStore(opts);
-
-    expect(fileStore).not.toBeFalsy();
-    expect(storage.create).toHaveBeenCalledWith(opts);
-    expect(initMock).toHaveBeenCalled();
-  });
-
-  it("should throw an error when init fails", () => {
-    const initMock = vi.fn().mockRejectedValue(new Error("init failed"));
-    (storage.create as unknown as MockInstance).mockReturnValue({ init: initMock });
-
-    const exitMock = vi.spyOn(process, "exit").mockImplementation(() => {
-      return undefined as never;
-    });
-
-    expect(() => new FileStore("/some/dir")).not.toThrow();
-
-    queueMicrotask(() => {
-      expect(exitMock).toHaveBeenCalledWith(1);
-
-      expect(logger.error).toHaveBeenCalledWith(
-        { message: "init failed" },
-        "Failed to initialize file store: @{message}",
-      );
-    });
+    expect(() => new FileStore(opts)).not.toThrow();
   });
 });
 
@@ -68,20 +28,37 @@ describe("FileStore methods", () => {
     getItem: MockInstance;
     removeItem: MockInstance;
   };
+  let initMock: MockInstance;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Dynamically import node-persist to get the mocked module
+    const storage = await import("node-persist");
+
     dbMock = {
       setItem: vi.fn(),
       getItem: vi.fn(),
       removeItem: vi.fn(),
     };
+    initMock = vi.fn().mockResolvedValue(true);
 
-    (storage.create as unknown as MockInstance).mockReturnValue({
-      init: vi.fn().mockResolvedValue(true),
+    (storage.default.create as unknown as MockInstance).mockReturnValue({
+      init: initMock,
       ...dbMock,
     });
 
     fileStore = new FileStore("/test/dir");
+  });
+
+  it("should initialize lazily on first operation", async () => {
+    const storage = await import("node-persist");
+
+    await fileStore.setOpenIDState("key1", "nonce1", "provider1");
+
+    expect(storage.default.create).toHaveBeenCalledWith({
+      ttl: expect.any(Number),
+      dir: "/test/dir",
+    });
+    expect(initMock).toHaveBeenCalled();
   });
 
   it("should set and get state", async () => {

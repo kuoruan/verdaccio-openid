@@ -40,6 +40,10 @@ export default class InMemoryStore extends BaseStore implements Store {
   }
 
   setUserInfo(key: string, data: unknown, providerId: string): void {
+    if (typeof data !== "object" || data === null) {
+      throw new TypeError("userinfo data must be an object");
+    }
+
     const userInfoKey = this.getUserInfoKey(key, providerId);
 
     this.dataCache.set(userInfoKey, data as Record<string, unknown>);

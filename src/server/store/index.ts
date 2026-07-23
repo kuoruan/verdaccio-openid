@@ -7,7 +7,6 @@ import { type Store, StoreType } from "./Store";
 
 export function createStore(config: ConfigHolder): Store {
   const storeType = config.storeType;
-
   const storeConfig = config.getStoreConfig(storeType);
 
   switch (storeType) {
@@ -17,7 +16,6 @@ export function createStore(config: ConfigHolder): Store {
     case StoreType.File: {
       return new FileStore(storeConfig);
     }
-
     default: {
       return new InMemoryStore(storeConfig);
     }

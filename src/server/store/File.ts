@@ -1,95 +1,122 @@
-import process from "node:process";
-
-import storage, { type InitOptions, LocalStorage } from "node-persist";
-
-import logger from "@/server/logger";
+import type { LocalStorage } from "node-persist";
 
 import { BaseStore, type FileConfig, type Store } from "./Store";
-
-const defaultOptions = {
-  ttl: BaseStore.DefaultStateTTL,
-} satisfies InitOptions;
+import { importOptional, interopDefault } from "@/server/utils";
 
 export default class FileStore extends BaseStore implements Store {
-  private readonly db: LocalStorage;
+  private readonly config: FileConfig | string;
+  private db?: LocalStorage;
+  private dbPromise?: Promise<LocalStorage>;
 
   constructor(opts: FileConfig | string) {
     super();
+    this.config = opts;
+  }
 
-    const db = storage.create({
-      ...defaultOptions,
-      ...(typeof opts === "string" ? { dir: opts } : opts),
-    });
+  private async getDb(): Promise<LocalStorage> {
+    if (this.db) return this.db;
 
-    void db.init().catch((e) => {
-      logger.error({ message: e.message }, "Failed to initialize file store: @{message}");
-      process.exit(1);
-    });
+    this.dbPromise ??= (async () => {
+      try {
+        const storage = await interopDefault(
+          importOptional(
+            import("node-persist"),
+            `store-type "file" requires the "node-persist" package. Install it: npm add -g node-persist`,
+          ),
+        );
 
-    this.db = db;
+        const db = storage.create({
+          ttl: BaseStore.DefaultStateTTL,
+          ...(typeof this.config === "string" ? { dir: this.config } : this.config),
+        });
+
+        await db.init();
+        this.db = db;
+        return db;
+      } catch (err) {
+        this.dbPromise = undefined;
+        throw err;
+      }
+    })();
+
+    return this.dbPromise;
   }
 
   async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
+    const db = await this.getDb();
 
-    await this.db.setItem(stateKey, nonce);
+    await db.setItem(stateKey, nonce);
   }
 
-  getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
+  async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
     const stateKey = this.getStateKey(key, providerId);
+    const db = await this.getDb();
 
-    return this.db.getItem(stateKey);
+    return db.getItem(stateKey);
   }
 
   async deleteOpenIDState(key: string, providerId: string): Promise<void> {
     const stateKey = this.getStateKey(key, providerId);
+    const db = await this.getDb();
 
-    await this.db.removeItem(stateKey);
+    await db.removeItem(stateKey);
   }
 
   async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
-    const userInfoKey = this.getUserInfoKey(key, providerId);
+    if (typeof data !== "object" || data === null) {
+      throw new TypeError("userinfo data must be an object");
+    }
 
-    await this.db.setItem(userInfoKey, data, { ttl: BaseStore.DefaultDataTTL });
+    const userInfoKey = this.getUserInfoKey(key, providerId);
+    const db = await this.getDb();
+
+    await db.setItem(userInfoKey, data, { ttl: BaseStore.DefaultDataTTL });
   }
 
-  getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {
+  async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {
     const userInfoKey = this.getUserInfoKey(key, providerId);
+    const db = await this.getDb();
 
-    return this.db.getItem(userInfoKey);
+    return db.getItem(userInfoKey);
   }
 
   async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
+    const db = await this.getDb();
 
-    await this.db.setItem(groupsKey, groups, { ttl: BaseStore.DefaultDataTTL });
+    await db.setItem(groupsKey, groups, { ttl: BaseStore.DefaultDataTTL });
   }
 
-  getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
+  async getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
     const groupsKey = this.getUserGroupsKey(key, providerId);
+    const db = await this.getDb();
 
-    return this.db.getItem(groupsKey);
+    return db.getItem(groupsKey);
   }
 
   async setWebAuthnToken(key: string, token: string): Promise<void> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const db = await this.getDb();
 
-    await this.db.setItem(tokenKey, token);
+    await db.setItem(tokenKey, token);
   }
 
-  getWebAuthnToken(key: string): Promise<string | null | undefined> {
+  async getWebAuthnToken(key: string): Promise<string | null | undefined> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const db = await this.getDb();
 
-    return this.db.getItem(tokenKey);
+    return db.getItem(tokenKey);
   }
 
   async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | null | undefined> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const db = await this.getDb();
 
-    const token = (await this.db.getItem(tokenKey)) as string | null | undefined;
+    const token = (await db.getItem(tokenKey)) as string | null | undefined;
 
     if (token && token !== pendingToken) {
-      await this.db.removeItem(tokenKey);
+      await db.removeItem(tokenKey);
     }
 
     return token;
@@ -97,11 +124,18 @@ export default class FileStore extends BaseStore implements Store {
 
   async deleteWebAuthnToken(key: string): Promise<void> {
     const tokenKey = this.getWebAuthnTokenKey(key);
+    const db = await this.getDb();
 
-    await this.db.removeItem(tokenKey);
+    await db.removeItem(tokenKey);
   }
 
-  close(): void {
-    // ignore
+  async close(): Promise<void> {
+    try {
+      await this.dbPromise;
+    } catch {
+      // initialization failed, nothing to clean up
+    }
+    this.db = undefined;
+    this.dbPromise = undefined;
   }
 }

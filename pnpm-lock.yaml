@@ -146,7 +146,7 @@ importers:
         version: 13.0.3
       verdaccio-openid:
         specifier: 'file:'
-        version: file:(verdaccio@6.8.0(typanion@3.14.0))
+        version: file:(ioredis@5.11.1)(node-persist@4.0.4)(verdaccio@6.8.0(typanion@3.14.0))
       verdaccio5:
         specifier: npm:verdaccio@5.0.0
         version: verdaccio@5.0.0(typanion@3.14.0)
@@ -3242,7 +3242,14 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
+      ioredis: ^5.11.1
+      node-persist: ^4.0.4
       verdaccio: ^5.0.0||^6.0.0||^7.0.0-next-0
+    peerDependenciesMeta:
+      ioredis:
+        optional: true
+      node-persist:
+        optional: true
 
   verdaccio@5.0.0:
     resolution: {integrity: sha512-q32wdxzIh3ag1VirQ5LJVC25bpf4/sUwtjJlEhOleDwhu9tPHRTkHhSmcPVgdFZh3y8cETo4TGpHx9KBJ0Agfg==}
@@ -6539,7 +6546,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  verdaccio-openid@file:(verdaccio@6.8.0(typanion@3.14.0)):
+  verdaccio-openid@file:(ioredis@5.11.1)(node-persist@4.0.4)(verdaccio@6.8.0(typanion@3.14.0)):
     dependencies:
       '@gitbeaker/rest': 43.8.0
       '@isaacs/ttlcache': 2.1.5
@@ -6552,10 +6559,8 @@ snapshots:
       dotenv: 17.4.2
       express: 5.2.1
       global-agent: 4.1.3
-      ioredis: 5.11.1
       minimist: 1.2.8
       ms: 2.1.3
-      node-persist: 4.0.4
       open: 11.0.0
       openid-client: 6.8.4
       picocolors: 1.1.1
@@ -6563,6 +6568,9 @@ snapshots:
       stable-hash: 0.0.6
       verdaccio: 6.8.0(typanion@3.14.0)
       yup: 1.7.1
+    optionalDependencies:
+      ioredis: 5.11.1
+      node-persist: 4.0.4
     transitivePeerDependencies:
       - supports-color
 

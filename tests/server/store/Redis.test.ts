@@ -57,29 +57,32 @@ describe("RedisStore", () => {
     pipeline.exec.mockResolvedValue([]);
   });
 
-  it("should initialize redis client with default options", () => {
-    new RedisStore();
+  it("should initialize redis client with default options", async () => {
+    const store = new RedisStore();
+    await store.setOpenIDState("key", "nonce", "provider");
 
-    expect(RedisCtor).toHaveBeenCalledWith({});
+    expect(RedisCtor).toHaveBeenCalledWith();
     expect(ClusterCtor).not.toHaveBeenCalled();
   });
 
-  it("should initialize redis client with url", () => {
-    new RedisStore("redis://localhost:6379");
+  it("should initialize redis client with url", async () => {
+    const store = new RedisStore("redis://localhost:6379");
+    await store.setOpenIDState("key", "nonce", "provider");
 
-    expect(RedisCtor).toHaveBeenCalledWith("redis://localhost:6379", {});
+    expect(RedisCtor).toHaveBeenCalledWith("redis://localhost:6379");
     expect(ClusterCtor).not.toHaveBeenCalled();
   });
 
-  it("should initialize redis client with single-node options", () => {
-    new RedisStore({ host: "127.0.0.1", port: 6379, ttl: 12_345 });
+  it("should initialize redis client with single-node options", async () => {
+    const store = new RedisStore({ host: "127.0.0.1", port: 6379, ttl: 12_345 });
+    await store.setOpenIDState("key", "nonce", "provider");
 
     expect(RedisCtor).toHaveBeenCalledWith({ host: "127.0.0.1", port: 6379 });
     expect(ClusterCtor).not.toHaveBeenCalled();
   });
 
-  it("should initialize redis cluster with merged redis options", () => {
-    new RedisStore({
+  it("should initialize redis cluster with merged redis options", async () => {
+    const store = new RedisStore({
       nodes: [{ host: "127.0.0.1", port: 7000 }],
       ttl: 12_345,
       username: "user",
@@ -87,6 +90,7 @@ describe("RedisStore", () => {
       redisOptions: { db: 2 },
       scaleReads: "all",
     });
+    await store.setOpenIDState("key", "nonce", "provider");
 
     expect(ClusterCtor).toHaveBeenCalledWith([{ host: "127.0.0.1", port: 7000 }], {
       redisOptions: { username: "user", password: "pass", db: 2 },
@@ -221,6 +225,7 @@ describe("RedisStore", () => {
 
   it("should disconnect when quit fails", async () => {
     const store = new RedisStore();
+    await store.setOpenIDState("key", "nonce", "provider"); // trigger client init
 
     redisClient.quit.mockRejectedValueOnce(new Error("quit failed"));
 
