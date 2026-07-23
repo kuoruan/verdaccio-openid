@@ -26,4 +26,8 @@ export function setLogger(l?: Logger) {
   logger?.info(plugin, "plugin loading: @{name}@@{version}");
 }
 
-export default logger;
+// Use named-export-as-default to create a live binding so that
+// `setLogger()` reassignments are visible to every importer.
+// `export default logger` would capture the initial dummyLogger
+// value and never update.
+export { logger as default };
