@@ -21,7 +21,7 @@ export default class FileStore extends BaseStore implements Store {
         const storage = await interopDefault(
           importOptional(
             import("node-persist"),
-            `store-type "file" requires the "node-persist" package. Install it: npm add -g node-persist`,
+            `store-type "file" requires the "node-persist" package. Please install it first`,
           ),
         );
 

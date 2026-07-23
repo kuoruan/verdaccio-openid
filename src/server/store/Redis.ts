@@ -44,7 +44,7 @@ export default class RedisStore extends BaseStore implements Store {
       try {
         const { Cluster, Redis } = await importOptional(
           import("ioredis"),
-          `store-type "redis" requires the "ioredis" package. Install it: npm add -g ioredis`,
+          `store-type "redis" requires the "ioredis" package. Please install it first`,
         );
 
         if (!this.config) {

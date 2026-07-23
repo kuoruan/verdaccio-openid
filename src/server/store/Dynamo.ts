@@ -141,11 +141,11 @@ export default class DynamoStore extends BaseStore implements Store {
         const [{ DynamoDBClient }, { DynamoDBDocumentClient }] = await Promise.all([
           importOptional(
             import("@aws-sdk/client-dynamodb"),
-            `store-type "dynamodb" requires the "@aws-sdk/client-dynamodb" package. Install it: npm add -g @aws-sdk/client-dynamodb`,
+            `store-type "dynamodb" requires the "@aws-sdk/client-dynamodb" package. Please install it first`,
           ),
           importOptional(
             import("@aws-sdk/lib-dynamodb"),
-            `store-type "dynamodb" requires the "@aws-sdk/lib-dynamodb" package. Install it: npm add -g @aws-sdk/lib-dynamodb`,
+            `store-type "dynamodb" requires the "@aws-sdk/lib-dynamodb" package. Please install it first`,
           ),
         ]);
 
