@@ -63,7 +63,13 @@ export class Plugin
 
     const parsedConfig = new ParsedPluginConfig(config, verdaccioConfig);
 
-    const store = createStore(parsedConfig);
+    let store: Store;
+    try {
+      store = createStore(parsedConfig);
+    } catch (e: any) {
+      logger.error({ err: e }, "Failed to create store: @{err}");
+      throw e;
+    }
 
     const provider = new OpenIDConnectAuthProvider(parsedConfig, store);
     const core = new AuthCore(parsedConfig, provider);

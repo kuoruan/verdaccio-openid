@@ -254,7 +254,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           configKey,
           mixed().test({
             name: "is-redis-config-or-redis-url",
-            message: "must be a RedisConfig or a string",
+            message: "must be a valid RedisConfig object or a string",
             test: (value) => {
               if (value === undefined) return true;
               if (typeof value === "string" && value !== "") {
@@ -291,7 +291,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           configKey,
           mixed().test({
             name: "is-file-config-or-string",
-            message: "must be a FileConfig or a string",
+            message: "must be a valid FileConfig object or a string",
             test: (value) => {
               if (typeof value === "string" && value !== "") {
                 return true;
@@ -322,7 +322,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           configKey,
           mixed().test({
             name: "is-dynamo-config",
-            message: "must be a DynamoConfig object",
+            message: "must be a valid DynamoConfig object",
             test: (value) => {
               if (typeof value === "object" && value !== null) {
                 return DynamoConfigSchema.isValidSync(value);
