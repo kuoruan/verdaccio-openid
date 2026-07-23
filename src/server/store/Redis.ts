@@ -52,7 +52,10 @@ export default class RedisStore extends BaseStore implements Store {
         } else if (typeof this.config === "string") {
           this.redis = new Redis(this.config);
         } else if (this.config?.nodes?.length) {
-          const { nodes, username, password, redisOptions, ...restOpts } = this.config as Omit<RedisClusterConfig, "ttl">;
+          const { nodes, username, password, redisOptions, ...restOpts } = this.config as Omit<
+            RedisClusterConfig,
+            "ttl"
+          >;
 
           this.redis = new Cluster(nodes, {
             redisOptions: { username, password, ...redisOptions },
