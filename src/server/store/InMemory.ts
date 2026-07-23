@@ -62,6 +62,10 @@ export default class InMemoryStore extends BaseStore implements Store {
   setUserGroups(key: string, groups: string[], providerId: string): void {
     const userGroupsKey = this.getUserGroupsKey(key, providerId);
 
+    if (groups.length === 0) {
+      this.dataCache.delete(userGroupsKey);
+      return;
+    }
     this.dataCache.set(userGroupsKey, groups);
   }
 

@@ -85,6 +85,10 @@ export default class FileStore extends BaseStore implements Store {
     const groupsKey = this.getUserGroupsKey(key, providerId);
     const db = await this.getDb();
 
+    if (groups.length === 0) {
+      await db.removeItem(groupsKey);
+      return;
+    }
     await db.setItem(groupsKey, groups, { ttl: BaseStore.DefaultDataTTL });
   }
 

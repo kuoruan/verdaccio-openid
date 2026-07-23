@@ -55,9 +55,7 @@
     "picocolors": "^1.1.1",
     "serve-static": "^2.2.1",
     "stable-hash": "^0.0.6",
-    "yup": "^1.7.1",
-    "@aws-sdk/client-dynamodb": "^3.700.0",
-    "@aws-sdk/lib-dynamodb": "^3.700.0"
+    "yup": "^1.7.1"
   },
   "devDependencies": {
     "@tsconfig/node20": "^20.1.9",
@@ -85,11 +83,19 @@
     "vitest": "^4.1.10"
   },
   "peerDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
     "ioredis": "^5.11.1",
     "node-persist": "^4.0.4",
     "verdaccio": "^5.0.0||^6.0.0||^7.0.0-next-0"
   },
   "peerDependenciesMeta": {
+    "@aws-sdk/client-dynamodb": {
+      "optional": true
+    },
+    "@aws-sdk/lib-dynamodb": {
+      "optional": true
+    },
     "ioredis": {
       "optional": true
     },

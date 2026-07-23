@@ -1,16 +1,16 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, PutCommand } from "@aws-sdk/lib-dynamodb";
+import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
 import logger from "@/server/logger";
+import { importOptional } from "@/server/utils";
 
 import { BaseStore, type DynamoConfig, type Store } from "./Store";
 
 const DEFAULT_PARTITION_KEY = "OIDC";
 
-// DynamoDB item size limit is 400 KB; keys must fit within that. We
-// cap user-controlled inputs WAY below that to bound the blast radius
-// of a malicious client sending pathological values.
-const MAX_KEY_BYTES = 1024; // DynamoDB attribute name/value limit
+// DynamoDB item size limit is 400 KB; we cap user-controlled inputs
+// well below that as a defence-in-depth measure against pathological
+// payloads from a malicious client.
+const MAX_KEY_BYTES = 1024;
 const MAX_VALUE_BYTES = 64 * 1024; // 64 KB — far above any realistic
 // OIDC nonce / token / userinfo payload
 // we'd ever see.
@@ -24,11 +24,12 @@ function assertSize(label: string, value: string, max: number): void {
 /**
  * Wraps an AWS SDK error so the verdaccio plugin layer sees a small,
  * deterministic message — never the raw stack trace, which can be
- * huge and includes internal SDK paths. Crucially, keeping write
- * errors typed (rather than letting the raw SDK error propagate)
- * means a stray `unhandledRejection` from a fire-and-forget caller
- * doesn't kill the whole verdaccio process on a transient DNS or
- * 5xx blip.
+ * huge and includes internal SDK paths.
+ *
+ * Only thrown from write paths (put, takeWebAuthnToken conditional
+ * delete). Read paths (get) fail closed by returning undefined, and
+ * best-effort deletes (del) intentionally swallow errors since stale
+ * rows expire via TTL anyway.
  */
 class DynamoStoreError extends Error {
   constructor(op: string, cause: unknown) {
@@ -55,8 +56,9 @@ const TRANSIENT_AWS_ERRORS = new Set([
 ]);
 
 function classify(err: unknown): "transient" | "permanent" {
-  const code = (err as { code?: string; name?: string } | undefined)?.code
-    ?? (err as { code?: string; name?: string } | undefined)?.name;
+  const code =
+    (err as { code?: string; name?: string } | undefined)?.code ??
+    (err as { code?: string; name?: string } | undefined)?.name;
   return code && TRANSIENT_AWS_ERRORS.has(code) ? "transient" : "permanent";
 }
 
@@ -106,11 +108,13 @@ function classify(err: unknown): "transient" | "permanent" {
  * undefined to the plugin layer, which fails closed (forces re-auth).
  */
 export default class DynamoStore extends BaseStore implements Store {
-  private readonly client: DynamoDBDocumentClient;
+  private readonly config: DynamoConfig;
   private readonly tableName: string;
   private readonly pk: string;
   private readonly stateTTLSeconds: number;
   private readonly dataTTLSeconds: number;
+  private client?: DynamoDBDocumentClient;
+  private clientPromise?: Promise<DynamoDBDocumentClient>;
 
   constructor(opts: DynamoConfig) {
     super();
@@ -122,15 +126,41 @@ export default class DynamoStore extends BaseStore implements Store {
       throw new Error("DynamoStore: `region` is required");
     }
 
-    const raw = new DynamoDBClient({ region: opts.region });
-    this.client = DynamoDBDocumentClient.from(raw, {
-      marshallOptions: { removeUndefinedValues: true },
-    });
-
+    this.config = opts;
     this.tableName = opts.tableName;
     this.pk = opts.partitionKey ?? DEFAULT_PARTITION_KEY;
     this.stateTTLSeconds = Math.floor((typeof opts.ttl === "number" ? opts.ttl : BaseStore.DefaultStateTTL) / 1000);
     this.dataTTLSeconds = Math.floor(BaseStore.DefaultDataTTL / 1000);
+  }
+
+  private async getClient(): Promise<DynamoDBDocumentClient> {
+    if (this.client) return this.client;
+
+    this.clientPromise ??= (async () => {
+      try {
+        const [{ DynamoDBClient }, { DynamoDBDocumentClient }] = await Promise.all([
+          importOptional(
+            import("@aws-sdk/client-dynamodb"),
+            `store-type "dynamodb" requires the "@aws-sdk/client-dynamodb" package. Install it: npm add -g @aws-sdk/client-dynamodb`,
+          ),
+          importOptional(
+            import("@aws-sdk/lib-dynamodb"),
+            `store-type "dynamodb" requires the "@aws-sdk/lib-dynamodb" package. Install it: npm add -g @aws-sdk/lib-dynamodb`,
+          ),
+        ]);
+
+        const raw = new DynamoDBClient({ region: this.config.region });
+        this.client = DynamoDBDocumentClient.from(raw, {
+          marshallOptions: { removeUndefinedValues: true },
+        });
+        return this.client;
+      } catch (err) {
+        this.clientPromise = undefined;
+        throw err;
+      }
+    })();
+
+    return this.clientPromise;
   }
 
   private expiresAt(ttlSeconds: number): number {
@@ -139,7 +169,10 @@ export default class DynamoStore extends BaseStore implements Store {
 
   private async put(sk: string, item: Record<string, unknown>, ttlSeconds: number): Promise<void> {
     try {
-      await this.client.send(
+      const client = await this.getClient();
+      const { PutCommand } = await import("@aws-sdk/lib-dynamodb");
+
+      await client.send(
         new PutCommand({
           TableName: this.tableName,
           Item: {
@@ -165,7 +198,10 @@ export default class DynamoStore extends BaseStore implements Store {
 
   private async get<T = Record<string, unknown>>(sk: string): Promise<T | undefined> {
     try {
-      const out = await this.client.send(
+      const client = await this.getClient();
+      const { GetCommand } = await import("@aws-sdk/lib-dynamodb");
+
+      const out = await client.send(
         new GetCommand({
           TableName: this.tableName,
           Key: { pk: this.pk, sk },
@@ -178,10 +214,7 @@ export default class DynamoStore extends BaseStore implements Store {
       return out.Item as T | undefined;
     } catch (err: any) {
       const level = classify(err) === "transient" ? "warn" : "error";
-      logger[level](
-        { error: err?.name ?? "unknown", code: err?.code },
-        "DynamoStore.get failed: @{error} (@{code})",
-      );
+      logger[level]({ error: err?.name ?? "unknown", code: err?.code }, "DynamoStore.get failed: @{error} (@{code})");
       // Fail-closed reads: undefined forces the auth flow to re-issue
       // state rather than acting on stale / unavailable data.
       return undefined;
@@ -190,7 +223,10 @@ export default class DynamoStore extends BaseStore implements Store {
 
   private async del(sk: string): Promise<void> {
     try {
-      await this.client.send(
+      const client = await this.getClient();
+      const { DeleteCommand } = await import("@aws-sdk/lib-dynamodb");
+
+      await client.send(
         new DeleteCommand({
           TableName: this.tableName,
           Key: { pk: this.pk, sk },
@@ -198,10 +234,7 @@ export default class DynamoStore extends BaseStore implements Store {
       );
     } catch (err: any) {
       const level = classify(err) === "transient" ? "warn" : "error";
-      logger[level](
-        { error: err?.name ?? "unknown", code: err?.code },
-        "DynamoStore.del failed: @{error} (@{code})",
-      );
+      logger[level]({ error: err?.name ?? "unknown", code: err?.code }, "DynamoStore.del failed: @{error} (@{code})");
       // Swallow on delete — a stale row will expire via TTL anyway,
       // and propagating here can break a logout flow without value.
     }
@@ -223,8 +256,12 @@ export default class DynamoStore extends BaseStore implements Store {
   }
 
   async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
+    if (typeof data !== "object" || data === null) {
+      throw new TypeError("userinfo data must be an object");
+    }
+
     assertSize("user info key", key, MAX_KEY_BYTES);
-    assertSize("user info payload", JSON.stringify(data ?? {}), MAX_VALUE_BYTES);
+    assertSize("user info payload", JSON.stringify(data), MAX_VALUE_BYTES);
     await this.put(
       this.getUserInfoKey(key, providerId),
       { data: data as Record<string, unknown> },
@@ -282,7 +319,10 @@ export default class DynamoStore extends BaseStore implements Store {
     if (current === pendingToken) return current;
 
     try {
-      await this.client.send(
+      const client = await this.getClient();
+      const { DeleteCommand } = await import("@aws-sdk/lib-dynamodb");
+
+      await client.send(
         new DeleteCommand({
           TableName: this.tableName,
           Key: { pk: this.pk, sk },
@@ -292,17 +332,15 @@ export default class DynamoStore extends BaseStore implements Store {
         }),
       );
     } catch (err: any) {
-      // ConditionalCheckFailedException = lost the race; anything
-      // else = transient/permanent — either way the safe answer is
-      // "we didn't consume the token", so the caller must retry.
-      if (err?.name && err.name !== "ConditionalCheckFailedException") {
-        const level = classify(err) === "transient" ? "warn" : "error";
-        logger[level](
-          { error: err?.name, code: err?.code },
-          "DynamoStore.takeWebAuthnToken delete failed: @{error} (@{code})",
-        );
+      if (err?.name === "ConditionalCheckFailedException") {
+        return undefined;
       }
-      return undefined;
+      const level = classify(err) === "transient" ? "warn" : "error";
+      logger[level](
+        { error: err?.name, code: err?.code },
+        "DynamoStore.takeWebAuthnToken delete failed: @{error} (@{code})",
+      );
+      throw new DynamoStoreError("takeWebAuthnToken", err);
     }
     return current;
   }
@@ -311,7 +349,19 @@ export default class DynamoStore extends BaseStore implements Store {
     await this.del(this.getWebAuthnTokenKey(key));
   }
 
-  close(): void {
-    this.client.destroy();
+  async close(): Promise<void> {
+    let client: DynamoDBDocumentClient | undefined;
+
+    try {
+      client = this.client ?? (await this.clientPromise);
+    } catch {
+      // initialization failed, nothing to destroy
+    }
+
+    if (!client) return;
+
+    client.destroy();
+    this.client = undefined;
+    this.clientPromise = undefined;
   }
 }

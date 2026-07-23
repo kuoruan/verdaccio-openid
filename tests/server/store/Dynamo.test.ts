@@ -240,7 +240,7 @@ describe("DynamoStore — webauthn takeWebAuthnToken (atomic CAS)", () => {
     await expect(store.takeWebAuthnToken("session1", "pending-T")).resolves.toBeUndefined();
   });
 
-  it("returns undefined on a lost race (ConditionalCheckFailed) — caller must NOT believe they consumed the token", async () => {
+  it("rethrows non-ConditionalCheckFailed errors (matching Redis error propagation)", async () => {
     sendMock.mockResolvedValueOnce({
       Item: {
         pk: "OIDC",
@@ -249,13 +249,47 @@ describe("DynamoStore — webauthn takeWebAuthnToken (atomic CAS)", () => {
         expires: Math.floor(Date.now() / 1000) + 60,
       },
     });
-    const err = new Error("ConditionalCheckFailedException");
-    err.name = "ConditionalCheckFailedException";
+    const err = new Error("InternalServerError");
+    err.name = "InternalServerError";
     sendMock.mockRejectedValueOnce(err);
 
     const store = new DynamoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("s", "pending-T")).resolves.toBeUndefined();
+    await expect(store.takeWebAuthnToken("s", "pending-T")).rejects.toThrow("DynamoStore.takeWebAuthnToken failed");
+  });
+});
+
+describe("DynamoStore — delete paths", () => {
+  it("deleteOpenIDState sends DeleteCommand", async () => {
+    sendMock.mockResolvedValue({});
+    const store = new DynamoStore(baseConfig);
+
+    await store.deleteOpenIDState("session-abc", "openid");
+
+    expect(sendMock).toHaveBeenCalledOnce();
+    const cmd = sendMock.mock.calls[0][0];
+    expect(cmd.__type).toBe("Delete");
+    expect(cmd.input.Key.pk).toBe("OIDC");
+    expect(cmd.input.Key.sk).toBe("openid:state:session-abc");
+  });
+
+  it("deleteWebAuthnToken sends DeleteCommand", async () => {
+    sendMock.mockResolvedValue({});
+    const store = new DynamoStore(baseConfig);
+
+    await store.deleteWebAuthnToken("session-abc");
+
+    expect(sendMock).toHaveBeenCalledOnce();
+    expect(sendMock.mock.calls[0][0].__type).toBe("Delete");
+  });
+});
+
+describe("DynamoStore — error propagation", () => {
+  it("put throws DynamoStoreError on AWS failure", async () => {
+    sendMock.mockRejectedValue(new Error("simulated put error"));
+    const store = new DynamoStore(baseConfig);
+
+    await expect(store.setOpenIDState("k", "n", "openid")).rejects.toThrow("DynamoStore.put failed");
   });
 });
 
@@ -285,9 +319,16 @@ describe("DynamoStore — TTL derivation", () => {
 });
 
 describe("DynamoStore — close()", () => {
-  it("destroys the underlying client", () => {
+  it("destroys the underlying client", async () => {
+    sendMock.mockResolvedValue({});
     const store = new DynamoStore(baseConfig);
-    store.close();
+    await store.setOpenIDState("k", "n", "openid"); // trigger lazy client init
+    await store.close();
     expect(destroyMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not throw when closed without prior init", async () => {
+    const store = new DynamoStore(baseConfig);
+    await expect(store.close()).resolves.toBeUndefined();
   });
 });
