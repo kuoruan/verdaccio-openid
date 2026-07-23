@@ -1,5 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
 import { setTimeout as delay } from "node:timers/promises";
 
 import { Groups } from "@gitbeaker/rest";
@@ -205,7 +203,6 @@ describe("OpenIDConnectAuthProvider", () => {
       mockConfig.jwksUri = undefined;
 
       let resolveDiscovery!: (value: any) => void;
-      // eslint-disable-next-line unicorn/prefer-promise-with-resolvers
       const discoveryPromise = new Promise<any>((resolve) => {
         resolveDiscovery = resolve;
       });

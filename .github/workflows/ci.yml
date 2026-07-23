@@ -3,9 +3,9 @@ name: Node.js CI
 on:
   push:
     branches:
-      - '**'
+      - "**"
     tags-ignore:
-      - '**'
+      - "**"
   pull_request:
 
 jobs:
@@ -37,13 +37,16 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'pnpm'
+          cache: "pnpm"
 
       - name: Install
         run: pnpm install --frozen-lockfile
 
       - name: Lint
         run: pnpm lint
+
+      - name: Format check
+        run: pnpm fmt:check
 
       - name: Test
         run: pnpm test

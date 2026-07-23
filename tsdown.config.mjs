@@ -45,7 +45,7 @@ export default defineConfig([
     fixedExtension: false,
     target: "node20",
     deps: {
-      skipNodeModulesBundle: true,
+      neverBundle: true,
     },
     outputOptions: {
       exports: "named",
@@ -60,7 +60,7 @@ export default defineConfig([
     define,
     target: "node20",
     deps: {
-      skipNodeModulesBundle: true,
+      neverBundle: true,
     },
     plugins: [svgPlugin()],
   },

@@ -78,7 +78,6 @@ describe("AuthCore", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     const mod = await import("@/server/plugin/AuthCore");
-    // eslint-disable-next-line unicorn/no-top-level-assignment-in-function
     AuthCore = mod.AuthCore;
   });
 
@@ -361,7 +360,6 @@ describe("AuthCore", () => {
       const core = new AuthCore(createMockConfig(), createMockProvider());
       core.setAuth(mockAuthInstance as any);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input as any);
 
       const providerToken: OpenIDToken = {
@@ -389,7 +387,6 @@ describe("AuthCore", () => {
       const core = new AuthCore(createMockConfig(), createMockProvider());
       core.setAuth(mockAuthInstance as any);
 
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input as any);
 
       const providerToken: OpenIDToken = {

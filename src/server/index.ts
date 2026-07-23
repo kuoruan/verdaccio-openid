@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-top-level-side-effects */
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";

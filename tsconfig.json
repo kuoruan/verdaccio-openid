@@ -13,14 +13,10 @@
     "strict": true,
     "skipLibCheck": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     },
-    "types": [
-      "node"
-    ]
+    "types": ["node"]
   },
-    "include": ["./src/**/*.ts", "./src/**/*.d.ts"],
-    "exclude": ["./src/client/**"]
+  "include": ["./src/**/*.ts", "./src/**/*.d.ts"],
+  "exclude": ["./src/client/**"]
 }

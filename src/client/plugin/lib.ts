@@ -1,5 +1,3 @@
-/* eslint-disable unicorn/prefer-code-point */
-
 // This parseJwt implementation is taken from https://stackoverflow.com/a/38552302/1935971
 export function parseJwt(token: string): Record<string, any> | null {
   try {

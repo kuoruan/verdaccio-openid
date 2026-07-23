@@ -2,37 +2,39 @@
   "$schema": "https://json.schemastore.org/package",
   "name": "verdaccio-openid",
   "version": "0.17.2",
-  "repository": "https://github.com/kuoruan/verdaccio-openid",
+  "description": "A UI for OIDC authentication for Verdaccio, a fork of verdaccio-github-oauth-ui",
+  "keywords": [
+    "authentication",
+    "oauth",
+    "oauth2",
+    "oidc",
+    "openid",
+    "ui",
+    "verdaccio"
+  ],
   "license": "MIT",
-  "packageManager": "pnpm@9.15.4",
   "author": {
     "name": "Xingwang Liao",
     "email": "kuoruan@gmail.com"
   },
-  "description": "A UI for OIDC authentication for Verdaccio, a fork of verdaccio-github-oauth-ui",
-  "keywords": [
-    "verdaccio",
-    "oidc",
-    "openid",
-    "authentication",
-    "oauth",
-    "oauth2",
-    "ui"
-  ],
-  "main": "./dist/server/index.js",
-  "module": "./dist/server/index.mjs",
+  "repository": "https://github.com/kuoruan/verdaccio-openid",
   "bin": "./dist/verdaccio-openid.mjs",
   "files": [
     "dist"
   ],
+  "main": "./dist/server/index.js",
+  "module": "./dist/server/index.mjs",
   "scripts": {
     "build": "cross-env NODE_ENV=production tsdown",
     "start": "cross-env DEBUG='verdaccio:*' node_modules/verdaccio/bin/verdaccio -c verdaccio/verdaccio.yml",
     "start:5": "cross-env DEBUG='verdaccio:*' node_modules/verdaccio5/bin/verdaccio -c verdaccio5/verdaccio.yml",
-    "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
     "test": "vitest --run",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "pnpm run build",
+    "prepare": "husky"
   },
   "dependencies": {
     "@gitbeaker/rest": "^43.8.0",
@@ -58,7 +60,6 @@
     "yup": "^1.7.1"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@tsconfig/node20": "^20.1.9",
     "@types/debug": "^4.1.13",
     "@types/express": "^5.0.6",
@@ -71,18 +72,12 @@
     "@types/serve-static": "^2.2.0",
     "@verdaccio/types": "^13.0.3",
     "cross-env": "^10.1.0",
-    "eslint": "^10.7.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-import-resolver-next": "^0.6.0",
-    "eslint-plugin-import-x": "^4.17.1",
-    "eslint-plugin-prettier": "^5.5.6",
-    "eslint-plugin-simple-import-sort": "^14.0.0",
-    "eslint-plugin-unicorn": "^72.0.0",
-    "globals": "^17.7.0",
-    "prettier": "^3.9.6",
-    "tsdown": "^0.22.12",
-    "typescript": "^6.0.3",
-    "typescript-eslint": "^8.65.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.1.1",
+    "oxfmt": "^0.60.0",
+    "oxlint": "^1.75.0",
+    "tsdown": "^0.22.13",
+    "typescript": "^7.0.2",
     "verdaccio": "^6.8.0",
     "verdaccio-htpasswd": "^13.0.3",
     "verdaccio-openid": "file:",
@@ -95,6 +90,7 @@
   "engines": {
     "node": ">=20"
   },
+  "packageManager": "pnpm@10.34.5",
   "pnpm": {
     "overrides": {
       "abab": "npm:@nolyfill/abab@^1",

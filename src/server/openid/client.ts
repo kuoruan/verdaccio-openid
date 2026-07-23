@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/no-top-level-assignment-in-function, unicorn/prefer-await */
 import type * as OpenIDClient from "openid-client";
 
 let openidClient: typeof OpenIDClient | null = null;

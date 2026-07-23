@@ -3,7 +3,7 @@ name: Node.js Release
 on:
   push:
     tags:
-      - 'v*.*.*'
+      - "v*.*.*"
 
 jobs:
   publish:
@@ -26,8 +26,8 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v6
         with:
-          cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org/'
+          cache: "pnpm"
+          registry-url: "https://registry.npmjs.org/"
 
       - name: Install
         run: pnpm install --frozen-lockfile

@@ -33,7 +33,6 @@ function getNpmConfig(): Record<string, unknown> {
   const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
 
   try {
-    // eslint-disable-next-line unicorn/no-top-level-assignment-in-function
     npmConfig = JSON.parse(npmConfigJson) as Record<string, unknown>;
   } catch {
     return {};

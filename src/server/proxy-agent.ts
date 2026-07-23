@@ -3,7 +3,6 @@ import { bootstrap } from "global-agent";
 
 import logger from "./logger";
 
-// eslint-disable-next-line unicorn/no-top-level-side-effects
 bootstrap({
   environmentVariableNamespace: "",
   socketConnectionTimeout: 60_000,

@@ -1,4 +1,3 @@
-/* eslint-disable unicorn/prefer-await */
 import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
 

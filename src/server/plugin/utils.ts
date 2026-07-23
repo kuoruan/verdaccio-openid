@@ -120,7 +120,6 @@ export function isNowBefore(expireAt: number): boolean {
  * @param noTrailingSlash Whether to include a trailing slash.
  * @returns
  */
-// eslint-disable-next-line unicorn/consistent-boolean-name
 export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = false): string {
   const base = getPublicUrl(urlPrefix, req);
 

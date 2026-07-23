@@ -1,0 +1,9 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "import", "unicorn", "oxc"],
+  "ignorePatterns": ["node_modules", "dist", ".history", "verdaccio", "verdaccio5"],
+  "env": {
+    "browser": true,
+    "node": true
+  }
+}
