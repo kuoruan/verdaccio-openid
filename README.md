@@ -5,29 +5,27 @@
 [![npm](https://img.shields.io/npm/dt/verdaccio-openid.svg)](https://www.npmjs.com/package/verdaccio-openid)
 [![npm](https://img.shields.io/npm/l/verdaccio-openid.svg)](https://www.npmjs.com/package/verdaccio-openid)
 
+English | [中文](README.zh-CN.md)
+
 ## About
 
-This is a Verdaccio plugin that offers OIDC OAuth integration for both the browser and the command line.
+A Verdaccio plugin that provides OIDC OAuth integration for both the browser and the command line.
 
 ## Compatibility
 
 - Verdaccio 5, 6, 7
-- Node >=20
-- Browsers which support [ES6](https://caniuse.com/?search=es6)
+- Node >= 20
+- Browsers supporting [ES6](https://caniuse.com/?search=es6)
 
-## Setup
+## Install
 
-### Install
-
-1. Install globally
+### Global Install
 
 ```sh
 npm install -g verdaccio-openid
 ```
 
-2. Install to Verdaccio plugins folder
-
-> npm >= 7
+### Install to Verdaccio Plugins Folder (Advanced)
 
 ```bash
 mkdir -p ./install-here/
@@ -39,11 +37,11 @@ npm install --global-style \
 mv ./install-here/node_modules/verdaccio-openid/ /path/to/verdaccio/plugins/
 ```
 
-### Verdaccio Config
+## Configuration
 
-Merge the below options with your existing Verdaccio config:
+Add the following to your Verdaccio config:
 
-```yml
+```yaml
 middlewares:
   openid:
     enabled: true
@@ -51,286 +49,107 @@ middlewares:
 auth:
   openid:
     provider-host: https://example.com
-    # configuration-uri: https://example.com/.well-known/openid-configuration
-    # issuer: https://example.com
-    # authorization-endpoint: https://example.com/oauth/authorize
-    # token-endpoint: https://example.com/oauth/token
-    # userinfo-endpoint: https://example.com/oauth/userinfo
-    # jwks-uri: https://example.com/oauth/jwks
-    # scope: openid email groups
     client-id: CLIENT_ID
     client-secret: CLIENT_SECRET
     username-claim: name
+    # scope: openid email groups
     # groups-claim: groups
     # provider-type: gitlab
     # store-type: file
     # store-config: ./store
     # authorized-groups:
-    #  - access
+    #   - access
     # group-users:
     #   animal:
     #     - tom
     #     - jack
 ```
 
-Now you can use the openid-connect auth in the webUI.
+### Required Options
 
-### Config Options
+| Config key      | Description                               |
+| --------------- | ----------------------------------------- |
+| `provider-host` | The host of the OIDC provider.            |
+| `client-id`     | The client ID from the OIDC provider.     |
+| `client-secret` | The client secret from the OIDC provider. |
 
-#### openid
+See [Configuration](docs/configuration.md) for all available options.
 
-| Config key                                                                                                                                                                       | Value Type                                     | Default                     | Required | Example                                                |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- | --------------------------- | -------- | ------------------------------------------------------ |
-| <details><summary>provider-host</summary>The host of the OIDC provider</details>                                                                                                 | string                                         |                             | Yes      | `https://example.com`                                  |
-| <details><summary>configuration-uri</summary>The URI of the OIDC provider configuration</details>                                                                                | string                                         |                             | No       | `https://example.com/.well-known/openid-configuration` |
-| <details><summary>issuer</summary>The issuer of the OIDC provider</details>                                                                                                      | string                                         |                             | No       | `https://example.com`                                  |
-| <details><summary>authorization-endpoint</summary>The authorization endpoint of the OIDC provider</details>                                                                      | string                                         |                             | No       | `https://example.com/oauth/authorize`                  |
-| <details><summary>token-endpoint</summary>The token endpoint of the OIDC provider</details>                                                                                      | string                                         |                             | No       | `https://example.com/oauth/token`                      |
-| <details><summary>userinfo-endpoint</summary>The userinfo endpoint of the OIDC provider</details>                                                                                | string                                         |                             | No       | `https://example.com/oauth/userinfo`                   |
-| <details><summary>jwks-uri</summary>The JWKS URI of the OIDC provider</details>                                                                                                  | string                                         |                             | No       | `https://example.com/oauth/jwks`                       |
-| <details><summary>scope</summary>The scope of the OIDC provider</details>                                                                                                        | string                                         | `openid`                    | No       | `openid email groups`                                  |
-| <details><summary>client-id</summary>The client ID of the OIDC provider</details>                                                                                                | string                                         |                             | Yes      | `your-client-id`                                       |
-| <details><summary>client-secret</summary>The client secret of the OIDC provider</details>                                                                                        | string                                         |                             | Yes      | `your-client-secret`                                   |
-| <details><summary>username-claim</summary>The claim to get the username from the ID token or userinfo endpoint response</details>                                                | string                                         | `sub`                       | No       | `name`                                                 |
-| <details><summary>groups-claim</summary>The claim to get the groups from the ID token or userinfo endpoint response</details>                                                    | string                                         |                             | No       | `groups`                                               |
-| <details><summary>provider-type</summary>The provider type to get groups from the provider. Supported values: `gitlab`</details>                                                 | string                                         |                             | No       | `gitlab`                                               |
-| <details><summary>store-type</summary>The store type to store the OIDC state and caches.</details>                                                                               | "in-memory" \| "redis" \| "file" \| "dynamodb" | `in-memory`                 | No       | `file`                                                 |
-| <details><summary>store-config</summary>The store configuration.</details>                                                                                                       | string \| object                               | `{ ttl: 60000 }`            | No       | `./store`                                              |
-| <details><summary>keep-passwd-login</summary>Keep the htpasswd login dialog. If set to `true`, the htpasswd login dialog will be kept.</details>                                 | boolean                                        | `undefined`                 | No       | `true`                                                 |
-| <details><summary>login-button-text</summary>The text of the OpenID connect login button</details>                                                                               | string                                         | `Login with OpenID Connect` | No       | `Login with GitLab`                                    |
-| <details><summary>authorized-groups</summary>The groups that are allowed to login. Use `true` to ensure the user has at least one group, `false` means no groups check</details> | string \| string \| boolean                    | `false`                     | No       | `true`                                                 |
-| <details><summary>group-users</summary>The custom group users. If set, `groups-claim` and `provider-type` take no effect</details>                                               | object                                         |                             | No       | `{"animal": ["Tom", "Jack"]}`                          |
+## OpenID Callback URLs
 
-Note: When `configuration-uri` is set, the issuer verification is skipped, see: [OpenID Client Discovery](https://github.com/panva/openid-client/blob/main/docs/functions/discovery.md).
+Configure these in your OIDC provider:
 
-#### store-config
+| Flow      | Callback URL                                       |
+| --------- | -------------------------------------------------- |
+| Web Authn | `https://your-registry.com/-/oauth/callback/authn` |
+| Web UI    | `https://your-registry.com/-/oauth/callback`       |
+| CLI       | `https://your-registry.com/-/oauth/callback/cli`   |
 
-1. in-memory
+## Authentication
 
-When using the `in-memory` store, the `store-config` is an object with the following properties:
+### Web UI
 
-| Config key | Description                                                                                                   | Value Type       | Default | Required | Example |
-| ---------- | ------------------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | ------- |
-| ttl        | The TTL of the OIDC state (ms).                                                                               | number \| string | `60000` | No       | `1m`    |
-| ...        | All options are passed to the [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache) constructor. | any              |         | No       |         |
+Once configured, clicking the login button redirects directly to the OIDC provider.
 
-2. redis
+If `auth.htpasswd.file` is configured, the login dialog appears first with username/password fields, and the OIDC login button is shown below them — allowing users to choose either method.
 
-When using the `redis` store, the `store-config` is a string with the Redis connection string or an object with the following properties:
+![Login Dialog](docs/images/login-dialog.png)
 
-| Config key | Description                                                                                 | Value Type                     | Default | Required | Example                               |
-| ---------- | ------------------------------------------------------------------------------------------- | ------------------------------ | ------- | -------- | ------------------------------------- |
-| ttl        | The TTL of the OIDC state (ms).                                                             | number \| string               | `60000` | No       | `1m`                                  |
-| username   | The username of the Redis connection.                                                       | string                         |         | No       | `your-username`                       |
-| password   | The password of the Redis connection.                                                       | string                         |         | No       | `your-password`                       |
-| host       | The host of the Redis connection.                                                           | string                         |         | No       | `localhost`                           |
-| port       | The port of the Redis connection.                                                           | number                         |         | No       | `6379`                                |
-| nodes      | The nodes of the Redis Cluster connection.                                                  | (object \| string \| number)[] |         | No       | `[{ host: 'localhost', port: 6379 }]` |
-| ...        | All options are passed to the [ioredis](https://www.npmjs.com/package/ioredis) constructor. | any                            |         | No       |                                       |
+Set `keep-passwd-login` explicitly to override the auto-detection. See [keep-passwd-login](docs/configuration.md#keep-passwd-login) for details.
 
-The `username` and `password` can be set with the `VERDACCIO_OPENID_STORE_CONFIG_USERNAME` and `VERDACCIO_OPENID_STORE_CONFIG_PASSWORD` environment variables. Or you can use your own environment variable names.
-
-Config example:
-
-```yaml
-auth:
-  openid:
-    store-type: redis
-    store-config: redis://your-username:your-password@localhost:6379
-```
-
-```yaml
-auth:
-  openid:
-    store-type: redis
-    store-config:
-      ttl: 60000
-      username: your-username
-      password: your-password
-      host: localhost
-      port: 6379
-```
-
-When using Redis Cluster, you should use the `nodes` property:
-
-```yaml
-auth:
-  openid:
-    store-type: redis
-    store-config:
-      ttl: 1m
-      username: your-username
-      password: your-password
-      nodes:
-        - host: localhost
-          port: 6379
-        - host: localhost
-          port: 6380
-      redisOptions:
-        # ... other ioredis options
-```
-
-3. file
-
-When using the `file` store, the `store-config` is a string with the file path to store the OIDC state or an object with the following properties:
-
-| Config key | Description                                                                                           | Value Type       | Default | Required | Example   |
-| ---------- | ----------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | --------- |
-| ttl        | The TTL of the OIDC state (ms).                                                                       | number \| string | `60000` | No       | `1m`      |
-| dir        | The directory to store the OIDC state.                                                                | string           |         | No       | `./store` |
-| ...        | All options are passed to the [node-persist](https://www.npmjs.com/package/node-persist) constructor. | any              |         | No       |           |
-
-Config example:
-
-```yaml
-auth:
-  openid:
-    store-type: file
-    store-config: ./store
-```
-
-```yaml
-auth:
-  openid:
-    store-type: file
-    store-config:
-      ttl: 60000
-      dir: ./store
-```
-
-4. dynamodb
-
-When using the `dynamodb` store, OIDC state, user info, groups and webauthn tokens are persisted in an AWS DynamoDB table — shared across all replicas of the verdaccio process so a request can resolve a session created by any other replica.
-
-| Config key   | Description                                                                                                                              | Value Type       | Default | Required | Example            |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------- | -------- | ------------------ |
-| ttl          | The TTL of the OIDC state (ms).                                                                                                          | number \| string | `60000` | No       | `1m`               |
-| tableName    | DynamoDB table name. The table must already exist with `pk` (S) hash key, `sk` (S) range key, and `expires` configured as TTL attribute. | string           |         | Yes      | `verdaccio-openid` |
-| region       | AWS region of the table.                                                                                                                 | string           |         | Yes      | `us-east-1`        |
-| partitionKey | Partition-key value used to namespace this plugin's rows. Set a unique value when sharing the table with other writers.                  | string           | `OIDC`  | No       | `OIDC-prod`        |
-
-Credentials are resolved through the standard AWS SDK provider chain: environment variables (including `AWS_PROFILE` for named profiles), `~/.aws/credentials`, container credentials (EKS Pod Identity / IRSA), etc. No keys are ever read from the verdaccio config.
-
-The IAM principal used by the verdaccio process needs the following actions on the table ARN:
-
-```
-dynamodb:GetItem
-dynamodb:PutItem
-dynamodb:DeleteItem
-```
-
-Config example:
-
-```yaml
-auth:
-  openid:
-    store-type: dynamodb
-    store-config:
-      tableName: verdaccio-openid
-      region: us-east-1
-```
-
-```yaml
-auth:
-  openid:
-    store-type: dynamodb
-    store-config:
-      ttl: 1m
-      tableName: shared-app-state
-      region: us-east-1
-      partitionKey: OIDC-prod
-```
-
-#### keep-passwd-login
-
-If you want to keep the htpasswd login dialog, set the `keep-passwd-login` to `true`.
-
-By default, if `auth.htpasswd.file` is set, the htpasswd login dialog will be keep.
-
-With this, you can use both the htpasswd login and the OIDC login.
-
-![Login Dialog](./images/login-dialog.png)
-
-### Environment Variables
-
-You can set each config with environment variables to avoid storing sensitive information in the config file.
-Every config can be set with an environment variable name, matching the regex `/^[a-zA-Z_][a-zA-Z0-9_]*$/`.
-
-```yaml
-auth:
-  openid:
-    client-id: MY_CLIENT_ID
-    client-secret: MY_CLIENT_SECRET
-```
-
-If the config value is not set, the plugin will try to read the value from the environment variable.
-The default environment variable name is `VERDACCIO_OPENID_` followed by the config key in uppercase and snake case.
-
-| Config Key        | Environment Name                     | Value Example                                                  |
-| ----------------- | ------------------------------------ | -------------------------------------------------------------- |
-| client-id         | `VERDACCIO_OPENID_CLIENT_ID`         | `your-client-id`                                               |
-| client-secret     | `VERDACCIO_OPENID_CLIENT_SECRET`     | `your-client-secret`                                           |
-| provider-host     | `VERDACCIO_OPENID_PROVIDER_HOST`     | `https://example.com`                                          |
-| authorized-groups | `VERDACCIO_OPENID_AUTHORIZED_GROUPS` | `true`                                                         |
-| group-users       | `VERDACCIO_OPENID_GROUP_USERS`       | `{"group1": ["user1", "user2"], "group2": ["user3", "user4"]}` |
-| [key]             | `VERDACCIO_OPENID_[KEY]`             | other config value is the same as above                        |
-
-The environment value can be a string or a JSON string. If it is a JSON string, the plugin will parse it to a JSON object.
-
-Note: The environment variable will take precedence over the config value. That means if the config value is like an environment variable name(matching above regex), and the environment variable is set, the plugin will use the environment variable value.
-
-### Dotenv files
-
-You can use a `.env` file to set the environment variables. The plugin will read the `.env` file in the HOME directory and the directory where the Verdaccio process is started.
-
-The load order is:
-
-1. $HOME/.env
-2. $HOME/.env.openid
-3. $PWD/.env
-4. $PWD/.env.openid
-
-### Token Expiration
-
-To set the token expiration time, follow the instructions in the [Verdaccio docs](https://verdaccio.org/docs/configuration#security).
-
-```yml
-security:
-  api:
-    jwt:
-      sign:
-        expiresIn: 7d # npm token expiration
-  web:
-    sign:
-      expiresIn: 7d # webUI token expiration
-```
-
-## OpenID Callback URL
-
-- Web UI: https://your-registry.com/-/oauth/callback
-- Web Authn: https://your-registry.com/-/oauth/callback/authn
-- CLI: https://your-registry.com/-/oauth/callback/cli
-
-## Auth with Web Authn
-
-Web Auth is a new auth method, added in npm v8.14.0 and higher.
+### Web Authn (Recommended)
 
 ```sh
-npm login --auth-type=web --registry http://your-registry.com
+npm login --registry http://your-registry.com
 ```
 
-Note: The `--auth-type=web` option can be omitted, as it is the default value in npm v9+.
+Opens a browser window for OIDC login and saves the token automatically.
 
-See: [Sign in from the command line using `--auth-type=web`](https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb)
+> **Note:** npm v9+ defaults to `--auth-type=web`. For npm v8.14–v8.x, add `--auth-type=web` explicitly. For npm < v8.14, use the legacy flow:
+>
+> ```sh
+> npm login --auth-type=legacy --registry http://your-registry.com
+> ```
+>
+> See the [npm docs](https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb) for more details.
 
-To use the lagacy username password auth method, use the `--auth-type=legacy` option.
-
-```sh
-npm login --auth-type=legacy --registry http://your-registry.com
-```
-
-## Auth with CLI
+### CLI (Alternative)
 
 ```sh
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
+
+Uses a local callback server to receive the token. Falls back to this if Web Authn is unavailable (e.g. older npm versions). See [CLI Authentication](docs/cli-auth.md) for legacy login options.
+
+## Store Backends
+
+Choose a store backend for session state and caches:
+
+| Type                  | Best for                    |
+| --------------------- | --------------------------- |
+| `in-memory` (default) | Single-process, development |
+| `redis`               | Multi-replica deployments   |
+| `file`                | Single-node, persistent     |
+| `dynamodb`            | Cloud-native, multi-replica |
+
+See [Store Configuration](docs/store-config.md) for setup instructions and required peer dependencies.
+
+## Environment Variables
+
+All config values can be set via environment variables — useful for keeping sensitive data out of your config file. See [Environment Variables](docs/environment-variables.md) for the naming convention and dotenv support.
+
+## Contributing
+
+See [Development](docs/development.md) for build instructions, testing, and project structure.
+
+## Documentation
+
+- [Configuration](docs/configuration.md) — all config options, provider discovery
+- [Store Configuration](docs/store-config.md) — Redis, File, DynamoDB backends and peer dependencies
+- [Environment Variables](docs/environment-variables.md) — env var mapping, dotenv support
+- [CLI Authentication](docs/cli-auth.md) — CLI login flow
+- [Development](docs/development.md) — build, test, project structure
+
+## License
+
+MIT
