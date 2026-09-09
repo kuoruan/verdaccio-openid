@@ -8,6 +8,7 @@ The `store-type` and `store-config` options control where OIDC state, user info,
 | `redis`     | Redis            | Multi-process / multi-replica deployments |
 | `file`      | Local filesystem | Single-node deployments                   |
 | `dynamodb`  | AWS DynamoDB     | Multi-replica, cloud-native deployments   |
+| `mongodb`   | MongoDB          | Multi-replica, reuse an existing MongoDB  |
 
 ## Peer Dependencies
 
@@ -18,6 +19,7 @@ Each store backend (except `in-memory`) requires an optional peer dependency. Th
 | `redis`    | `ioredis`                                            |
 | `file`     | `node-persist`                                       |
 | `dynamodb` | `@aws-sdk/client-dynamodb` + `@aws-sdk/lib-dynamodb` |
+| `mongodb`  | `mongodb`                                            |
 
 If the required package is missing, the plugin will throw an error with a clear install instruction when the store is first accessed.
 
@@ -30,6 +32,9 @@ npm install node-persist
 
 # DynamoDB
 npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+
+# MongoDB
+npm install mongodb
 ```
 
 ## Common Options
@@ -227,3 +232,62 @@ auth:
 | `tableName`    | `string`             |         | Yes      | DynamoDB table name.                                                                            |
 | `region`       | `string`             |         | Yes      | AWS region of the table.                                                                        |
 | `partitionKey` | `string`             | `OIDC`  | No       | Partition key value to namespace this plugin's rows. Set a unique value when sharing the table. |
+
+---
+
+## `mongodb`
+
+Uses the official [mongodb](https://www.npmjs.com/package/mongodb) Node.js driver. OIDC state, user info, groups, and WebAuthn tokens are persisted as documents in a single collection — shared across all replicas. Works with any MongoDB 4.0+ compatible server, including MongoDB Atlas, Azure Cosmos DB for MongoDB (vCore) and Amazon DocumentDB — handy when the registry already has a MongoDB next to it.
+
+**Install:** `npm install mongodb`
+
+### Collection Setup
+
+Nothing to prepare. The collection is created on first write, and the plugin creates a TTL index on `expiresAt` (`expireAfterSeconds: 0`) so the server garbage-collects expired documents. Expiry is enforced on read as well, so a missing TTL index (for example with a role that cannot create indexes) only affects cleanup — the plugin logs a warning and keeps working.
+
+The connecting user needs `find`, `insert`, `update`, `remove` and `createIndex` on the collection; the built-in `readWrite` role covers all of them.
+
+### Connection String
+
+```yaml
+auth:
+  openid:
+    store-type: mongodb
+    store-config: mongodb://user:password@localhost:27017/verdaccio
+```
+
+### Object Config
+
+```yaml
+auth:
+  openid:
+    store-type: mongodb
+    store-config:
+      uri: mongodb+srv://user:password@cluster.example.com/verdaccio?retryWrites=true
+      database: verdaccio
+      collection: openid-store
+      ttl: 1m
+```
+
+### Credentials via Environment Variables
+
+Keep the connection string out of the config file by naming an environment variable instead of the value:
+
+```yaml
+auth:
+  openid:
+    store-type: mongodb
+    store-config:
+      uri: MONGO_URI # Reads from $MONGO_URI
+```
+
+Or set no `store-config` at all and provide the connection string through the default variable `VERDACCIO_OPENID_STORE_CONFIG_URI`. See [Environment Variables](environment-variables.md).
+
+### Options
+
+| Config key   | Type                 | Default                                    | Required | Description                                                                                                                       |
+| ------------ | -------------------- | ------------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `ttl`        | `number` \| `string` | `60000`                                    | No       | State TTL.                                                                                                                        |
+| `uri`        | `string`             |                                            | Yes      | MongoDB connection string (`mongodb://` or `mongodb+srv://`). TLS, authentication mechanism and other driver options travel here. |
+| `database`   | `string`             | database in `uri`, else `verdaccio-openid` | No       | Database name.                                                                                                                    |
+| `collection` | `string`             | `openid-store`                             | No       | Collection name.                                                                                                                  |

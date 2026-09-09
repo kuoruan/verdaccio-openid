@@ -7,6 +7,7 @@ import {
   type DynamoConfig,
   type FileConfig,
   type InMemoryConfig,
+  type MongoConfig,
   type RedisConfig,
   StoreType,
 } from "@/server/store/Store";
@@ -73,6 +74,15 @@ export const DynamoConfigSchema = object<DynamoConfig>({
   partitionKey: string().optional(),
 });
 
+export const MongoConfigSchema = object<MongoConfig>({
+  ttl: ttlSchema,
+  // `uri` may also arrive through its environment variable; the config
+  // holder enforces that one of the two is present.
+  uri: string().optional(),
+  database: string().optional(),
+  collection: string().optional(),
+});
+
 abstract class StoreConfig<T> {
   abstract storeType: StoreType;
 
@@ -133,5 +143,23 @@ export class DynamoStoreConfigHolder extends StoreConfig<DynamoConfig> {
 
   get storeType() {
     return StoreType.DynamoDB;
+  }
+}
+
+export class MongoStoreConfigHolder extends StoreConfig<MongoConfig> {
+  get uri() {
+    return this.getConfigValue("uri", string().required());
+  }
+
+  get database() {
+    return this.getConfigValue("database", string().optional());
+  }
+
+  get collection() {
+    return this.getConfigValue("collection", string().optional());
+  }
+
+  get storeType() {
+    return StoreType.MongoDB;
   }
 }

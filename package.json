@@ -72,6 +72,7 @@
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.1.1",
+    "mongodb": "^7.6.0",
     "oxfmt": "^0.60.0",
     "oxlint": "^1.75.0",
     "tsdown": "^0.22.13",
@@ -86,6 +87,7 @@
     "@aws-sdk/client-dynamodb": "^3.700.0",
     "@aws-sdk/lib-dynamodb": "^3.700.0",
     "ioredis": "^5.11.1",
+    "mongodb": "^6.0.0||^7.0.0",
     "node-persist": "^4.0.4",
     "verdaccio": "^5.0.0||^6.0.0||^7.0.0-next-0"
   },
@@ -97,6 +99,9 @@
       "optional": true
     },
     "ioredis": {
+      "optional": true
+    },
+    "mongodb": {
       "optional": true
     },
     "node-persist": {

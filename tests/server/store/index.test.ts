@@ -42,4 +42,12 @@ describe("createStore", () => {
     expect(store).toBeDefined();
     expect(config.getStoreConfig).toHaveBeenCalledWith(StoreType.File);
   });
+
+  it("should return MongoStore for mongodb store type", () => {
+    const config = mockConfig(StoreType.MongoDB, { uri: "mongodb://localhost:27017" });
+    const store = createStore(config);
+
+    expect(store).toBeDefined();
+    expect(config.getStoreConfig).toHaveBeenCalledWith(StoreType.MongoDB);
+  });
 });

@@ -1,4 +1,4 @@
-import { FileConfigSchema, InMemoryConfigSchema, RedisConfigSchema } from "@/server/config/Store";
+import { FileConfigSchema, InMemoryConfigSchema, MongoConfigSchema, RedisConfigSchema } from "@/server/config/Store";
 
 describe("InMemoryConfigSchema", () => {
   it("should validate valid config", () => {
@@ -129,6 +129,37 @@ describe("FileConfigSchema", () => {
 
     for (const config of invalidConfigs) {
       expect(FileConfigSchema.isValidSync(config)).toBeFalsy();
+    }
+  });
+});
+
+describe("MongoConfigSchema", () => {
+  it("should validate valid config", () => {
+    const validConfigs = [
+      { uri: "mongodb://localhost:27017" },
+      { uri: "mongodb+srv://user:pw@cluster.example.com/registry", ttl: "1m" },
+      { uri: "mongodb://localhost:27017", database: "auth", collection: "oidc" },
+      { uri: "MONGO_URI" }, // environment variable name, resolved by the config holder
+      { uri: "mongodb://localhost:27017", ttl: 3_600_000 },
+      {}, // uri may come from VERDACCIO_OPENID_STORE_CONFIG_URI
+    ];
+
+    for (const config of validConfigs) {
+      expect(MongoConfigSchema.isValidSync(config)).toBeTruthy();
+    }
+  });
+
+  it("should reject invalid ttl values", () => {
+    const invalidConfigs = [
+      { uri: "mongodb://localhost:27017", ttl: "" },
+      { uri: "mongodb://localhost:27017", ttl: 500 },
+      { uri: "mongodb://localhost:27017", ttl: true },
+      { uri: "mongodb://localhost:27017", ttl: {} },
+      { uri: "mongodb://localhost:27017", ttl: [] },
+    ];
+
+    for (const config of invalidConfigs) {
+      expect(MongoConfigSchema.isValidSync(config)).toBeFalsy();
     }
   });
 });

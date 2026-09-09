@@ -3,6 +3,7 @@ import type { ConfigHolder } from "@/server/config/Config";
 import DynamoStore from "./Dynamo";
 import FileStore from "./File";
 import InMemoryStore from "./InMemory";
+import MongoStore from "./Mongo";
 import RedisStore from "./Redis";
 import { type Store, StoreType } from "./Store";
 
@@ -19,6 +20,9 @@ export function createStore(config: ConfigHolder): Store {
     }
     case StoreType.DynamoDB: {
       return new DynamoStore(storeConfig);
+    }
+    case StoreType.MongoDB: {
+      return new MongoStore(storeConfig);
     }
 
     default: {

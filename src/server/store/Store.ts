@@ -73,6 +73,7 @@ export enum StoreType {
   Redis = "redis",
   File = "file",
   DynamoDB = "dynamodb",
+  MongoDB = "mongodb",
 }
 
 interface StoreBaseConfig {
@@ -111,4 +112,16 @@ export interface DynamoConfig extends StoreBaseConfig {
    *  writers (e.g. verdaccio-aws-s3-storage which uses pk=PACKAGE
    *  / pk=CONFIG). */
   partitionKey?: string;
+}
+
+export interface MongoConfig extends StoreBaseConfig {
+  /** MongoDB connection string (`mongodb://` or `mongodb+srv://`).
+   *  Credentials and driver options (TLS, auth mechanism, replica set,
+   *  ...) all travel in the connection string. */
+  uri: string;
+  /** Database name. Defaults to the database named in the connection
+   *  string, falling back to "verdaccio-openid". */
+  database?: string;
+  /** Collection name. Default "openid-store". */
+  collection?: string;
 }
