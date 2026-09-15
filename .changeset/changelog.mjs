@@ -19,10 +19,10 @@ function splitSummary(summary = "") {
     return { english: raw, chinese: "" };
   }
 
-  const english = normalize(raw.slice(0, markerIndex));
-  const chinese = normalize(raw.slice(markerIndex + ZH_MARKER.length));
-
-  return { english, chinese };
+  return {
+    english: normalize(raw.slice(0, markerIndex)),
+    chinese: normalize(raw.slice(markerIndex + ZH_MARKER.length)),
+  };
 }
 
 export async function getReleaseLine(changeset) {
@@ -32,12 +32,10 @@ export async function getReleaseLine(changeset) {
     return "";
   }
 
-  const text = [english, chinese]
+  return `- ${[english, chinese]
     .filter(Boolean)
     .map((part) => part.replace(/\n+/g, " "))
-    .join("\n  ");
-
-  return `- ${text}`;
+    .join("\n  ")}`;
 }
 
 export async function getDependencyReleaseLine() {
