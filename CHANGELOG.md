@@ -1,5 +1,16 @@
 # verdaccio-openid
 
+## 0.19.0 (2026-09-15)
+
+### Minor Changes
+
+- Add a MongoDB-backed store via `store-type: mongodb` so OIDC state, user info, groups, and WebAuthn tokens can be shared across replicas with an existing MongoDB deployment. The project’s minimum supported Node.js version is now `>=20.19.0`.
+
+### Patch Changes
+
+- Escape injected login option values before they are rendered into the login button configuration. This prevents malformed HTML or unsafe values from being passed through when custom login text or related options are used.
+- Guard missing DynamoDB configuration during store setup and separate read-consistency handling for state and cache reads. This avoids crashes when the DynamoDB backend is configured incompletely and makes the store behavior more predictable for retryable reads.
+
 ## 0.18.0
 
 ### ✨ Features
