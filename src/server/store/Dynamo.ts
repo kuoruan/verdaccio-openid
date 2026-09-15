@@ -116,10 +116,10 @@ export default class DynamoStore extends BaseStore implements Store {
   private client?: DynamoDBDocumentClient;
   private clientPromise?: Promise<DynamoDBDocumentClient>;
 
-  constructor(opts: DynamoConfig) {
+  constructor(opts?: DynamoConfig) {
     super();
 
-    if (!opts.tableName) {
+    if (!opts?.tableName) {
       throw new Error("DynamoStore: `tableName` is required");
     }
     if (!opts.region) {
@@ -196,7 +196,10 @@ export default class DynamoStore extends BaseStore implements Store {
     }
   }
 
-  private async get<T = Record<string, unknown>>(sk: string): Promise<T | undefined> {
+  /** `isConsistent` is for read-after-write paths (state, webauthn);
+   *  cache-style data (userinfo, groups) tolerates eventual reads at
+   *  half the RCU cost. */
+  private async get<T = Record<string, unknown>>(sk: string, isConsistent = false): Promise<T | undefined> {
     try {
       const client = await this.getClient();
       const { GetCommand } = await import("@aws-sdk/lib-dynamodb");
@@ -205,7 +208,7 @@ export default class DynamoStore extends BaseStore implements Store {
         new GetCommand({
           TableName: this.tableName,
           Key: { pk: this.pk, sk },
-          ConsistentRead: true,
+          ConsistentRead: isConsistent,
         }),
       );
       if (out.Item && typeof out.Item.expires === "number" && out.Item.expires * 1000 < Date.now()) {
@@ -247,7 +250,7 @@ export default class DynamoStore extends BaseStore implements Store {
   }
 
   async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
-    const item = await this.get<{ nonce?: string }>(this.getStateKey(key, providerId));
+    const item = await this.get<{ nonce?: string }>(this.getStateKey(key, providerId), true);
     return item?.nonce;
   }
 
@@ -296,7 +299,7 @@ export default class DynamoStore extends BaseStore implements Store {
   }
 
   async getWebAuthnToken(key: string): Promise<string | undefined> {
-    const item = await this.get<{ token?: string }>(this.getWebAuthnTokenKey(key));
+    const item = await this.get<{ token?: string }>(this.getWebAuthnTokenKey(key), true);
     return item?.token;
   }
 
@@ -313,7 +316,7 @@ export default class DynamoStore extends BaseStore implements Store {
    */
   async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | undefined> {
     const sk = this.getWebAuthnTokenKey(key);
-    const item = await this.get<{ token?: string }>(sk);
+    const item = await this.get<{ token?: string }>(sk, true);
     const current = item?.token;
     if (current === undefined) return undefined;
     if (current === pendingToken) return current;

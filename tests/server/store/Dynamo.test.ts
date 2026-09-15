@@ -54,6 +54,41 @@ describe("DynamoStore — required config", () => {
   it("throws if region is missing", () => {
     expect(() => new DynamoStore({ tableName: "x" } as any)).toThrow(/region/);
   });
+
+  it("throws a readable error when the store config block is absent", () => {
+    // Without the optional chain this is a TypeError whose message happens to
+    // contain "tableName" too, so match the real error and its type.
+    expect(() => new DynamoStore(undefined as any)).toThrow("DynamoStore: `tableName` is required");
+    expect(() => new DynamoStore(undefined as any)).not.toThrow(TypeError);
+  });
+});
+
+describe("DynamoStore — read consistency", () => {
+  // Strongly consistent reads cost twice the RCUs. Only read-after-write
+  // paths need them; cache-style rows tolerate eventual reads.
+  const readConsistencyOf = async (fn: (s: DynamoStore) => Promise<unknown>) => {
+    sendMock.mockResolvedValue({});
+    await fn(new DynamoStore(baseConfig));
+    const cmd = sendMock.mock.calls.at(-1)![0];
+    expect(cmd.__type).toBe("Get");
+    return cmd.input.ConsistentRead;
+  };
+
+  it("reads openid state strongly consistently", async () => {
+    await expect(readConsistencyOf((s) => s.getOpenIDState("session-abc", "openid"))).resolves.toBe(true);
+  });
+
+  it("reads the webauthn token strongly consistently", async () => {
+    await expect(readConsistencyOf((s) => s.getWebAuthnToken("key"))).resolves.toBe(true);
+  });
+
+  it("reads cached user info eventually consistently", async () => {
+    await expect(readConsistencyOf((s) => s.getUserInfo("user", "openid"))).resolves.toBe(false);
+  });
+
+  it("reads cached user groups eventually consistently", async () => {
+    await expect(readConsistencyOf((s) => s.getUserGroups("user", "openid"))).resolves.toBe(false);
+  });
 });
 
 describe("DynamoStore — openid state", () => {
