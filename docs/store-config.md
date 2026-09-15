@@ -1,18 +1,18 @@
-# Store Configuration
+# Store configuration
 
-The `store-type` and `store-config` options control where OIDC state, user info, user groups, and WebAuthn tokens are persisted.
+The `store-type` and `store-config` settings control where OIDC state, user info, user groups, and WebAuthn tokens are saved.
 
-| Store       | Persistence      | Use case                                  |
-| ----------- | ---------------- | ----------------------------------------- |
-| `in-memory` | Process memory   | Single-process deployments, development   |
-| `redis`     | Redis            | Multi-process / multi-replica deployments |
-| `file`      | Local filesystem | Single-node deployments                   |
-| `dynamodb`  | AWS DynamoDB     | Multi-replica, cloud-native deployments   |
-| `mongodb`   | MongoDB          | Multi-replica, reuse an existing MongoDB  |
+| Store       | Persistence      | Typical use                                   |
+| ----------- | ---------------- | --------------------------------------------- |
+| `in-memory` | Process memory   | Single-process setups and local development   |
+| `redis`     | Redis            | Multi-process or multi-replica deployments    |
+| `file`      | Local filesystem | Single-node deployments                       |
+| `dynamodb`  | AWS DynamoDB     | Cloud-native, multi-replica setups            |
+| `mongodb`   | MongoDB          | Multi-replica setups that already use MongoDB |
 
-## Peer Dependencies
+## Peer dependencies
 
-Each store backend (except `in-memory`) requires an optional peer dependency. The plugin does not bundle these — install them alongside the plugin:
+Each backend except `in-memory` needs an optional peer dependency. The plugin does not bundle them, so install them alongside the plugin:
 
 | Store      | Required package                                     |
 | ---------- | ---------------------------------------------------- |
@@ -21,7 +21,7 @@ Each store backend (except `in-memory`) requires an optional peer dependency. Th
 | `dynamodb` | `@aws-sdk/client-dynamodb` + `@aws-sdk/lib-dynamodb` |
 | `mongodb`  | `mongodb`                                            |
 
-If the required package is missing, the plugin will throw an error with a clear install instruction when the store is first accessed.
+If the required package is missing, the plugin throws a clear error the first time the store is used.
 
 ```bash
 # Redis
@@ -37,21 +37,21 @@ npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
 npm install mongodb
 ```
 
-## Common Options
+## Common options
 
-All store backends support the `ttl` option (milliseconds or time string like `1m`):
+All store backends support the `ttl` option, which accepts milliseconds or a time string like `1m`:
 
-| Config key | Type                 | Default         | Description                             |
-| ---------- | -------------------- | --------------- | --------------------------------------- |
-| `ttl`      | `number` \| `string` | `60000` (1 min) | TTL for OIDC state and WebAuthn tokens. |
+| Config key | Type                 | Default            | Description                             |
+| ---------- | -------------------- | ------------------ | --------------------------------------- |
+| `ttl`      | `number` \| `string` | `60000` (1 minute) | TTL for OIDC state and WebAuthn tokens. |
 
-> **Note**: User info and group caches have a fixed 5-minute TTL, independent of `ttl`.
+> User info and group caches always expire after five minutes, regardless of `ttl`.
 
 ---
 
 ## `in-memory`
 
-Uses [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache). No additional setup required.
+This backend uses [@isaacs/ttlcache](https://www.npmjs.com/package/@isaacs/ttlcache). No extra setup is required.
 
 ```yaml
 auth:
@@ -61,17 +61,17 @@ auth:
       ttl: 1m
 ```
 
-All options are passed to the `TTLCache` constructor. Supported options include `max`, `ttl`, `noDisposeOnSet`, etc.
+All options are passed to the `TTLCache` constructor. Supported options include `max`, `ttl`, and `noDisposeOnSet`.
 
 ---
 
 ## `redis`
 
-Uses [ioredis](https://www.npmjs.com/package/ioredis). Supports single-node and cluster configurations.
+This backend uses [ioredis](https://www.npmjs.com/package/ioredis) and supports both single-node and cluster setups.
 
 **Install:** `npm install ioredis`
 
-### Connection String
+### Connection string
 
 ```yaml
 auth:
@@ -80,7 +80,7 @@ auth:
     store-config: redis://username:password@localhost:6379
 ```
 
-### Object Config
+### Object config
 
 ```yaml
 auth:
@@ -94,7 +94,7 @@ auth:
       port: 6379
 ```
 
-### Redis Cluster
+### Redis cluster
 
 Use the `nodes` property for cluster mode:
 
@@ -112,39 +112,39 @@ auth:
         - host: localhost
           port: 6380
       redisOptions:
-        # ... additional ioredis options
+        # additional ioredis options
 ```
 
-### Environment Variables for Credentials
+### Environment variables for credentials
 
-The `username` and `password` fields can be set via environment variables:
+The `username` and `password` fields can be set with environment variables:
 
 - `VERDACCIO_OPENID_STORE_CONFIG_USERNAME`
 - `VERDACCIO_OPENID_STORE_CONFIG_PASSWORD`
 
-Or use your own environment variable names. See [Environment Variables](environment-variables.md).
+You can also use your own environment variable names. See [Environment Variables](environment-variables.md).
 
 ### Options
 
 | Config key | Type                             | Description                                              |
 | ---------- | -------------------------------- | -------------------------------------------------------- |
-| `ttl`      | `number` \| `string`             | State TTL (default: `60000`).                            |
+| `ttl`      | `number` \| `string`             | State TTL. Default: `60000`.                             |
 | `username` | `string`                         | Redis username.                                          |
 | `password` | `string`                         | Redis password.                                          |
 | `host`     | `string`                         | Redis host.                                              |
 | `port`     | `number`                         | Redis port.                                              |
 | `nodes`    | `(object \| string \| number)[]` | Cluster nodes.                                           |
-| `...`      | any                              | All other options are passed to the ioredis constructor. |
+| `...`      | any                              | Any other options are passed to the ioredis constructor. |
 
 ---
 
 ## `file`
 
-Uses [node-persist](https://www.npmjs.com/package/node-persist). Stores state as files on disk.
+This backend uses [node-persist](https://www.npmjs.com/package/node-persist) and stores state as files on disk.
 
 **Install:** `npm install node-persist`
 
-### String Config (directory path)
+### String config (directory path)
 
 ```yaml
 auth:
@@ -155,7 +155,7 @@ auth:
 
 The path is relative to the Verdaccio config file directory.
 
-### Object Config
+### Object config
 
 ```yaml
 auth:
@@ -170,27 +170,27 @@ auth:
 
 | Config key | Type                 | Description                                                           |
 | ---------- | -------------------- | --------------------------------------------------------------------- |
-| `ttl`      | `number` \| `string` | State TTL (default: `60000`).                                         |
+| `ttl`      | `number` \| `string` | State TTL. Default: `60000`.                                          |
 | `dir`      | `string`             | Storage directory.                                                    |
-| `...`      | any                  | All other options are passed to the `node-persist` `create()` method. |
+| `...`      | any                  | Any other options are passed to the `node-persist` `create()` method. |
 
 ---
 
 ## `dynamodb`
 
-Uses the AWS SDK for DynamoDB. OIDC state, user info, groups, and WebAuthn tokens are persisted in a DynamoDB table — shared across all replicas.
+This backend uses the AWS SDK for DynamoDB. OIDC state, user info, groups, and WebAuthn tokens are stored in one DynamoDB table and shared across replicas.
 
 **Install:** `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb`
 
-### Table Setup
+### Table setup
 
-The DynamoDB table must already exist with:
+The table must already exist with these attributes:
 
 - `pk` (S) — partition key
 - `sk` (S) — sort key
-- `expires` (N) — TTL attribute (must be configured as the TTL attribute in the AWS console)
+- `expires` (N) — TTL attribute, configured in the AWS console
 
-### IAM Permissions
+### IAM permissions
 
 The IAM principal needs these actions on the table:
 
@@ -200,9 +200,9 @@ dynamodb:PutItem
 dynamodb:DeleteItem
 ```
 
-Credentials are resolved through the standard AWS SDK provider chain (environment variables, `~/.aws/credentials`, IAM roles, etc.). **No credentials are stored in the Verdaccio config.**
+Credentials are resolved through the standard AWS SDK provider chain, including environment variables, `~/.aws/credentials`, and IAM roles. No credentials are stored in the Verdaccio config.
 
-### Object Config
+### Object config
 
 ```yaml
 auth:
@@ -226,28 +226,28 @@ auth:
 
 ### Options
 
-| Config key     | Type                 | Default | Required | Description                                                                                     |
-| -------------- | -------------------- | ------- | -------- | ----------------------------------------------------------------------------------------------- |
-| `ttl`          | `number` \| `string` | `60000` | No       | State TTL.                                                                                      |
-| `tableName`    | `string`             |         | Yes      | DynamoDB table name.                                                                            |
-| `region`       | `string`             |         | Yes      | AWS region of the table.                                                                        |
-| `partitionKey` | `string`             | `OIDC`  | No       | Partition key value to namespace this plugin's rows. Set a unique value when sharing the table. |
+| Config key     | Type                 | Default | Required | Description                                                                                            |
+| -------------- | -------------------- | ------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `ttl`          | `number` \| `string` | `60000` | No       | State TTL.                                                                                             |
+| `tableName`    | `string`             |         | Yes      | DynamoDB table name.                                                                                   |
+| `region`       | `string`             |         | Yes      | AWS region for the table.                                                                              |
+| `partitionKey` | `string`             | `OIDC`  | No       | Partition key value used to namespace this plugin's rows. Set a unique value when the table is shared. |
 
 ---
 
 ## `mongodb`
 
-Uses the official [mongodb](https://www.npmjs.com/package/mongodb) Node.js driver. OIDC state, user info, groups, and WebAuthn tokens are persisted as documents in a single collection — shared across all replicas. Works with any MongoDB 4.0+ compatible server, including MongoDB Atlas, Azure Cosmos DB for MongoDB (vCore) and Amazon DocumentDB — handy when the registry already has a MongoDB next to it.
+This backend uses the official [mongodb](https://www.npmjs.com/package/mongodb) Node.js driver. OIDC state, user info, groups, and WebAuthn tokens are stored as documents in a single collection and shared across replicas. It works with any MongoDB 4.0+ compatible server, including MongoDB Atlas, Azure Cosmos DB for MongoDB (vCore), and Amazon DocumentDB.
 
 **Install:** `npm install mongodb`
 
-### Collection Setup
+### Collection setup
 
-Nothing to prepare. The collection is created on first write, and the plugin creates a TTL index on `expiresAt` (`expireAfterSeconds: 0`) so the server garbage-collects expired documents. Expiry is enforced on read as well, so a missing TTL index (for example with a role that cannot create indexes) only affects cleanup — the plugin logs a warning and keeps working.
+Nothing special is required. The collection is created on first write, and the plugin creates a TTL index on `expiresAt` with `expireAfterSeconds: 0` so the database can garbage-collect expired documents. Expiration is also checked on reads, so a missing TTL index only affects cleanup; the plugin logs a warning and keeps working.
 
-The connecting user needs `find`, `insert`, `update`, `remove` and `createIndex` on the collection; the built-in `readWrite` role covers all of them.
+The connecting user needs `find`, `insert`, `update`, `remove`, and `createIndex` access on the collection. The built-in `readWrite` role covers those permissions.
 
-### Connection String
+### Connection string
 
 ```yaml
 auth:
@@ -256,7 +256,7 @@ auth:
     store-config: mongodb://user:password@localhost:27017/verdaccio
 ```
 
-### Object Config
+### Object config
 
 ```yaml
 auth:

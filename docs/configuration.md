@@ -1,8 +1,8 @@
 # Configuration
 
-## OpenID Connect Options
+## OpenID Connect options
 
-These options go under `auth.openid` in your Verdaccio config (`config.yaml`):
+These settings go under `auth.openid` in your Verdaccio config (`config.yaml`):
 
 | Config key               | Type                                                   | Default                     | Required | Description                                                                                                                                                                                                                                         |
 | ------------------------ | ------------------------------------------------------ | --------------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -26,7 +26,7 @@ These options go under `auth.openid` in your Verdaccio config (`config.yaml`):
 | `authorized-groups`      | `string` \| `string[]` \| `boolean`                    | `false`                     | No       | Groups allowed to log in. `true` requires at least one group; `false` disables group check.                                                                                                                                                         |
 | `group-users`            | `object`                                               |                             | No       | Custom group-to-user mapping. When set, groups from `group-users` override any groups obtained from `groups-claim` or `provider-type`. Leave `provider-type` and `groups-claim` unset when using only `group-users` to avoid unnecessary API calls. |
 
-### Provider Discovery
+### Provider discovery
 
 The plugin discovers the OIDC provider configuration in one of three ways:
 
@@ -60,7 +60,7 @@ With both authentication methods enabled, users can choose between htpasswd and 
 
 ![Login Dialog](images/login-dialog.png)
 
-## Token Expiration
+## Token expiration
 
 Token expiration is controlled by Verdaccio's security settings, not by this plugin:
 

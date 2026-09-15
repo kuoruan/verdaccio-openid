@@ -1,22 +1,22 @@
-# CLI Authentication
+# CLI authentication
 
-## Quick Start
+## Quick start
 
 ```bash
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
 
-If you've already configured the registry via `npm config set registry`, you can omit `--registry`.
+If you already configured the registry with `npm config set registry`, you can skip the `--registry` flag.
 
-This opens a browser window for OIDC login. On success, the npm token is saved to your `.npmrc` automatically.
+This opens a browser window for OIDC login. When login succeeds, the npm token is saved to your `.npmrc` automatically.
 
-## How It Works
+## How it works
 
-1. The CLI starts a local callback server on port `8239` (falls back to `18239` if busy).
+1. The CLI starts a local callback server on port `8239` and falls back to `18239` if that port is busy.
 2. It opens your browser to the registry's OIDC authorize URL.
-3. After you authenticate with the provider, the registry redirects the token back to the local server.
-4. The CLI saves the token to your `.npmrc` and exits.
+3. After authentication, the registry redirects the token back to the local callback server.
+4. The CLI saves the token to `.npmrc` and exits.
 
-## When to Use CLI
+## When to use the CLI
 
-Use the CLI authentication when Web Authn is unavailable — for example, with npm versions older than v8.14.0, or when a browser-based flow isn't feasible in your environment.
+Use the CLI flow when Web Authn is unavailable, such as with npm versions older than v8.14.0 or in environments where a browser-based login is not practical.

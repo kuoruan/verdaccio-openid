@@ -9,23 +9,23 @@ English | [中文](README.zh-CN.md)
 
 ## About
 
-A Verdaccio plugin that provides OIDC OAuth integration for both the browser and the command line.
+verdaccio-openid adds OpenID Connect login to Verdaccio for both the web UI and the CLI.
 
 ## Compatibility
 
 - Verdaccio 5, 6, 7
-- Node >= 20
-- Browsers supporting [ES6](https://caniuse.com/?search=es6)
+- Node >= 20.19.0
+- Browsers that support [ES6](https://caniuse.com/?search=es6)
 
 ## Install
 
-### Global Install
+### Global install
 
 ```sh
 npm install -g verdaccio-openid
 ```
 
-### Install to Verdaccio Plugins Folder (Advanced)
+### Install into Verdaccio's plugin directory
 
 ```bash
 mkdir -p ./install-here/
@@ -39,7 +39,7 @@ mv ./install-here/node_modules/verdaccio-openid/ /path/to/verdaccio/plugins/
 
 ## Configuration
 
-Add the following to your Verdaccio config:
+Add this to your Verdaccio config:
 
 ```yaml
 middlewares:
@@ -65,7 +65,7 @@ auth:
     #     - jack
 ```
 
-### Required Options
+### Required options
 
 | Config key      | Description                               |
 | --------------- | ----------------------------------------- |
@@ -73,9 +73,9 @@ auth:
 | `client-id`     | The client ID from the OIDC provider.     |
 | `client-secret` | The client secret from the OIDC provider. |
 
-See [Configuration](docs/configuration.md) for all available options.
+See [Configuration](docs/configuration.md) for the full option list.
 
-## OpenID Callback URLs
+## OpenID callback URLs
 
 Configure these in your OIDC provider:
 
@@ -89,67 +89,67 @@ Configure these in your OIDC provider:
 
 ### Web UI
 
-Once configured, clicking the login button redirects directly to the OIDC provider.
+After setup, clicking the login button sends the user to the OIDC provider.
 
-If `auth.htpasswd.file` is configured, the login dialog appears first with username/password fields, and the OIDC login button is shown below them — allowing users to choose either method.
+If `auth.htpasswd.file` is configured, the login dialog shows first with username and password fields, and the OIDC login button appears below it so users can choose either method.
 
 ![Login Dialog](docs/images/login-dialog.png)
 
-Set `keep-passwd-login` explicitly to override the auto-detection. See [keep-passwd-login](docs/configuration.md#keep-passwd-login) for details.
+Set `keep-passwd-login` explicitly to override the automatic behavior. See [keep-passwd-login](docs/configuration.md#keep-passwd-login) for details.
 
-### Web Authn (Recommended)
+### Web Authn (recommended)
 
 ```sh
 npm login --registry http://your-registry.com
 ```
 
-Opens a browser window for OIDC login and saves the token automatically.
+This opens a browser window for OIDC login and saves the token automatically.
 
-> **Note:** npm v9+ defaults to `--auth-type=web`. For npm v8.14–v8.x, add `--auth-type=web` explicitly. For npm < v8.14, use the legacy flow:
+> Note: npm v9+ uses `--auth-type=web` by default. For npm v8.14 to v8.x, add `--auth-type=web` explicitly. For npm older than v8.14, use the legacy flow:
 >
 > ```sh
 > npm login --auth-type=legacy --registry http://your-registry.com
 > ```
 >
-> See the [npm docs](https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb) for more details.
+> See the [npm docs](https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb) for details.
 
-### CLI (Alternative)
+### CLI (alternative)
 
 ```sh
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
 
-Uses a local callback server to receive the token. Falls back to this if Web Authn is unavailable (e.g. older npm versions). See [CLI Authentication](docs/cli-auth.md) for legacy login options.
+This uses a local callback server to receive the token. It falls back to this flow when Web Authn is unavailable, such as on older npm versions. See [CLI Authentication](docs/cli-auth.md) for legacy login options.
 
-## Store Backends
+## Store backends
 
-Choose a store backend for session state and caches:
+Choose a backend for session state and cache storage:
 
-| Type                  | Best for                    |
-| --------------------- | --------------------------- |
-| `in-memory` (default) | Single-process, development |
-| `redis`               | Multi-replica deployments   |
-| `file`                | Single-node, persistent     |
-| `dynamodb`            | Cloud-native, multi-replica |
-| `mongodb`             | Multi-replica, any MongoDB  |
+| Type                  | Best for                               |
+| --------------------- | -------------------------------------- |
+| `in-memory` (default) | Single-process development             |
+| `redis`               | Multi-replica deployments              |
+| `file`                | Single-node persistent storage         |
+| `dynamodb`            | Cloud-native multi-replica deployments |
+| `mongodb`             | Multi-replica setups with MongoDB      |
 
-See [Store Configuration](docs/store-config.md) for setup instructions and required peer dependencies.
+See [Store Configuration](docs/store-config.md) for setup instructions and peer dependency requirements.
 
-## Environment Variables
+## Environment variables
 
-All config values can be set via environment variables — useful for keeping sensitive data out of your config file. See [Environment Variables](docs/environment-variables.md) for the naming convention and dotenv support.
+Most config values can be set through environment variables, which is useful when you want to keep secrets out of the config file. See [Environment Variables](docs/environment-variables.md) for the naming rules and dotenv support.
 
 ## Contributing
 
-See [Development](docs/development.md) for build instructions, testing, and project structure.
+See [Development](docs/development.md) for build steps, tests, and project structure.
 
 ## Documentation
 
-- [Configuration](docs/configuration.md) — all config options, provider discovery
-- [Store Configuration](docs/store-config.md) — Redis, File, DynamoDB, MongoDB backends and peer dependencies
-- [Environment Variables](docs/environment-variables.md) — env var mapping, dotenv support
+- [Configuration](docs/configuration.md) — full config reference and provider discovery
+- [Store Configuration](docs/store-config.md) — Redis, file, DynamoDB, and MongoDB backends
+- [Environment Variables](docs/environment-variables.md) — env var names and dotenv support
 - [CLI Authentication](docs/cli-auth.md) — CLI login flow
-- [Development](docs/development.md) — build, test, project structure
+- [Development](docs/development.md) — build, testing, and project structure
 
 ## License
 

@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 22
+- [Node.js](https://nodejs.org/) >= 20.19.0
 - [pnpm](https://pnpm.io/) >= 11
 
 ## Setup
@@ -25,18 +25,15 @@ pnpm install
 | `pnpm lint`        | Run [oxlint](https://oxc.rs/docs/guide/usage/linter.html).                |
 | `pnpm lint:fix`    | Auto-fix lint issues.                                                     |
 | `pnpm fmt`         | Format code with [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html). |
-| `pnpm fmt:check`   | Check formatting without writing.                                         |
-| `pnpm run version` | Version packages and update both English and Chinese changelogs.          |
-| `pnpm release`     | Publish pending changesets; used by the release workflow.                 |
+| `pnpm fmt:check`   | Check formatting without writing changes.                                 |
+| `pnpm run version` | Update package versions and generate the English and Chinese changelogs.  |
+| `pnpm release`     | Publish pending changesets in the release workflow.                       |
 
-Changesets should include an English description followed by a Chinese section
-marked with `<!-- zh-CN -->`. The release workflow runs `pnpm run version` to
-generate the English changelog and update `CHANGELOG.zh-CN.md` in the same
-version pull request.
+Changesets should include an English summary followed by a Chinese section marked with `<!-- zh-CN -->`. The release workflow runs `pnpm run version` and updates `CHANGELOG.zh-CN.md` in the same version PR.
 
-## Project Structure
+## Project structure
 
-```
+```text
 src/
 ├── cli/              # CLI tool (npx verdaccio-openid)
 ├── client/           # Browser-side JS served by the plugin
@@ -46,7 +43,7 @@ src/
 │   ├── flows/        # OAuth flow handlers (Web, CLI, WebAuthn)
 │   ├── openid/       # OpenID Connect client and auth provider
 │   ├── plugin/       # Verdaccio plugin interface implementation
-│   └── store/        # Store backends (in-memory, Redis, File, DynamoDB)
+│   └── store/        # Store backends (in-memory, Redis, file, DynamoDB, MongoDB)
 ├── constants.ts      # Shared constants
 └── paths.ts          # URL path helpers
 tests/                # Vitest test suites
@@ -54,14 +51,14 @@ verdaccio/            # Verdaccio 6 test config
 verdaccio5/           # Verdaccio 5 test config
 ```
 
-## Code Quality
+## Code quality
 
 This project uses the [oxc](https://oxc.rs/) toolchain for linting and formatting:
 
-- **oxlint** — zero-config linter (replaces ESLint)
-- **oxfmt** — fast formatter (replaces Prettier)
+- `oxlint` — zero-config linter, replacing ESLint
+- `oxfmt` — fast formatter, replacing Prettier
 
-A pre-commit hook (via [husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged)) runs linting and formatting on staged files automatically.
+A pre-commit hook powered by [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) runs linting and formatting on staged files automatically.
 
 ## Testing
 
@@ -78,7 +75,7 @@ pnpm vitest
 pnpm vitest tests/path/to/test.test.ts
 ```
 
-## Local Testing with Verdaccio
+## Local testing with Verdaccio
 
 Start Verdaccio with the plugin loaded:
 
@@ -90,10 +87,10 @@ pnpm start
 pnpm start:5
 ```
 
-This starts a local registry using the config in `verdaccio/verdaccio.yml` or `verdaccio5/verdaccio.yml`. You can then test against it:
+This starts a local registry using the config in `verdaccio/verdaccio.yml` or `verdaccio5/verdaccio.yml`. You can then test against it with:
 
 ```bash
 npm login --registry http://localhost:4873
 ```
 
-> **Note**: You'll need to configure a real OIDC provider in the verdaccio config file for end-to-end login testing.
+> Note: you still need a real OIDC provider configured in the Verdaccio config for end-to-end login testing.
