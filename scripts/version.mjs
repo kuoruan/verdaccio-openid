@@ -50,7 +50,7 @@ async function updateChangelogs(version, date, entries) {
 
   const chineseSection = formatReleaseSection(version, date, entries, "chinese");
   const headingEnd = chinese.indexOf("\n");
-  const updated = `${chinese.slice(0, headingEnd + 1)}\n${chineseSection}\n\n${chinese.slice(headingEnd + 1)}`;
+  const updated = `${chinese.slice(0, headingEnd + 1)}\n${chineseSection}\n${chinese.slice(headingEnd + 1)}`;
   await writeFile(chineseChangelogPath, updated);
 }
 
