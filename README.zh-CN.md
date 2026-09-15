@@ -125,12 +125,13 @@ npx verdaccio-openid@latest --registry http://your-registry.com
 
 为会话状态和缓存选择合适的存储后端：
 
-| 类型                | 适用场景         |
-| ------------------- | ---------------- |
-| `in-memory`（默认） | 单进程、开发环境 |
-| `redis`             | 多副本部署       |
-| `file`              | 单节点、持久化   |
-| `dynamodb`          | 云原生、多副本   |
+| 类型                | 适用场景             |
+| ------------------- | -------------------- |
+| `in-memory`（默认） | 单进程、开发环境     |
+| `redis`             | 多副本部署           |
+| `file`              | 单节点、持久化       |
+| `dynamodb`          | 云原生、多副本       |
+| `mongodb`           | 多副本、任意 MongoDB |
 
 详见 [存储配置](docs/zh-CN/store-config.md) 了解各后端的安装说明和所需 peer dependency。
 
@@ -145,7 +146,7 @@ npx verdaccio-openid@latest --registry http://your-registry.com
 ## 文档
 
 - [配置](docs/zh-CN/configuration.md) — 所有配置选项、OIDC 提供方发现
-- [存储配置](docs/zh-CN/store-config.md) — Redis、File、DynamoDB 后端及 peer dependency
+- [存储配置](docs/zh-CN/store-config.md) — Redis、File、DynamoDB、MongoDB 后端及 peer dependency
 - [环境变量](docs/zh-CN/environment-variables.md) — 环境变量映射、dotenv 支持
 - [CLI 认证](docs/zh-CN/cli-auth.md) — CLI 登录流程
 - [开发指南](docs/zh-CN/development.md) — 构建、测试、项目结构

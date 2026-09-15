@@ -131,6 +131,7 @@ Choose a store backend for session state and caches:
 | `redis`               | Multi-replica deployments   |
 | `file`                | Single-node, persistent     |
 | `dynamodb`            | Cloud-native, multi-replica |
+| `mongodb`             | Multi-replica, any MongoDB  |
 
 See [Store Configuration](docs/store-config.md) for setup instructions and required peer dependencies.
 
@@ -145,7 +146,7 @@ See [Development](docs/development.md) for build instructions, testing, and proj
 ## Documentation
 
 - [Configuration](docs/configuration.md) — all config options, provider discovery
-- [Store Configuration](docs/store-config.md) — Redis, File, DynamoDB backends and peer dependencies
+- [Store Configuration](docs/store-config.md) — Redis, File, DynamoDB, MongoDB backends and peer dependencies
 - [Environment Variables](docs/environment-variables.md) — env var mapping, dotenv support
 - [CLI Authentication](docs/cli-auth.md) — CLI login flow
 - [Development](docs/development.md) — build, test, project structure

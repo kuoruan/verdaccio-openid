@@ -10,6 +10,7 @@ import {
   type DynamoConfig,
   type FileConfig,
   type InMemoryConfig,
+  type MongoConfig,
   type RedisConfig,
   StoreType,
 } from "@/server/store/Store";
@@ -19,6 +20,8 @@ import {
   DynamoStoreConfigHolder,
   FileConfigSchema,
   InMemoryConfigSchema,
+  MongoConfigSchema,
+  MongoStoreConfigHolder,
   RedisConfigSchema,
   RedisStoreConfigHolder,
 } from "./Store";
@@ -231,7 +234,13 @@ export default class ParsedPluginConfig implements ConfigHolder {
       this.getConfigValue<StoreType>(
         "store-type",
         string()
-          .oneOf([StoreType.InMemory, StoreType.Redis, StoreType.File, StoreType.DynamoDB] satisfies StoreType[])
+          .oneOf([
+            StoreType.InMemory,
+            StoreType.Redis,
+            StoreType.File,
+            StoreType.DynamoDB,
+            StoreType.MongoDB,
+          ] satisfies StoreType[])
           .optional(),
       ) ?? StoreType.InMemory
     );
@@ -343,6 +352,43 @@ export default class ParsedPluginConfig implements ConfigHolder {
           partitionKey: configHolder.partitionKey,
           ttl: getTTLValue(storeConfig.ttl),
         } satisfies DynamoConfig;
+      }
+
+      case StoreType.MongoDB: {
+        const storeConfig = this.getConfigValue<MongoConfig | string | undefined>(
+          configKey,
+          mixed().test({
+            name: "is-mongo-config-or-mongo-uri",
+            message: "must be a valid MongoConfig object or a MongoDB connection string",
+            test: (value) => {
+              if (value === undefined) return true;
+              if (typeof value === "string" && value !== "") {
+                return string()
+                  .matches(/^mongodb(\+srv)?:\/\//)
+                  .isValidSync(value);
+              }
+              if (typeof value === "object" && value !== null) {
+                return MongoConfigSchema.isValidSync(value);
+              }
+              return false;
+            },
+          }),
+        );
+
+        // A bare connection string is shorthand for `{ uri }`; with no
+        // store-config at all, `uri` must come from its environment variable.
+        const objectConfig: MongoConfig =
+          typeof storeConfig === "string" ? { uri: storeConfig } : (storeConfig ?? ({} as MongoConfig));
+
+        const configHolder = new MongoStoreConfigHolder(objectConfig, configKey);
+
+        return {
+          ...objectConfig,
+          uri: configHolder.uri,
+          database: configHolder.database,
+          collection: configHolder.collection,
+          ttl: getTTLValue(objectConfig.ttl),
+        } satisfies MongoConfig;
       }
 
       default: {
