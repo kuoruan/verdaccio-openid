@@ -21,6 +21,16 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Set up pnpm and Node.js
+        uses: pnpm/setup@v2
+        with:
+          runtime: node@24
+          cache: true
+          require-lockfile: true
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Select Changesets mode
         id: select-mode
         uses: changesets/action/select-mode@v2
