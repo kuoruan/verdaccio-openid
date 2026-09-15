@@ -41,12 +41,15 @@ auth:
 
 The `store-config` sub-keys have their own environment variable pattern: `VERDACCIO_OPENID_STORE_CONFIG_<KEY>`.
 
-| Store config key | Environment variable                      |
-| ---------------- | ----------------------------------------- |
-| `username`       | `VERDACCIO_OPENID_STORE_CONFIG_USERNAME`  |
-| `password`       | `VERDACCIO_OPENID_STORE_CONFIG_PASSWORD`  |
-| `tableName`      | `VERDACCIO_OPENID_STORE_CONFIG_TABLENAME` |
-| `region`         | `VERDACCIO_OPENID_STORE_CONFIG_REGION`    |
+| Store config key | Environment variable                       |
+| ---------------- | ------------------------------------------ |
+| `username`       | `VERDACCIO_OPENID_STORE_CONFIG_USERNAME`   |
+| `password`       | `VERDACCIO_OPENID_STORE_CONFIG_PASSWORD`   |
+| `tableName`      | `VERDACCIO_OPENID_STORE_CONFIG_TABLENAME`  |
+| `region`         | `VERDACCIO_OPENID_STORE_CONFIG_REGION`     |
+| `uri`            | `VERDACCIO_OPENID_STORE_CONFIG_URI`        |
+| `database`       | `VERDACCIO_OPENID_STORE_CONFIG_DATABASE`   |
+| `collection`     | `VERDACCIO_OPENID_STORE_CONFIG_COLLECTION` |
 
 ## JSON Values
 

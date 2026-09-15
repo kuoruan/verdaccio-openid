@@ -41,12 +41,15 @@ auth:
 
 `store-config` 的子键有独立的环境变量命名规则：`VERDACCIO_OPENID_STORE_CONFIG_<KEY>`。
 
-| Store 配置项 | 环境变量                                  |
-| ------------ | ----------------------------------------- |
-| `username`   | `VERDACCIO_OPENID_STORE_CONFIG_USERNAME`  |
-| `password`   | `VERDACCIO_OPENID_STORE_CONFIG_PASSWORD`  |
-| `tableName`  | `VERDACCIO_OPENID_STORE_CONFIG_TABLENAME` |
-| `region`     | `VERDACCIO_OPENID_STORE_CONFIG_REGION`    |
+| Store 配置项 | 环境变量                                   |
+| ------------ | ------------------------------------------ |
+| `username`   | `VERDACCIO_OPENID_STORE_CONFIG_USERNAME`   |
+| `password`   | `VERDACCIO_OPENID_STORE_CONFIG_PASSWORD`   |
+| `tableName`  | `VERDACCIO_OPENID_STORE_CONFIG_TABLENAME`  |
+| `region`     | `VERDACCIO_OPENID_STORE_CONFIG_REGION`     |
+| `uri`        | `VERDACCIO_OPENID_STORE_CONFIG_URI`        |
+| `database`   | `VERDACCIO_OPENID_STORE_CONFIG_DATABASE`   |
+| `collection` | `VERDACCIO_OPENID_STORE_CONFIG_COLLECTION` |
 
 ## JSON 值
 
