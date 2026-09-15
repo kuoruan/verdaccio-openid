@@ -2,8 +2,8 @@
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 20
-- [pnpm](https://pnpm.io/) >= 10
+- [Node.js](https://nodejs.org/) >= 22
+- [pnpm](https://pnpm.io/) >= 11
 
 ## Setup
 
@@ -15,16 +15,24 @@ pnpm install
 
 ## Scripts
 
-| Command          | Description                                                               |
-| ---------------- | ------------------------------------------------------------------------- |
-| `pnpm build`     | Build the project with [tsdown](https://github.com/egoist/tsdown).        |
-| `pnpm start`     | Start Verdaccio 6 with the plugin for local testing.                      |
-| `pnpm start:5`   | Start Verdaccio 5 with the plugin for compatibility testing.              |
-| `pnpm test`      | Run tests with [Vitest](https://vitest.dev/).                             |
-| `pnpm lint`      | Run [oxlint](https://oxc.rs/docs/guide/usage/linter.html).                |
-| `pnpm lint:fix`  | Auto-fix lint issues.                                                     |
-| `pnpm fmt`       | Format code with [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html). |
-| `pnpm fmt:check` | Check formatting without writing.                                         |
+| Command            | Description                                                               |
+| ------------------ | ------------------------------------------------------------------------- |
+| `pnpm build`       | Build the project with [tsdown](https://github.com/egoist/tsdown).        |
+| `pnpm changeset`   | Create a changeset for a user-facing change.                              |
+| `pnpm start`       | Start Verdaccio 6 with the plugin for local testing.                      |
+| `pnpm start:5`     | Start Verdaccio 5 with the plugin for compatibility testing.              |
+| `pnpm test`        | Run tests with [Vitest](https://vitest.dev/).                             |
+| `pnpm lint`        | Run [oxlint](https://oxc.rs/docs/guide/usage/linter.html).                |
+| `pnpm lint:fix`    | Auto-fix lint issues.                                                     |
+| `pnpm fmt`         | Format code with [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html). |
+| `pnpm fmt:check`   | Check formatting without writing.                                         |
+| `pnpm run version` | Version packages and update both English and Chinese changelogs.          |
+| `pnpm release`     | Publish pending changesets; used by the release workflow.                 |
+
+Changesets should include an English description followed by a Chinese section
+marked with `<!-- zh-CN -->`. The release workflow runs `pnpm run version` to
+generate the English changelog and update `CHANGELOG.zh-CN.md` in the same
+version pull request.
 
 ## Project Structure
 

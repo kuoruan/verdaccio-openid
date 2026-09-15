@@ -12,12 +12,19 @@
     "ui",
     "verdaccio"
   ],
+  "homepage": "https://github.com/kuoruan/verdaccio-openid#readme",
+  "bugs": {
+    "url": "https://github.com/kuoruan/verdaccio-openid/issues"
+  },
   "license": "MIT",
   "author": {
     "name": "Xingwang Liao",
     "email": "kuoruan@gmail.com"
   },
-  "repository": "https://github.com/kuoruan/verdaccio-openid",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kuoruan/verdaccio-openid.git"
+  },
   "bin": "./dist/verdaccio-openid.mjs",
   "files": [
     "dist"
@@ -26,6 +33,7 @@
   "module": "./dist/server/index.mjs",
   "scripts": {
     "build": "cross-env NODE_ENV=production tsdown",
+    "changeset": "changeset",
     "start": "cross-env DEBUG='verdaccio:*' node_modules/verdaccio/bin/verdaccio -c verdaccio/verdaccio.yml",
     "start:5": "cross-env DEBUG='verdaccio:*' node_modules/verdaccio5/bin/verdaccio -c verdaccio5/verdaccio.yml",
     "lint": "oxlint",
@@ -33,16 +41,18 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "test": "vitest --run",
+    "release": "changeset publish",
+    "version": "node scripts/version.mjs",
     "prepublishOnly": "pnpm run build",
     "prepare": "husky"
   },
   "dependencies": {
     "@gitbeaker/rest": "^43.8.0",
     "@isaacs/ttlcache": "^2.1.5",
-    "@verdaccio/auth": "^8.0.4",
-    "@verdaccio/config": "^8.1.2",
-    "@verdaccio/core": "^8.1.2",
-    "@verdaccio/url": "^13.0.3",
+    "@verdaccio/auth": "^8.1.3",
+    "@verdaccio/config": "^8.3.0",
+    "@verdaccio/core": "^8.3.0",
+    "@verdaccio/url": "^13.1.3",
     "debug": "^4.4.3",
     "deepmerge": "^4.3.1",
     "dotenv": "^17.4.2",
@@ -50,37 +60,38 @@
     "global-agent": "^4.1.3",
     "minimist": "^1.2.8",
     "ms": "^2.1.3",
-    "open": "^11.0.0",
-    "openid-client": "^6.8.4",
+    "open": "^11.0.3",
+    "openid-client": "^6.8.8",
     "picocolors": "^1.1.1",
     "serve-static": "^2.2.1",
     "stable-hash": "^0.0.6",
     "yup": "^1.7.1"
   },
   "devDependencies": {
-    "@tsconfig/node20": "^20.1.9",
+    "@changesets/cli": "^3.0.2",
+    "@tsconfig/node20": "^20.1.10",
     "@types/debug": "^4.1.13",
     "@types/express": "^5.0.6",
     "@types/global-agent": "^3.0.0",
-    "@types/lodash": "^4.17.24",
+    "@types/lodash": "^4.17.25",
     "@types/minimist": "^1.2.5",
     "@types/ms": "^2.1.0",
     "@types/node": "^20.19.43",
     "@types/node-persist": "^3.1.8",
     "@types/serve-static": "^2.2.0",
-    "@verdaccio/types": "^13.0.3",
+    "@verdaccio/types": "^13.0.6",
     "cross-env": "^10.1.0",
     "husky": "^9.1.7",
-    "lint-staged": "^17.1.1",
-    "oxfmt": "^0.60.0",
-    "oxlint": "^1.75.0",
-    "tsdown": "^0.22.13",
+    "lint-staged": "^17.5.1",
+    "oxfmt": "^0.67.0",
+    "oxlint": "^1.82.0",
+    "tsdown": "^0.23.0",
     "typescript": "^7.0.2",
-    "verdaccio": "^6.8.0",
-    "verdaccio-htpasswd": "^13.0.3",
-    "verdaccio-openid": "file:",
+    "verdaccio": "^6.10.3",
+    "verdaccio-htpasswd": "^13.1.3",
+    "verdaccio-openid": "link:",
     "verdaccio5": "npm:verdaccio@5.0.0",
-    "vitest": "^4.1.10"
+    "vitest": "^5.0.0"
   },
   "peerDependencies": {
     "@aws-sdk/client-dynamodb": "^3.700.0",
@@ -106,19 +117,5 @@
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@10.34.5",
-  "pnpm": {
-    "overrides": {
-      "abab": "npm:@nolyfill/abab@^1",
-      "array-flatten": "npm:@nolyfill/array-flatten@^1",
-      "es-set-tostringtag": "npm:@nolyfill/es-set-tostringtag@^1",
-      "globalthis": "npm:@nolyfill/globalthis@^1",
-      "is-core-module": "npm:@nolyfill/is-core-module@^1",
-      "isarray": "npm:@nolyfill/isarray@^1",
-      "safe-buffer": "npm:@nolyfill/safe-buffer@^1",
-      "safer-buffer": "npm:@nolyfill/safer-buffer@^1",
-      "side-channel": "npm:@nolyfill/side-channel@^1",
-      "hasown": "npm:@nolyfill/hasown@^1"
-    }
-  }
+  "packageManager": "pnpm@11.27.0"
 }

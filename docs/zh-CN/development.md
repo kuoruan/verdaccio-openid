@@ -2,8 +2,8 @@
 
 ## 前置条件
 
-- [Node.js](https://nodejs.org/) >= 20
-- [pnpm](https://pnpm.io/) >= 10
+- [Node.js](https://nodejs.org/) >= 22
+- [pnpm](https://pnpm.io/) >= 11
 
 ## 环境搭建
 
@@ -15,16 +15,23 @@ pnpm install
 
 ## 脚本
 
-| 命令             | 说明                                                                      |
-| ---------------- | ------------------------------------------------------------------------- |
-| `pnpm build`     | 使用 [tsdown](https://github.com/egoist/tsdown) 构建项目。                |
-| `pnpm start`     | 启动 Verdaccio 6 并加载插件，用于本地测试。                               |
-| `pnpm start:5`   | 启动 Verdaccio 5 并加载插件，用于兼容性测试。                             |
-| `pnpm test`      | 使用 [Vitest](https://vitest.dev/) 运行测试。                             |
-| `pnpm lint`      | 运行 [oxlint](https://oxc.rs/docs/guide/usage/linter.html)。              |
-| `pnpm lint:fix`  | 自动修复 lint 问题。                                                      |
-| `pnpm fmt`       | 使用 [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) 格式化代码。 |
-| `pnpm fmt:check` | 检查格式但不写入。                                                        |
+| 命令               | 说明                                                                      |
+| ------------------ | ------------------------------------------------------------------------- |
+| `pnpm build`       | 使用 [tsdown](https://github.com/egoist/tsdown) 构建项目。                |
+| `pnpm changeset`   | 为面向用户的变更创建 changeset。                                          |
+| `pnpm start`       | 启动 Verdaccio 6 并加载插件，用于本地测试。                               |
+| `pnpm start:5`     | 启动 Verdaccio 5 并加载插件，用于兼容性测试。                             |
+| `pnpm test`        | 使用 [Vitest](https://vitest.dev/) 运行测试。                             |
+| `pnpm lint`        | 运行 [oxlint](https://oxc.rs/docs/guide/usage/linter.html)。              |
+| `pnpm lint:fix`    | 自动修复 lint 问题。                                                      |
+| `pnpm fmt`         | 使用 [oxfmt](https://oxc.rs/docs/guide/usage/formatter.html) 格式化代码。 |
+| `pnpm fmt:check`   | 检查格式但不写入。                                                        |
+| `pnpm run version` | 更新版本，并同时更新中英文 changelog。                                    |
+| `pnpm release`     | 发布待处理的 changeset；由发布工作流使用。                                |
+
+Changeset 应先写英文说明，再使用 `<!-- zh-CN -->` 标记添加中文说明。发布
+工作流执行 `pnpm run version`，会在同一个版本 PR 中生成英文 changelog 并
+更新 `CHANGELOG.zh-CN.md`。
 
 ## 项目结构
 
