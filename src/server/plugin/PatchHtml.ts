@@ -79,9 +79,16 @@ export class PatchHtml implements PluginMiddleware {
 
     const scriptSrc = `${baseUrl}${staticPath}/${scriptName}`;
 
+    // JSON.stringify escapes quotes; replacing "<" keeps a configured
+    // "</script>" value from terminating the inline script block.
+    const options = JSON.stringify({
+      keepPasswdLogin: this.keepPasswdLogin,
+      loginButtonText: this.loginButtonText,
+    }).replaceAll("<", String.raw`\u003C`);
+
     return [
       `<script>`,
-      `    window.__VERDACCIO_OPENID_OPTIONS={"keepPasswdLogin":${this.keepPasswdLogin},"loginButtonText":"${this.loginButtonText}"}`,
+      `    window.__VERDACCIO_OPENID_OPTIONS=${options}`,
       `</script>`,
       `<script defer="defer" src="${scriptSrc}"></script>`,
       "",

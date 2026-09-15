@@ -24,6 +24,42 @@ describe("PatchHtml", () => {
     return new PatchHtml(config);
   }
 
+  const HTML = `
+<html>
+  <head>
+    <script>window.${VERDACCIO_BASENAME_UI_OPTIONS_MARKER}={}</script>
+  </head>
+  <body>
+  </body>
+</html>`;
+
+  /** The options object as it appears in the injected inline script. */
+  function injectedOptions(loginButtonText: string): string {
+    const patcher = new PatchHtml({ ...config, loginButtonText } as any);
+    // @ts-expect-error insertTags is private
+    const result: string = patcher.insertTags(HTML, request);
+    const match = result.match(/__VERDACCIO_OPENID_OPTIONS=(\{.*?\})\s*<\/script>/);
+    expect(match, `no options object found in:\n${result}`).not.toBeNull();
+    return match![1];
+  }
+
+  it("does not let a loginButtonText terminate the inline script block", () => {
+    const options = injectedOptions(`</script><script>window.__pwned=1</script>`);
+
+    // The text survives as inert data; what must not survive is a real
+    // closing tag that ends the script and starts a new one.
+    expect(options).not.toContain("</script>");
+    expect(options).toContain(String.raw`\u003C/script>`);
+    expect(JSON.parse(options).loginButtonText).toBe(`</script><script>window.__pwned=1</script>`);
+  });
+
+  it("emits parseable JSON for a loginButtonText containing quotes", () => {
+    const options = injectedOptions('Sign "in" now');
+
+    expect(() => JSON.parse(options)).not.toThrow();
+    expect(JSON.parse(options).loginButtonText).toBe('Sign "in" now');
+  });
+
   it("should inject script tags for Verdaccio <= 6.4 HTML", () => {
     const html = `
 <html>
