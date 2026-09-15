@@ -66,6 +66,8 @@ jobs:
         uses: changesets/action/version@v2
         with:
           script: pnpm run version
+          commit-message: "chore(release): publish new version"
+          pr-title: "Release verdaccio-openid"
 
   publish:
     needs: select-mode
