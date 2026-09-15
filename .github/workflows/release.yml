@@ -42,7 +42,6 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v2
         with:
-          version: latest
           runtime: node@24
           cache: true
           require-lockfile: true
@@ -73,7 +72,6 @@ jobs:
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v2
         with:
-          version: latest
           runtime: node@24
           cache: true
           require-lockfile: true

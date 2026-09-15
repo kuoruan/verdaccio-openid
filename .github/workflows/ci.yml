@@ -15,11 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - node-version: 22
-            pnpm-version: 11
-          - node-version: 24
-            pnpm-version: latest
+        node-version: [22, 24]
 
     steps:
       - name: Checkout repository
@@ -30,7 +26,6 @@ jobs:
       - name: Set up pnpm and Node.js ${{ matrix.node-version }}
         uses: pnpm/setup@v2
         with:
-          version: ${{ matrix.pnpm-version }}
           runtime: node@${{ matrix.node-version }}
           cache: true
           require-lockfile: true
