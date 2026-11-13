@@ -1,3 +1,4 @@
+import openIDLoginIcon from "@/assets/icon-lock.svg?raw";
 import { loginHref, logoutHref, pluginKey } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
@@ -109,20 +110,12 @@ function updateUsageTabs(usageTabsSelector: string): void {
 
 const openIDStyleId = "verdaccio-openid-style";
 
-const openIDLoginIcon = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`;
-
-function injectOpenIDStyles(): void {
-  if (document.querySelector(`#${openIDStyleId}`)) return;
-
-  const style = document.createElement("style");
-
-  style.id = openIDStyleId;
-  style.textContent = `
+const openIDStyles = `
 .verdaccio-openid-divider {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 16px 0 12px;
+  margin: 12px 0;
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -151,11 +144,24 @@ button.verdaccio-openid-login {
   cursor: pointer;
   transition: background-color 150ms ease;
 }
+button.verdaccio-openid-login svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
 button.verdaccio-openid-login:hover,
 button.verdaccio-openid-login:focus-visible {
   background: rgba(128, 128, 128, 0.15);
 }
 `;
+
+function injectOpenIDStyles(): void {
+  if (document.getElementById(openIDStyleId)) return;
+
+  const style = document.createElement("style");
+
+  style.id = openIDStyleId;
+  style.textContent = openIDStyles;
   document.head.append(style);
 }
 
@@ -173,6 +179,7 @@ function addOpenIDLoginButton(loginDialogSelector: string, loginButtonSelector: 
   divider.className = "verdaccio-openid-divider";
   divider.textContent = "or";
 
+  // Preserve MUI typography and box sizing without duplicating its styles.
   const loginWithOpenIDButton = loginButton.cloneNode(false) as HTMLButtonElement;
 
   const label = document.createElement("span");
