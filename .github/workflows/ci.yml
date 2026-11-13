@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 2
 
       - name: Set up pnpm and Node.js ${{ matrix.node-version }}
-        uses: pnpm/setup@v2
+        uses: pnpm/setup@v3
         with:
           runtime: node@${{ matrix.node-version }}
           cache: true
