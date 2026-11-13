@@ -115,6 +115,21 @@ describe("retry", () => {
     vi.advanceTimersByTime(1000);
     expect(action).toHaveBeenCalledTimes(5);
   });
+
+  it("stops running the action once `isDone` reports it", () => {
+    const action = vi.fn();
+    const isDone = vi.fn(() => action.mock.calls.length >= 2);
+
+    retry(action, 5, isDone);
+
+    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(100);
+    expect(action).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(1000);
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(isDone).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe("getBaseUrl", () => {

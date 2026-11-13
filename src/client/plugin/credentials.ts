@@ -3,6 +3,7 @@
  * and a JWT token. We need to save these in local storage so Verdaccio
  * thinks we are logged in.
  */
+import { LOCAL_STORAGE_KEYS } from "@/client/constants";
 import { parseJwt } from "./lib";
 
 export interface Credentials {
@@ -14,12 +15,11 @@ export interface Credentials {
   npmToken: string;
 }
 
-const LOCAL_STORAGE_KEYS = {
-  USERNAME: "username",
-  UI_TOKEN: "token",
-  NPM_TOKEN: "npm",
-} as const;
-
+/**
+ * Store the credentials so the UI and the registry treat us as logged in.
+ *
+ * @param credentials the credentials to store
+ */
 export function saveCredentials(credentials: Credentials) {
   // username and ui token are required for verdaccio to think we are logged in
   localStorage.setItem(LOCAL_STORAGE_KEYS.USERNAME, credentials.username);
@@ -27,6 +27,7 @@ export function saveCredentials(credentials: Credentials) {
   localStorage.setItem(LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken);
 }
 
+/** Remove every stored credential. */
 export function clearCredentials() {
   for (const key of Object.values(LOCAL_STORAGE_KEYS)) {
     localStorage.removeItem(key);

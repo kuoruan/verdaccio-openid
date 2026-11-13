@@ -1,23 +1,34 @@
 import openIDLoginIcon from "@/assets/icon-lock.svg?raw";
-import { loginHref, logoutHref, pluginKey } from "@/constants";
+import {
+  defaultLoginButtonText,
+  dialogOpenIDLoginTestId,
+  dividerClass,
+  helpLoginCommandSelector,
+  loginButtonClass,
+  loginButtonSelector,
+  loginDialogSelector,
+  logoutButtonSelector,
+  updatedAttrKey,
+} from "@/client/constants";
+import { loginHref, logoutHref } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
 import {
   clearCredentials,
   type Credentials,
-  isLoggedIn,
-  isOpenIDLoggedIn,
   isUITokenExpired,
   isValidCredentials,
   saveCredentials,
 } from "./credentials";
-import { copyToClipboard, getBaseUrl, interruptClick, retry } from "./lib";
-import { getUsageInfo } from "./usage-info";
+import { resetLanguage, t } from "./i18n";
+import { getBaseUrl, interruptClick, retry } from "./lib";
+import { injectOpenIDStyles, syncUsage } from "./usage-panels";
 
 /**
- * Change the current URL to only the current pathname and reload.
- * We don't use `location.href` because we want the query params
- * to be excluded from the history.
+ * Drop the query params left over from the login redirect and reload.
+ *
+ * Uses `history.replaceState` rather than `location.href` so the redirect URL
+ * does not end up in the browser history.
  */
 function reloadToPathname() {
   history.replaceState(null, "", location.pathname);
@@ -26,6 +37,11 @@ function reloadToPathname() {
   location.reload();
 }
 
+/**
+ * Save the credentials handed back by the login redirect.
+ *
+ * @returns whether the URL carried a complete set of credentials
+ */
 function didParseAndSavedCredentials(): boolean {
   const credentials: Partial<Credentials> = parseQueryParams(location.search);
 
@@ -38,183 +54,52 @@ function didParseAndSavedCredentials(): boolean {
   return true;
 }
 
-function cloneAndAppendCommand(command: HTMLElement, info: string, isLoggedIn: boolean): void {
-  const cloned = command.cloneNode(true) as HTMLElement;
-
-  const textEl = cloned.querySelector("span")!;
-  textEl.textContent = info;
-
-  const copyEl = cloned.querySelector("button")!;
-
-  copyEl.style.visibility = isLoggedIn ? "visible" : "hidden";
-  copyEl.addEventListener("click", (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    void copyToClipboard(info).catch((e) => console.warn(e));
-  });
-
-  command.parentElement!.append(cloned);
-}
-
 /**
- * Remove commands that don't work with oauth
+ * Add an "or" divider and an OpenID Connect button below the password form in
+ * the login dialog.
  *
- * @param commands {HTMLElement[]} - The commands to be removed
+ * @param callback runs when the button is clicked
  */
-function removeInvalidCommands(commands: HTMLElement[]): void {
-  for (const node of commands) {
-    const content = node.textContent || "";
-
-    if (content && (content.includes("adduser") || content.includes("set password"))) {
-      node.remove();
-    }
-  }
-}
-
-const updatedAttrKey = `data-${pluginKey}`;
-const updatedAttrValue = "1";
-
-function updateUsageTabs(usageTabsSelector: string): void {
-  const isLoggedInViaOpenID = isOpenIDLoggedIn();
-
-  if (!isLoggedInViaOpenID && isLoggedIn()) {
-    // If we are logged in but not with OpenID, we don't need to update the usage info
-    return;
-  }
-
-  const tabs = [...document.querySelectorAll(usageTabsSelector)].filter(
-    (node) => node.getAttribute(updatedAttrKey) !== updatedAttrValue,
-  );
-
-  if (tabs.length === 0) return;
-
-  const usageInfoLines = getUsageInfo(isLoggedInViaOpenID).split("\n").toReversed();
-
-  for (const tab of tabs) {
-    const commands = [...tab.querySelectorAll("button")]
-      .map((node) => node.parentElement!)
-      .filter((node) => !!/^(npm|pnpm|yarn)/.test(node.textContent || ""));
-
-    if (commands.length === 0) continue;
-
-    for (const info of usageInfoLines) {
-      cloneAndAppendCommand(commands[0], info, isLoggedInViaOpenID);
-    }
-
-    removeInvalidCommands(commands);
-
-    tab.setAttribute(updatedAttrKey, updatedAttrValue);
-  }
-}
-
-const openIDStyleId = "verdaccio-openid-style";
-
-const openIDStyles = `
-.verdaccio-openid-divider {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 12px 0;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  opacity: 0.6;
-}
-.verdaccio-openid-divider::before,
-.verdaccio-openid-divider::after {
-  content: "";
-  flex: 1;
-  border-top: 1px solid currentColor;
-  opacity: 0.4;
-}
-button.verdaccio-openid-login {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 16px;
-  border: 1px solid rgba(128, 128, 128, 0.5);
-  border-radius: 4px;
-  font-weight: 600;
-  line-height: 1.75;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-  transition: background-color 150ms ease;
-}
-button.verdaccio-openid-login svg {
-  width: 18px;
-  height: 18px;
-  flex: none;
-}
-button.verdaccio-openid-login:hover,
-button.verdaccio-openid-login:focus-visible {
-  background: rgba(128, 128, 128, 0.15);
-}
-`;
-
-function injectOpenIDStyles(): void {
-  if (document.getElementById(openIDStyleId)) return;
-
-  const style = document.createElement("style");
-
-  style.id = openIDStyleId;
-  style.textContent = openIDStyles;
-  document.head.append(style);
-}
-
-function addOpenIDLoginButton(loginDialogSelector: string, loginButtonSelector: string, callback: () => void): void {
+function addOpenIDLoginButton(callback: () => void): void {
   const loginDialog = document.querySelector(loginDialogSelector);
 
-  if (!loginDialog || loginDialog.getAttribute(updatedAttrKey) === updatedAttrValue) return;
+  if (!loginDialog || loginDialog.hasAttribute(updatedAttrKey)) return;
 
-  const loginButton = document.querySelector(loginButtonSelector)!;
+  const loginButton = document.querySelector<HTMLElement>(loginButtonSelector)!;
 
   injectOpenIDStyles();
 
+  resetLanguage();
+
   const divider = document.createElement("div");
 
-  divider.className = "verdaccio-openid-divider";
-  divider.textContent = "or";
+  divider.className = dividerClass;
+  divider.textContent = t("loginDialogDivider");
 
   // Preserve MUI typography and box sizing without duplicating its styles.
   const loginWithOpenIDButton = loginButton.cloneNode(false) as HTMLButtonElement;
 
   const label = document.createElement("span");
 
-  label.textContent = window.__VERDACCIO_OPENID_OPTIONS?.loginButtonText || "Login with OpenID Connect";
+  label.textContent = window.__VERDACCIO_OPENID_OPTIONS?.loginButtonText || defaultLoginButtonText;
 
-  loginWithOpenIDButton.classList.add("verdaccio-openid-login");
+  loginWithOpenIDButton.classList.add(loginButtonClass);
   loginWithOpenIDButton.insertAdjacentHTML("beforeend", openIDLoginIcon);
   loginWithOpenIDButton.append(label);
-  loginWithOpenIDButton.dataset.testid = "dialogOpenIDLogin";
+  loginWithOpenIDButton.dataset.testid = dialogOpenIDLoginTestId;
 
   loginWithOpenIDButton.addEventListener("click", callback);
 
   loginDialog.append(divider, loginWithOpenIDButton);
 
-  loginDialog.setAttribute(updatedAttrKey, updatedAttrValue);
-}
-
-export interface InitOptions {
-  loginButtonSelector: string;
-  loginDialogSelector: string;
-  logoutButtonSelector: string;
-  usageTabsSelector: string;
+  loginDialog.setAttribute(updatedAttrKey, "");
 }
 
 /**
  * By default the login button opens a form that asks the user to submit credentials.
  * We replace this behaviour and instead redirect to the route that handles OAuth.
  */
-export function init({
-  loginButtonSelector,
-  logoutButtonSelector,
-  usageTabsSelector,
-  loginDialogSelector,
-}: InitOptions): void {
+export function init(): void {
   if (didParseAndSavedCredentials()) {
     // If we are new logged in, reload the page to remove the query params
     reloadToPathname();
@@ -232,7 +117,7 @@ export function init({
   };
 
   if (window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin) {
-    const updateLoginDialog = () => addOpenIDLoginButton(loginDialogSelector, loginButtonSelector, gotoOpenIDLoginUrl);
+    const updateLoginDialog = () => addOpenIDLoginButton(gotoOpenIDLoginUrl);
 
     document.addEventListener("click", () => retry(updateLoginDialog, 2));
   } else {
@@ -245,7 +130,13 @@ export function init({
     location.assign(baseUrl + logoutHref);
   });
 
-  const updateUsageInfo = () => updateUsageTabs(usageTabsSelector);
+  // The UI mounts after this script runs, and the empty-registry guide only
+  // renders once the package list request resolves (~400ms in a warm browser),
+  // so poll until it is there. The bound is an upper bound for slow machines.
+  retry(syncUsage, 10, () => document.querySelector(helpLoginCommandSelector) !== null);
 
-  document.addEventListener("click", () => retry(updateUsageInfo, 2));
+  // Dialogs mount ~25ms after the click that opened them, history buttons fire
+  // no click at all.
+  document.addEventListener("click", () => retry(syncUsage, 3));
+  window.addEventListener("popstate", () => retry(syncUsage, 2));
 }

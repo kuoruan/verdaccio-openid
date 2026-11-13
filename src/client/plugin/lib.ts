@@ -1,4 +1,11 @@
-// This parseJwt implementation is taken from https://stackoverflow.com/a/38552302/1935971
+/**
+ * Decode the payload of a JWT without verifying it.
+ *
+ * Taken from https://stackoverflow.com/a/38552302/1935971.
+ *
+ * @param token the JWT
+ * @returns the decoded payload, or null when the token cannot be decoded
+ */
 export function parseJwt(token: string): Record<string, any> | null {
   try {
     // JWT has 3 parts separated by ".", the payload is the base64url-encoded part in the middle
@@ -29,16 +36,25 @@ export function parseJwt(token: string): Record<string, any> | null {
 }
 
 /**
- * Schedule an action `times` times via `setTimeout`, each `100 * i` ms apart.
+ * Run an action `times` times via `setTimeout`, each `100 * i` ms apart.
  *
- * All calls fire unconditionally — this does not stop on success or failure.
+ * Calls run unconditionally, but the ones still pending become no-ops as soon
+ * as `isDone` reports there is nothing left to wait for.
  *
- * @param action the action to schedule
+ * @param action the action to run
  * @param times number of scheduled calls (default 5)
+ * @param isDone checked after each call, `times` is only an upper bound
  */
-export function retry(action: () => void, times = 5): void {
+export function retry(action: () => void, times = 5, isDone?: () => boolean): void {
+  let done = false;
+
   for (let i = 0; i < times; i++) {
-    setTimeout(() => action(), 100 * i);
+    setTimeout(() => {
+      if (done) return;
+
+      action();
+      done = isDone?.() ?? false;
+    }, 100 * i);
   }
 }
 

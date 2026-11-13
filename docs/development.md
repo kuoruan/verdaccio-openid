@@ -60,9 +60,20 @@ This project uses the [oxc](https://oxc.rs/) toolchain for linting and formattin
 
 A pre-commit hook powered by [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) runs linting and formatting on staged files automatically.
 
+## Naming
+
+Types, interfaces and enums use `PascalCase`. Everything else follows the kind of constant it is:
+
+| Style         | Used for                                                                                                                                  | Examples                                                                                      |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `UPPER_SNAKE` | Literal tables (`as const` objects, `Set`s, fixed arrays) and file-local fixed literals: regexes, byte or length limits, sentinel strings | `ERRORS`, `LOCAL_STORAGE_KEYS`, `PUBLIC_REGISTRIES`, `CONFIG_ENV_NAME_REGEX`, `MAX_KEY_BYTES` |
+| `camelCase`   | Every other constant: DOM selectors, ids, class names, paths, ports, messages, CSS, and anything derived from another constant            | `loginButtonSelector`, `openIDStyleId`, `loginHref`, `cliPort`, `pluginKey`                   |
+
+Keys inside a literal table stay `UPPER_SNAKE` (`LOCAL_STORAGE_KEYS.USERNAME`), since they are entries of that table rather than standalone constants.
+
 ## Testing
 
-Tests use [Vitest](https://vitest.dev/) with the default Node.js environment:
+Tests use [Vitest](https://vitest.dev/) with the default Node.js environment. Files that need the DOM opt in with a `// @vitest-environment jsdom` comment on the first line:
 
 ```bash
 # Run all tests

@@ -62,9 +62,20 @@ verdaccio5/           # Verdaccio 5 测试配置
 
 通过 pre-commit 钩子（[husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged)）在暂存文件上自动运行 lint 和格式化。
 
+## 命名
+
+类型、接口和枚举使用 `PascalCase`。其余常量按种类区分：
+
+| 风格          | 适用                                                                                                 | 示例                                                                                          |
+| ------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `UPPER_SNAKE` | 字面量表（`as const` 对象、`Set`、固定数组）以及文件内的固定字面量：正则、字节或长度上限、哨兵字符串 | `ERRORS`、`LOCAL_STORAGE_KEYS`、`PUBLIC_REGISTRIES`、`CONFIG_ENV_NAME_REGEX`、`MAX_KEY_BYTES` |
+| `camelCase`   | 其余所有常量：DOM 选择器、id、类名、路径、端口、文案、CSS，以及任何由其他常量派生的值                | `loginButtonSelector`、`openIDStyleId`、`loginHref`、`cliPort`、`pluginKey`                   |
+
+字面量表内部的下标保持 `UPPER_SNAKE`（如 `LOCAL_STORAGE_KEYS.USERNAME`），它们是表的条目，而不是独立常量。
+
 ## 测试
 
-测试使用 [Vitest](https://vitest.dev/)，默认 Node.js 环境：
+测试使用 [Vitest](https://vitest.dev/)，默认运行在 Node.js 环境；需要 DOM 的文件在第一行加 `// @vitest-environment jsdom` 注释即可切换：
 
 ```bash
 # 运行所有测试
