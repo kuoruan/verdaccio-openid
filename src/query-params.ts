@@ -1,5 +1,5 @@
 /**
- * parse a query string into a key/value object
+ * Parse a query string into a key/value object.
  *
  * @param search the query string to parse
  * @returns a key/value object
@@ -22,10 +22,10 @@ export function parseQueryParams(search: string): Record<string, string> {
 }
 
 /**
- * stringify a key/value object into a query string
+ * Serialize a key/value object as a query string, with both sides encoded.
  *
- * @param params the key/value object to stringify
- * @returns stringified query string
+ * @param params the key/value object to serialize
+ * @returns the query string, without a leading "?"
  */
 export function stringifyQueryParams(params: Record<string, string>): string {
   return Object.entries(params)

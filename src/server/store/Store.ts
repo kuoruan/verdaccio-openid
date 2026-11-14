@@ -5,50 +5,52 @@ import type { InitOptions as FileInitOptions } from "node-persist";
 import { webAuthnProviderId } from "@/constants";
 
 export interface Store {
-  /** set openid state data to the store */
+  /** Save the nonce of an authorization request until its callback arrives. */
   setOpenIDState(key: string, nonce: string, providerId: string): MaybePromise<void>;
 
-  /** get openid state data from the store */
+  /** Read the nonce stored for an authorization request. */
   getOpenIDState(key: string, providerId: string): MaybePromise<string | null | undefined>;
 
-  /** delete openid state data from the store */
+  /** Remove the nonce once its callback has been handled. */
   deleteOpenIDState(key: string, providerId: string): MaybePromise<void>;
 
-  /** set user info to the store */
+  /** Cache the user info claims read from the provider. */
   setUserInfo?: (key: string, data: unknown, providerId: string) => MaybePromise<void>;
 
-  /** get user info from the store */
+  /** Read the cached user info claims. */
   getUserInfo?: (key: string, providerId: string) => MaybePromise<Record<string, unknown> | null | undefined>;
 
-  /** set user groups to the store */
+  /** Cache the groups read from the provider. */
   setUserGroups?: (key: string, groups: string[], providerId: string) => MaybePromise<void>;
 
-  /** get user groups from the store */
+  /** Read the cached groups. */
   getUserGroups?: (key: string, providerId: string) => MaybePromise<string[] | null | undefined>;
 
-  /** set webauthn token to the store */
+  /** Save the token the browser reports for a WebAuthn session. */
   setWebAuthnToken: (key: string, token: string) => MaybePromise<void>;
 
-  /** get webauthn token from the store */
+  /** Read the token stored for a WebAuthn session. */
   getWebAuthnToken: (key: string) => MaybePromise<string | null | undefined>;
 
   /**
-   * Atomically get a webauthn token and delete it if it is ready.
-   * If the current token equals pendingToken, it must not be deleted.
+   * Atomically read the WebAuthn token of a session and consume it once it is ready.
+   *
+   * A token still equal to `pendingToken` is kept, because the browser has not
+   * reported the credential yet; any other token is returned and deleted.
    */
   takeWebAuthnToken: (key: string, pendingToken: string) => MaybePromise<string | null | undefined>;
 
-  /** delete webauthn token from the store */
+  /** Remove the token of a WebAuthn session. */
   deleteWebAuthnToken: (key: string) => MaybePromise<void>;
 
-  /** close the store */
+  /** Release the backend connection. */
   close: () => MaybePromise<void>;
 }
 
 export class BaseStore {
-  /** The State ttl */
+  /** TTL of authorization state: the nonce and the WebAuthn token. */
   public static readonly DefaultStateTTL: number = 1 * 60 * 1000; // 1 minute;
-  /** The other data cache ttl */
+  /** TTL of the user info and groups caches. */
   public static readonly DefaultDataTTL: number = 5 * 60 * 1000; // 5 minutes;
 
   protected getStateKey(key: string, providerId: string): string {

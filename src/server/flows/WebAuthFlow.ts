@@ -1,11 +1,9 @@
 /**
- * This is the npm WebAuth login flow.
+ * The npm WebAuth login flow, used by `npm login --auth-type=web`.
  *
- * Known as the npm `--auth-type=web` command line argument.
+ * See https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb.
  *
- * see: https://docs.npmjs.com/accessing-npm-using-2fa#sign-in-from-the-command-line-using---auth-typeweb
- *
- * This flow is described in verdaccio's discussions and issues:
+ * The flow is described in Verdaccio's discussions and issues:
  *   - https://github.com/orgs/verdaccio/discussions/1515
  *   - https://github.com/verdaccio/verdaccio/issues/3413
  *
@@ -20,12 +18,12 @@
  *   }
  *   ```
  *
- * Second, the NPM CLI will periodically call the `doneUrl`, which is responsible for letting it know when the user is successfully authenticated,
- * and returning the user's token afterward.
+ * Second, the npm CLI polls the `doneUrl`, which reports when the user has authenticated
+ * and returns the user's token.
  *
  * It expects the server to return either:
- *   - A HTTP code `202`, along with an HTTP header `retry-after`, as long as the token is not available
- *   - A HTTP code `200` response, along with the token, once the login is successful
+ *   - an HTTP `202` with a `retry-after` header while the token is not available
+ *   - an HTTP `200` with the token once the login succeeded
  *
  * The token must be put inside the response body as JSON:
  *   ```json
@@ -34,10 +32,10 @@
  *   }
  *   ```
  *
- * Most likely for security reasons, once the token is successfully retrieved, the session matching the `sessionId` gets destroyed,
- * and the `doneUrl` is no longer available. Hence, one can use the `loginUrl` to fetch the token only once.
+ * Once the token has been retrieved, the session matching `sessionId` is destroyed and
+ * `doneUrl` stops responding: the `loginUrl` can fetch the token only once.
  *
- * Third, while the NPM CLI is waiting for the `doneUrl` to return a token, it offers to open up a web browser to the `loginUrl`.
+ * Third, while the npm CLI waits for `doneUrl`, it offers to open a browser at `loginUrl`.
  *
  * When the `adduser` command is used, the `/-/v1/login` endpoint is called with the `{"create":true}` body,
  * the response should be the same as above.

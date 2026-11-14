@@ -7,6 +7,7 @@ import colors from "picocolors";
 
 import logger from "./logger";
 
+/** Registries the CLI refuses to authenticate against. */
 export const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com", "registry.npm.taobao.org"];
 
 let npmConfig: Record<string, unknown> | undefined;
@@ -44,6 +45,11 @@ function removeTrailingSlash(input: string): string {
   return input.trim().replace(/\/?$/, "");
 }
 
+/**
+ * Resolve the registry from `--registry`, then from the npm config, then the public one.
+ *
+ * @returns the registry URL without a trailing slash
+ */
 export function getRegistryUrl(): string {
   const cliArgs = parseCliArgs();
 
@@ -56,10 +62,16 @@ export function getRegistryUrl(): string {
   return removeTrailingSlash(registry);
 }
 
+/** The npm config file the token is written to, as npm reports it. */
 export function getNpmConfigFile(): string {
   return getNpmConfig().userconfig as string;
 }
 
+/**
+ * Write the token into the npm config for the registry in use.
+ *
+ * @param token the npm token issued by the plugin
+ */
 export function saveNpmToken(token: string) {
   const registry = getRegistryUrl();
   const url = new URL(registry);

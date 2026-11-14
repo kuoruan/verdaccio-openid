@@ -218,10 +218,18 @@ const themeScript = `
 })();
 </script>`;
 
+/** Whether to show a back link, and where it goes. A string is used as the link target. */
 export type BackOptions = boolean | Record<"backUrl", string>;
 
 const defaultBackUrl = "javascript:history.back()";
 
+/**
+ * Wrap a card body in the standalone page the plugin serves outside the UI.
+ *
+ * @param body the card content, already built from HTML
+ * @param withBack whether to offer a back link, and where it points
+ * @returns the complete HTML document
+ */
 export function buildStatusPage(body: string, withBack: BackOptions = false): string {
   let backUrl;
   if (typeof withBack === "object") {
@@ -240,38 +248,56 @@ export function buildStatusPage(body: string, withBack: BackOptions = false): st
     ${themeScript}
   </head>
   <body>
-      <img src="${Logo}" class="logo" alt="logo" />
-      <div class="card">
-        ${body}
-        ${backUrl ? `<a class="btn" href="${backUrl}">Go back</a>` : ""}
-      </div>
-    </body>
+    <img src="${Logo}" class="logo" alt="" />
+    <div class="card">
+      ${body}
+      ${backUrl ? `<a class="btn" href="${backUrl}">Go back</a>` : ""}
+    </div>
+  </body>
 </html>`;
 }
 
+/**
+ * Build the page shown when the login flow failed.
+ *
+ * @param error the error thrown by the flow; its message is shown as HTML-escaped text
+ * @param withBack whether to offer a back link, and where it points
+ */
 export function buildErrorPage(error: any, withBack: BackOptions = false) {
   const message = error?.message ?? error ?? "An unknown error occurred";
   return buildStatusPage(
     `<div class="icon error">${ErrorIcon}</div>
-    <h1 class="error">Sorry :(</h1>
+    <h1 class="error">Login failed</h1>
     <p class="message">${escapeHtml(String(message))}</p>`,
     withBack,
   );
 }
 
+/**
+ * Build the page shown when the flow finished and the user can close the window.
+ *
+ * @param message the message to show, inserted as HTML
+ * @param withBack whether to offer a back link, and where it points
+ */
 export function buildSuccessPage(message: string, withBack: BackOptions = false) {
   return buildStatusPage(
     `<div class="icon success">${SuccessIcon}</div>
-    <h1 class="success">Success ^_^</h1>
+    <h1 class="success">Success</h1>
     <p class="message">${message}</p>`,
     withBack,
   );
 }
 
+/**
+ * Build the page shown when the user is authenticated but belongs to no group
+ * that `authorized-groups` accepts.
+ *
+ * @param withBack whether to offer a back link, and where it points
+ */
 export function buildAccessDeniedPage(withBack: BackOptions = false) {
   return buildStatusPage(
     `<div class="icon warning">${WarningIcon}</div>
-    <h1 class="warning">Access Denied -_-</h1>
+    <h1 class="warning">Access denied</h1>
     <p class="message">${messageGroupRequired}</p>`,
     withBack,
   );

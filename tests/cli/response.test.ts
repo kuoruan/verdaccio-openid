@@ -36,7 +36,7 @@ describe("respondWithCliMessage", () => {
     const { respondWithCliMessage } = await import("@/cli/response");
     respondWithCliMessage("success", "");
 
-    expect(mockLogger.success).toHaveBeenCalledWith("All done! We've updated your npm configuration.");
+    expect(mockLogger.success).toHaveBeenCalledWith("All done. We've updated your npm configuration.");
     expect(mockLogger.info).toHaveBeenCalledWith("Path:", expect.any(String));
   });
 
@@ -47,11 +47,11 @@ describe("respondWithCliMessage", () => {
     expect(mockLogger.error).toHaveBeenCalledWith("You are not a member of the required access group.");
   });
 
-  it("should log warning for unknown status", async () => {
+  it("should log an error for status 'error'", async () => {
     const { respondWithCliMessage } = await import("@/cli/response");
     respondWithCliMessage("error", "Something went wrong");
 
-    expect(mockLogger.warn).toHaveBeenCalledWith("Something went wrong");
+    expect(mockLogger.error).toHaveBeenCalledWith("Something went wrong");
   });
 });
 

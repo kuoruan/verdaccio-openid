@@ -18,6 +18,7 @@ const defaultOptions = {
   ttl: BaseStore.DefaultStateTTL,
 };
 
+/** Store backed by Redis, so state and caches survive a restart and can be shared. */
 export default class RedisStore extends BaseStore implements Store {
   private readonly config?: Omit<RedisConfig, "ttl"> | string;
   private readonly ttl: number;

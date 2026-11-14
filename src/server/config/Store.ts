@@ -99,9 +99,7 @@ abstract class StoreConfig<T> {
         ? valueOrEnvironmentName
         : `${plugin.name}-${this.configKey}-${key as string}`.toUpperCase().replaceAll("-", "_");
 
-    /**
-     * Allow environment variables to be used as values.
-     */
+    // A variable that is set wins over the value written in the config.
     const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
 
     try {

@@ -22,7 +22,7 @@ function assertSize(label: string, value: string, max: number): void {
 }
 
 /**
- * Wraps an AWS SDK error so the verdaccio plugin layer sees a small,
+ * Wraps an AWS SDK error so the Verdaccio plugin layer sees a small,
  * deterministic message — never the raw stack trace, which can be
  * huge and includes internal SDK paths.
  *
@@ -66,11 +66,11 @@ function classify(err: unknown): "transient" | "permanent" {
  * DynamoDB-backed store for verdaccio-openid.
  *
  * ─── Threat model ────────────────────────────────────────────────────
- * Trust boundary: the verdaccio process is trusted; the underlying
+ * Trust boundary: the Verdaccio process is trusted; the underlying
  * AWS account, IAM role, and table ACL are the security perimeter.
  *
  * Assumptions:
- *   1. The IAM role attached to the verdaccio pod (via EKS Pod
+ *   1. The IAM role attached to the Verdaccio pod (via EKS Pod
  *      Identity / IRSA) is scoped to ONE specific table ARN with
  *      only the DynamoDB actions enumerated in the deployment's
  *      Pulumi config (GetItem/PutItem/DeleteItem/Query/Scan/Update
@@ -78,7 +78,7 @@ function classify(err: unknown): "transient" | "permanent" {
  *      access.
  *   2. Credentials are resolved through the standard AWS SDK
  *      provider chain — env vars, ~/.aws/credentials, container
- *      credentials. No static keys are ever stored in the verdaccio
+ *      credentials. No static keys are ever stored in the Verdaccio
  *      config or passed as plugin options.
  *   3. TLS to DynamoDB is enforced by the AWS SDK by default
  *      (HTTPS-only public endpoint).
@@ -103,9 +103,11 @@ function classify(err: unknown): "transient" | "permanent" {
  * The table must have its `expires` attribute configured as the
  * TTL attribute name in the AWS DynamoDB console / Pulumi.
  *
- * Logging: errors are caught and logged at debug level; we never log
- * nonces, tokens, or userinfo content. Failures are returned as
- * undefined to the plugin layer, which fails closed (forces re-auth).
+ * Logging: transient errors are logged at warn and the rest at error,
+ * never with nonces, tokens, or userinfo content. Read failures are
+ * returned as undefined, writes and the conditional delete throw, and
+ * best-effort deletes swallow, so the plugin layer fails closed and
+ * forces a new login.
  */
 export default class DynamoStore extends BaseStore implements Store {
   private readonly config: DynamoConfig;

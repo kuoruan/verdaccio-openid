@@ -11,6 +11,7 @@ const logger = {
   error: (...args: any[]) => console.error(prefix, colors.red(args.join(" "))),
 };
 
+/** Print the plugin name and version, so a log shows which build ran. */
 export function logPluginInfo() {
   logger.info(`Version: ${plugin.name}@${plugin.version}`);
 }

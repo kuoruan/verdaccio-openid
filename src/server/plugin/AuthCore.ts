@@ -72,31 +72,22 @@ export class AuthCore {
   }
 
   /**
-   * Get the logged user's full groups
-   *
-   * Our JWT do not contain the user's full groups, so we need to get them from the config.
-   *
-   * @param user
-   * @returns
+   * Return the groups the user carries plus the roles Verdaccio gives every logged-in user.
    */
   getLoggedUserGroups(user: RemoteUser): string[] {
     return [...user.real_groups, ...defaultLoggedUserRoles];
   }
 
-  /**
-   * Get the non-logged user's full groups
-   *
-   * @returns
-   */
+  /** Return the roles Verdaccio gives visitors who are not logged in. */
   getNonLoggedUserGroups(): string[] {
     return [...defaultNonLoggedUserRoles];
   }
 
   /**
-   * Get the user groups from the config
+   * Return the groups a username is mapped to by `group-users`.
    *
-   * @param username
-   * @returns groups or undefined
+   * @param username the user to look up
+   * @returns the matching groups, or undefined when `group-users` is not set
    */
   getUserGroups(username: string): string[] | undefined {
     if (!this.groupUsers) return undefined;
@@ -108,7 +99,7 @@ export class AuthCore {
     });
   }
 
-  // get unique and sorted groups
+  /** Keep the groups that are configured, add the username itself, and drop duplicates. */
   filterRealGroups(username: string, groups: string[] = []): string[] {
     const authenticatedGroups = typeof this.authenticatedGroups === "boolean" ? [] : this.authenticatedGroups;
 
@@ -116,20 +107,17 @@ export class AuthCore {
       (group) => this.configuredGroups.includes(group) || authenticatedGroups.includes(group),
     );
 
-    /**
-     * add the user to the groups
-     */
     relevantGroups.push(username);
 
     return [...new Set(relevantGroups)].toReversed();
   }
 
   /**
-   * Check if the user is allowed to access the registry
+   * Check whether the user is allowed to access the registry, given `authorized-groups`.
    *
-   * @param username
-   * @param groups
-   * @returns true if the user is allowed to access the registry
+   * @param username the user to check
+   * @param groups the groups the user belongs to
+   * @returns whether access is granted
    */
   authenticate(username: string, groups: string[] = []): boolean {
     if (!username) return false;
@@ -171,10 +159,12 @@ export class AuthCore {
   }
 
   /**
-   * Verify the npm token
+   * Verify an npm token issued by this plugin.
    *
-   * @param token
-   * @returns
+   * @param token the token from the Authorization header
+   * @returns the user the token stands for, or false when the token is expired or not authorized
+   * @throws {TypeError} when the token is neither a legacy token nor a JWT
+   * @throws {SyntaxError} when a legacy token does not decode to a payload
    */
   async verifyNpmToken(token: string): Promise<Omit<RemoteUser, "groups"> | false> {
     // if jwt is not enabled, use legacy encryption
@@ -222,11 +212,11 @@ export class AuthCore {
   }
 
   /**
-   * The ui token of verdaccio is always a JWT token.
+   * Issue the UI token. Verdaccio only accepts a JWT token for the web UI.
    *
-   * @param username
-   * @param realGroups
-   * @returns
+   * @param username the user to issue the token for
+   * @param realGroups the groups to embed
+   * @returns the signed token
    */
   issueUiToken(username: string, realGroups: string[]): Promise<string> {
     const jwtSignOptions = this.security.web.sign;
@@ -278,7 +268,7 @@ export class AuthCore {
       throw new Error(ERRORS.TOKEN_ENCRYPTION_FAILED);
     }
 
-    // the return value in verdaccio 5 is a buffer, we need to convert it to a string
+    // Verdaccio 5 returns a Buffer here, which has to be encoded to a string.
     return typeof token === "string" ? token : base64Encode(token);
   }
 

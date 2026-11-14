@@ -1,17 +1,17 @@
 /**
- * After a successful login we are redirected to the UI with our username
- * and a JWT token. We need to save these in local storage so Verdaccio
- * thinks we are logged in.
+ * The login redirect brings the username and the tokens back to the UI as query
+ * parameters. Verdaccio reads the session from `localStorage`, so the plugin
+ * stores them there.
  */
 import { LOCAL_STORAGE_KEYS } from "@/client/constants";
 import { parseJwt } from "./lib";
 
 export interface Credentials {
-  /** The logged in username */
+  /** The name of the logged-in user. */
   username: string;
-  /** UI token is used to authenticate with the UI */
+  /** Authenticates the user against the web UI. */
   uiToken: string;
-  /** NPM token is used to authenticate with the registry */
+  /** Authenticates the user against the registry. */
   npmToken: string;
 }
 
@@ -21,7 +21,7 @@ export interface Credentials {
  * @param credentials the credentials to store
  */
 export function saveCredentials(credentials: Credentials) {
-  // username and ui token are required for verdaccio to think we are logged in
+  // The UI considers a session logged in once the username and the UI token are stored.
   localStorage.setItem(LOCAL_STORAGE_KEYS.USERNAME, credentials.username);
   localStorage.setItem(LOCAL_STORAGE_KEYS.UI_TOKEN, credentials.uiToken);
   localStorage.setItem(LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken);
@@ -35,38 +35,37 @@ export function clearCredentials() {
 }
 
 /**
- * Check if the user is logged in.
+ * Check whether the UI will treat the session as logged in.
  *
- * This function checks if the user is logged in with the UI token.
- *
- * @returns {boolean} True if the user is logged in
+ * @returns whether a username and a UI token are stored
  */
 export function isLoggedIn(): boolean {
   return !!localStorage.getItem(LOCAL_STORAGE_KEYS.USERNAME) && !!localStorage.getItem(LOCAL_STORAGE_KEYS.UI_TOKEN);
 }
 
 /**
- * Check if the user is logged in with OpenID Connect
+ * Check whether the session was created by OpenID Connect rather than by the
+ * password login: only this plugin stores an npm token alongside the UI token.
  *
- * @returns {boolean} True if the user is logged in with OpenID Connect
+ * @returns whether all three credentials are stored
  */
 export function isOpenIDLoggedIn(): boolean {
   return Object.values(LOCAL_STORAGE_KEYS).every((key) => !!localStorage.getItem(key));
 }
 
 /**
- * Get the NPM token from local storage
+ * Read the stored npm token.
  *
- * @returns {string | null} The NPM token or null if it doesn't exist
+ * @returns the token, or null when there is none
  */
 export function getNPMToken(): string | null {
   return localStorage.getItem(LOCAL_STORAGE_KEYS.NPM_TOKEN);
 }
 
 /**
- * Check if the UI token is expired
+ * Check whether the stored UI token is expired.
  *
- * @returns {boolean} True if the UI token is expired
+ * @returns whether the token is missing, unreadable, or expired
  */
 export function isUITokenExpired() {
   const token = localStorage.getItem(LOCAL_STORAGE_KEYS.UI_TOKEN);
@@ -75,17 +74,18 @@ export function isUITokenExpired() {
   const payload = parseJwt(token);
   if (!payload) return true;
 
-  // Report as expired before (real expiry - 30s)
+  // Treat the token as expired 30s before it really is, so a request cannot
+  // start just before the expiry and fail just after it.
   const jsTimestamp = payload.exp * 1000 - 30_000;
 
   return Date.now() >= jsTimestamp;
 }
 
 /**
- * Validate the credentials object to ensure it has the required fields
+ * Check whether a set of credentials carries all three required values.
  *
- * @param credentials The credentials object to validate
- * @returns {boolean} True if the credentials object is valid
+ * @param credentials the values read from the redirect
+ * @returns whether every credential is present
  */
 export function isValidCredentials(credentials: Partial<Credentials>): credentials is Credentials {
   return (["username", "uiToken", "npmToken"] satisfies (keyof Credentials)[]).every((key) => !!credentials[key]);

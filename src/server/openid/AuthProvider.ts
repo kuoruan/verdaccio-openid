@@ -174,10 +174,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
-   * Parse callback request and get the token from provider.
+   * Exchange the code in a callback request for tokens.
    *
-   * @param callbackRequest
-   * @returns
+   * @param callbackRequest the request the provider redirected to
+   * @returns the tokens the provider issued
+   * @throws {URIError} when the callback carries no state, or one this provider did not issue
    */
   async getToken(callbackRequest: Request): Promise<TokenInfo> {
     const openidClient = await getOpenIDClient();
@@ -239,10 +240,11 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
-   * Get the user info from id_token
+   * Read the user info from the ID token of a token response.
    *
-   * @param tokens
-   * @returns
+   * @param tokens the token response
+   * @returns the claims of the ID token
+   * @throws {TypeError} when the response carries no ID token
    */
   private getUserinfoFromIdToken(tokens: TokenInfo): Record<string, unknown> {
     const idToken = tokens.idToken;
@@ -253,10 +255,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
-   * Get the user info from the userinfo endpoint or from the cache.
+   * Read the user info from the cache, or fetch it from the userinfo endpoint.
    *
-   * @param token
-   * @returns
+   * @param token the provider token
+   * @returns the user info claims
    */
   private async getUserinfoFromEndpoint(token: OpenIDToken): Promise<Record<string, unknown>> {
     let accessToken: string;
@@ -295,10 +297,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
-   * Get the user from the userinfo.
+   * Read the username and groups of a user through the configured claims.
    *
-   * @param token
-   * @returns
+   * @param token the provider token
+   * @returns the username and, when the claims carry any, the groups
    */
   async getUserinfo(token: OpenIDToken): Promise<ProviderUser> {
     let userinfo: Record<string, unknown>;
@@ -361,11 +363,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
-   * Get the groups for the user from the provider.
+   * Read the user's groups from the cache, or fetch them from the provider.
    *
-   * @param token
-   * @param providerType
-   * @returns
+   * @param token the provider token
+   * @param providerType the provider API to ask
+   * @returns the groups the provider reports
+   * @throws {ReferenceError} when the provider type has no group API
    */
   private async getGroupsWithProviderType(token: OpenIDToken, providerType: ProviderType): Promise<string[]> {
     const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
@@ -400,10 +403,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
-   * Get the groups for the user from the Gitlab API.
+   * Read the groups of the user from the GitLab API.
    *
-   * @param token
-   * @returns {Promise<string[]>} The groups the user is in.
+   * @param token the provider token
+   * @returns the names of the groups the user is in
    */
   async getGitlabGroups(token: OpenIDToken): Promise<string[]> {
     const group = new Groups({

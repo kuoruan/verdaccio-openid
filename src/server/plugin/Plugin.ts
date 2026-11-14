@@ -34,7 +34,8 @@ interface AllowActionMeta {
 }
 
 /**
- * Implements the verdaccio plugin interfaces.
+ * The plugin entry point: Verdaccio's auth hooks and HTTP middleware, plus the
+ * store whose connection has to be closed when the process stops.
  */
 export class Plugin
   implements pluginUtils.Auth<AllowAccess & OpenIDConfig>, pluginUtils.ExpressMiddleware<OpenIDConfig, never, Auth>
@@ -92,9 +93,10 @@ export class Plugin
   }
 
   /**
-   * Register signal handlers for graceful shutdown
-   * This method is called automatically in the constructor,
-   * but can be called explicitly if needed for testing or re-registration.
+   * Close the store when the process is asked to stop.
+   *
+   * Called from the constructor. Call it again to re-register the handlers after
+   * `unregisterSignalHandlers()`, which tests need between runs.
    */
   public registerSignalHandlers(): void {
     // Unregister any existing handlers first
@@ -121,10 +123,7 @@ export class Plugin
     }
   }
 
-  /**
-   * Unregister all signal handlers
-   * This method is useful for testing to clean up after test runs
-   */
+  /** Detach the signal handlers, so a stopped process can exit and tests can rerun. */
   public unregisterSignalHandlers(): void {
     for (const [signal, handler] of this.signalHandlers) {
       process.removeListener(signal, handler);
@@ -165,14 +164,12 @@ export class Plugin
     } catch (e: any) {
       debug(`%s. user: "%s", falling back to legacy auth`, e.message, username);
 
-      // the token is not valid by us, let the next auth plugin to handle it
+      // Not a token this plugin issued: let the next auth plugin handle it.
       callback(null, false);
       return;
     }
 
-    /**
-     * the result is false, means the token is not authenticated
-     */
+    // A false result means the token could not be authenticated.
     if (user === false || !user.name) {
       callback(errorUtils.getUnauthorized(`user ${username} is not authenticated`), false);
       return;
@@ -195,7 +192,7 @@ export class Plugin
 
   private allow_action(user: RemoteUser, meta: AllowActionMeta, callback: AllowActionCallback): void {
     if (!user.name) {
-      // let next auth plugin to handle it
+      // Let the next auth plugin handle a user this plugin does not know.
       callback(null, false);
       return;
     }
@@ -210,13 +207,9 @@ export class Plugin
     );
 
     let userGroups: string[];
-    /**
-     * Check if user is authenticated
-     * The authenticated groups may change after user login.
-     * If the user is authenticated, we use the logged user groups.
-     * If the user is not authenticated, we use the non-logged user groups.
-     * This is to ensure that the user has the correct groups to access the package.
-     */
+    // The groups that grant access may change after login, so an authenticated
+    // user is checked against the logged-in roles and everyone else against the
+    // visitor roles. That way the package still resolves to the right groups.
     if (this.core.authenticate(user.name, user.real_groups)) {
       userGroups = this.core.getLoggedUserGroups(user);
     } else {
@@ -257,7 +250,8 @@ export class Plugin
     const requiredGroups = pkg.unpublish;
 
     if (requiredGroups === false) {
-      // verdaccio will call allow_unpublish() automatically
+      // Verdaccio calls this hook even when `unpublish` is false; answering
+      // without a decision makes it defer to `allow_publish`.
       callback(null);
       return;
     }

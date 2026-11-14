@@ -71,7 +71,7 @@ describe("buildStatusPage", () => {
 describe("buildErrorPage", () => {
   it("should render error message from Error object", () => {
     const html = buildErrorPage(new Error("Something went wrong"));
-    expect(html).toContain("Sorry :(");
+    expect(html).toContain("Login failed");
     expect(html).toContain("Something went wrong");
     expect(html).toContain('class="icon error"');
     expect(html).toContain("<svg");
@@ -94,7 +94,7 @@ describe("buildErrorPage", () => {
 
   it("should render fallback for error without message", () => {
     const html = buildErrorPage(undefined);
-    expect(html).toContain("Sorry :(");
+    expect(html).toContain("Login failed");
   });
 
   it("should pass withBack option through", () => {
@@ -106,7 +106,7 @@ describe("buildErrorPage", () => {
 describe("buildSuccessPage", () => {
   it("should render success message", () => {
     const html = buildSuccessPage("Login successful!");
-    expect(html).toContain("Success ^_^");
+    expect(html).toContain("Success");
     expect(html).toContain("Login successful!");
     expect(html).toContain('class="icon success"');
     expect(html).toContain("<svg");
@@ -122,7 +122,7 @@ describe("buildSuccessPage", () => {
 describe("buildAccessDeniedPage", () => {
   it("should render access denied message", () => {
     const html = buildAccessDeniedPage();
-    expect(html).toContain("Access Denied");
+    expect(html).toContain("Access denied");
     expect(html).toContain('class="icon warning"');
     expect(html).toContain("<svg");
   });

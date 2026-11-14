@@ -1,5 +1,8 @@
 /**
- * Unwrap the default export of a CJS module (or pass through if ESM).
+ * Unwrap the default export of a CommonJS module, or pass an ES module through.
+ *
+ * @param m the module, or a promise for it
+ * @returns the value the module exports as default, or the module itself
  */
 export async function interopDefault<T>(m: PromiseLike<T> | T): Promise<T extends { default: infer U } ? U : T> {
   const resolved = await m;
@@ -12,8 +15,11 @@ export async function interopDefault<T>(m: PromiseLike<T> | T): Promise<T extend
 }
 
 /**
- * Import an optional peer dependency, throwing a friendly error
- * if the module is not found (ERR_MODULE_NOT_FOUND).
+ * Import an optional peer dependency.
+ *
+ * @param modulePromise the dynamic import to attempt
+ * @param errorMessage the message to throw when the module is not installed
+ * @throws {Error} when the module cannot be found, with `errorMessage` and the original error as cause
  */
 export async function importOptional<T>(modulePromise: Promise<T>, errorMessage: string): Promise<T> {
   try {

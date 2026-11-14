@@ -7,10 +7,10 @@ import { pluginKey } from "@/constants";
 import logger from "@/server/logger";
 
 /**
- * Get the value of an environment variable.
+ * Read an environment variable and parse booleans, JSON objects and JSON arrays.
  *
- * @param name - The name of the environment variable.
- * @returns
+ * @param name the name of the environment variable
+ * @returns the parsed value, the raw string, or undefined when the variable is not set
  */
 export function getEnvironmentValue(name: string): unknown {
   const value = process.env[name];
@@ -39,16 +39,16 @@ export function handleValidationError(error: any, ...keyPaths: string[]): never 
   const message = error.errors ? error.errors[0] : (error.message ?? error);
   logger.error(
     { key: ["auth", pluginKey, ...keyPaths].join("."), message },
-    `invalid configuration at "@{key}": @{message} — Please check your verdaccio config.`,
+    `Invalid configuration at "@{key}": @{message}. Check the Verdaccio config.`,
   );
   process.exit(1);
 }
 
 /**
- * Transform a time string or number into a ms number.
+ * Convert a duration such as `"5m"` to milliseconds.
  *
- * @param ttl - The time to live value.
- * @returns The time to live value in ms.
+ * @param ttl the duration as a number of milliseconds or a string like `"1m"`
+ * @returns the duration in milliseconds, or undefined when none was given
  */
 export function getTTLValue(ttl?: number | string): number | undefined {
   if (typeof ttl === "string") {
@@ -59,11 +59,11 @@ export function getTTLValue(ttl?: number | string): number | undefined {
 }
 
 /**
- * Get the absolute path of a store file.
+ * Resolve the store path relative to the directory holding the config file.
  *
- * @param configPath - The path to the config file.
- * @param storePath - The path to the store files.
- * @returns The absolute path of the store file.
+ * @param configPath the path of the Verdaccio config file
+ * @param storePath the `dir` of the file store, absolute or relative
+ * @returns the absolute path of the store
  */
 export function getStoreFilePath(configPath: string, storePath: string): string {
   return path.isAbsolute(storePath) ? storePath : path.normalize(path.join(path.dirname(configPath), storePath));

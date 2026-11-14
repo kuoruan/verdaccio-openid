@@ -6,6 +6,7 @@ const defaultOptions = {
   ttl: BaseStore.DefaultStateTTL,
 } satisfies InMemoryConfig;
 
+/** Store kept in the Verdaccio process: state and caches are lost on restart. */
 export default class InMemoryStore extends BaseStore implements Store {
   private readonly stateCache: TTLCache<string, string>;
   private readonly dataCache: TTLCache<string, Record<string, unknown> | string[]>;

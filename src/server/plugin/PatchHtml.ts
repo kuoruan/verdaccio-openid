@@ -13,8 +13,8 @@ import type { PluginMiddleware } from "./Plugin";
 import { getBaseUrl } from "./utils";
 
 /**
- * Injects additional static imports into the DOM with code from the client folder
- * that modifies the login button.
+ * Adds the client bundle and its options to the HTML Verdaccio serves, so the
+ * UI gets the OpenID login button and the usage info.
  */
 export class PatchHtml implements PluginMiddleware {
   private urlPrefix: string;
@@ -32,7 +32,10 @@ export class PatchHtml implements PluginMiddleware {
   }
 
   /**
-   * Patches `res.send` in order to inject style and script tags.
+   * Replace `res.send` so every rendered page gets the injected tags.
+   *
+   * A failure while patching falls back to the original HTML, so a markup
+   * change in Verdaccio cannot break the UI.
    */
   patchResponse: Handler = (req, res, next) => {
     const originalSend = res.send;

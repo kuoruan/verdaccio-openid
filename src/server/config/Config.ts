@@ -90,19 +90,14 @@ export default class ParsedPluginConfig implements ConfigHolder {
       this.verdaccioConfig.auth?.[pluginKey]?.[key] ??
       this.verdaccioConfig.middlewares?.[pluginKey]?.[key];
 
-    /**
-     * If the value is not defined in the config, use the plugin name and key as the environment variable name.
-     *
-     * eg. client-id -> `VERDACCIO_OPENID_CLIENT_ID`
-     */
+    // A value that is not itself an environment variable name is looked up under
+    // the default name for its key, e.g. client-id -> `VERDACCIO_OPENID_CLIENT_ID`.
     const environmentName: string =
       typeof valueOrEnvironmentName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrEnvironmentName)
         ? valueOrEnvironmentName
         : `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
 
-    /**
-     * Allow environment variables to be used as values.
-     */
+    // A variable that is set wins over the value written in the config.
     const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
 
     try {

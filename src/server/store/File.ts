@@ -3,6 +3,7 @@ import type { LocalStorage } from "node-persist";
 import { BaseStore, type FileConfig, type Store } from "./Store";
 import { importOptional, interopDefault } from "@/server/utils";
 
+/** Store written to a directory with node-persist, so state and caches survive a restart. */
 export default class FileStore extends BaseStore implements Store {
   private readonly config: FileConfig | string;
   private db?: LocalStorage;

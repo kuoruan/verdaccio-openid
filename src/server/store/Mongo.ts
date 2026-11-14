@@ -26,7 +26,7 @@ function assertSize(label: string, value: string, max: number): void {
 }
 
 /**
- * Wraps a driver error so the verdaccio plugin layer sees a small,
+ * Wraps a driver error so the Verdaccio plugin layer sees a small,
  * deterministic message — never the raw error, which may embed the
  * connection string or the document being written.
  *
@@ -112,7 +112,7 @@ type DocumentFields = Omit<StoreDocument, "_id" | "expiresAt">;
  *
  * Credentials travel in the connection string only — keep it in an
  * environment variable (see docs/environment-variables.md), never in the
- * verdaccio config file.
+ * Verdaccio config file.
  *
  * Logging: errors are logged without nonces, tokens or userinfo content.
  */

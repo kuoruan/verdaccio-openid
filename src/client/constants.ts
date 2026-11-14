@@ -26,6 +26,8 @@ export const hintClass = "verdaccio-openid-hint";
 export const commandRowClass = "verdaccio-openid-command";
 export const dividerClass = "verdaccio-openid-divider";
 export const loginButtonClass = "verdaccio-openid-login";
+
+/** Matches the nodes the plugin injected into the usage info. */
 export const usageRowSelector = `.${hintClass}, .${commandRowClass}`;
 
 /** Test id of the login button the plugin adds to the password login dialog. */
@@ -38,21 +40,23 @@ export const openIDStyleId = "verdaccio-openid-style";
 export const defaultLoginButtonText = "Login with OpenID Connect";
 
 /**
- * Verdaccio UI storage keys.
+ * Key the UI stores the language picked in "Configuration → Translations" under.
  *
- * `language` holds the language selected in "Configuration → Translations",
- * JSON encoded (e.g. `"zh-CN"`); the rest are the credentials the plugin stores.
+ * The value is JSON encoded, e.g. `"zh-CN"`.
  */
 export const languageStorageKey = "language";
+
+/** Language used when the UI has none. */
 export const fallbackLanguage = "en-US";
 
+/** Keys the plugin stores the logged-in credentials under. */
 export const LOCAL_STORAGE_KEYS = {
   USERNAME: "username",
   UI_TOKEN: "token",
   NPM_TOKEN: "npm",
 } as const;
 
-/** Stylesheet injected once per page. */
+/** Styles for the nodes the plugin injects, added once per page. */
 export const openIDStyles = `
 .${hintClass} {
   margin: 8px 0 0;

@@ -26,9 +26,7 @@ export class WebFlow implements PluginMiddleware {
     app.get(webCallbackPath, this.callback);
   }
 
-  /**
-   * Initiates the auth flow by redirecting to the provider's login URL.
-   */
+  /** Send the visitor to the provider, remembering the request state. */
   authorize: Handler = async (req, res) => {
     const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
 
@@ -45,18 +43,14 @@ export class WebFlow implements PluginMiddleware {
   };
 
   /**
-   * After successful authentication, the auth provider redirects back to us.
-   * We use the code in the query params to get an access token and the username
-   * associated with the account.
+   * Handle the provider redirect: exchange the code for a token, then create
+   * the UI token and the npm token for the account.
    *
-   * We issue a JWT using these values and pass them back to the frontend as
-   * query parameters so they can be stored in the browser.
+   * Both tokens are passed to the frontend as query parameters, where the client
+   * stores them in `localStorage`.
    *
-   * The username and token are encrypted and base64 encoded to form a token for
-   * the npm CLI.
-   *
-   * There is no need to later decode and decrypt the token. This process is
-   * automatically reversed by verdaccio before passing it to the plugin.
+   * Verdaccio reverses the encryption of the npm token before passing it back to
+   * the plugin, so nothing here needs to decode it.
    */
   callback: Handler = async (req, res) => {
     const baseUrl = getBaseUrl(this.config.urlPrefix, req);
