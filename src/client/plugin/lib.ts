@@ -137,6 +137,7 @@ export function getBaseUrl(shouldStripTrailingSlash = false): string {
  * Copy text to the clipboard.
  *
  * @param text the text to copy to the clipboard
+ * @returns resolves when the text was copied, rejects when the browser refused
  */
 export function copyToClipboard(text: string): Promise<void> {
   return navigator.clipboard.writeText(text);

@@ -48,27 +48,35 @@ describe("tokenCommand", () => {
   beforeEach(() => {
     getNPMToken.mockReturnValue("test-token");
     vi.stubGlobal("window", {});
-    vi.stubGlobal("location", { host: "localhost:4873" });
+    vi.stubGlobal("location", { protocol: "http:", host: "localhost:4873" });
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  it("builds the command from VERDACCIO_API_URL", () => {
-    vi.stubGlobal("window", { VERDACCIO_API_URL: "https://registry.example.com/-/verdaccio/" });
+  it("builds the command from the UI base URL", () => {
+    vi.stubGlobal("window", {
+      __VERDACCIO_BASENAME_UI_OPTIONS: { base: "https://registry.example.com/" },
+    });
 
-    expect(tokenCommand()).toBe('npm config set //registry.example.com/:_authToken "test-token"');
+    expect(tokenCommand()).toBe("npm config set //registry.example.com/:_authToken 'test-token'");
   });
 
   it("falls back to the page host", () => {
-    expect(tokenCommand()).toBe('npm config set //localhost:4873/:_authToken "test-token"');
+    expect(tokenCommand()).toBe("npm config set //localhost:4873/:_authToken 'test-token'");
   });
 
   it("uses the token from the credentials module", () => {
     getNPMToken.mockReturnValue("other-token");
 
-    expect(tokenCommand()).toContain('_authToken "other-token"');
+    expect(tokenCommand()).toContain("_authToken 'other-token'");
+  });
+
+  it("escapes a quote instead of ending the shell quoting", () => {
+    getNPMToken.mockReturnValue("a'b");
+
+    expect(tokenCommand()).toBe(String.raw`npm config set //localhost:4873/:_authToken 'a'\''b'`);
   });
 });
 

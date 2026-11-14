@@ -20,7 +20,7 @@ import { isLoggedIn, isOpenIDLoggedIn } from "@/client/plugin/credentials";
 import { syncUsage } from "@/client/plugin/usage-panels";
 
 const row = (command: string, testId?: string) => `
-  <div class="css-row">
+  <div class="css-row" style="display: flex">
     <span class="css-text">${command}</span>
     <button type="button" data-testid="${testId ?? "copy"}" aria-label="Copy to clipboard"></button>
     <span aria-live="polite"></span>
@@ -58,7 +58,7 @@ interface Session {
 
 const LAYOUT = `<main>${panels()}${guide()}</main>`.replaceAll(/>\s+</g, "><");
 
-const tokenCmd = (token: string) => `npm config set //${location.host}/:_authToken "${token}"`;
+const tokenCmd = (token: string) => `npm config set //${location.host}/:_authToken '${token}'`;
 
 const hint = () => document.querySelector<HTMLElement>(".verdaccio-openid-hint");
 const commandRows = () => [...document.querySelectorAll<HTMLElement>(".verdaccio-openid-command")];

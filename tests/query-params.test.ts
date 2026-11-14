@@ -25,6 +25,18 @@ describe("parseQueryParams", () => {
       foo: "hello world",
     });
   });
+
+  it("should skip a pair with a malformed escape instead of throwing", () => {
+    expect(parseQueryParams("foo=%&bar=baz")).toEqual({ bar: "baz" });
+  });
+
+  it("should keep an encoded equals sign in the value", () => {
+    expect(parseQueryParams("token=a%3Db")).toEqual({ token: "a=b" });
+  });
+
+  it("should give a key without a value an empty string", () => {
+    expect(parseQueryParams("username")).toEqual({ username: "" });
+  });
 });
 
 describe("stringifyQueryParams", () => {

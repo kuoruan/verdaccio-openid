@@ -49,7 +49,12 @@ function didParseAndSavedCredentials(): boolean {
     return false;
   }
 
-  saveCredentials(credentials);
+  try {
+    saveCredentials(credentials);
+  } catch {
+    // Storage can be disabled or full; the login then simply does not stick.
+    return false;
+  }
 
   return true;
 }
@@ -65,7 +70,11 @@ function addOpenIDLoginButton(callback: () => void): void {
 
   if (!loginDialog || loginDialog.hasAttribute(updatedAttrKey)) return;
 
-  const loginButton = document.querySelector<HTMLElement>(loginButtonSelector)!;
+  // The header swaps its login button for a logout button once logged in, so a
+  // dialog can outlive the node the button is cloned from.
+  const loginButton = document.querySelector<HTMLElement>(loginButtonSelector);
+
+  if (!loginButton) return;
 
   injectOpenIDStyles();
 

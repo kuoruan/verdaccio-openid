@@ -1,21 +1,32 @@
 /**
  * Parse a query string into a key/value object.
  *
+ * A pair whose escape sequence is malformed is skipped: the login redirect is
+ * the first thing the client reads, and one broken `%` must not stop the rest
+ * of the plugin from running.
+ *
  * @param search the query string to parse
  * @returns a key/value object
  */
 export function parseQueryParams(search: string): Record<string, string> {
-  const params = {};
+  const params: Record<string, string> = {};
 
   if (!search) return params;
 
-  if (search.startsWith("?")) {
-    search = search.slice(1);
-  }
+  const query = search.startsWith("?") ? search.slice(1) : search;
 
-  for (const str of search.split("&")) {
-    const [key, value] = str.split("=", 2);
-    params[key] = decodeURIComponent(value);
+  for (const pair of query.split("&")) {
+    if (!pair) continue;
+
+    const separator = pair.indexOf("=");
+    const key = separator === -1 ? pair : pair.slice(0, separator);
+    const value = separator === -1 ? "" : pair.slice(separator + 1);
+
+    try {
+      params[decodeURIComponent(key)] = decodeURIComponent(value);
+    } catch {
+      // Skip the pair; the caller decides what a missing key means.
+    }
   }
 
   return params;

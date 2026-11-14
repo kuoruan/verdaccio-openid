@@ -6,6 +6,15 @@
 import { LOCAL_STORAGE_KEYS } from "@/client/constants";
 import { parseJwt } from "./lib";
 
+/**
+ * A token is a JWT or base64url string, so nothing outside this set can be one.
+ * The set also keeps shell metacharacters out of the command the usage info
+ * shows, which is meant to be copied and pasted; the length bound keeps a link
+ * from stuffing storage.
+ */
+const TOKEN_PATTERN = /^[A-Za-z0-9_\-+/=.]{1,4096}$/;
+const MAX_USERNAME_LENGTH = 256;
+
 export interface Credentials {
   /** The name of the logged-in user. */
   username: string;
@@ -72,7 +81,7 @@ export function isUITokenExpired() {
   if (!token) return true;
 
   const payload = parseJwt(token);
-  if (!payload) return true;
+  if (!payload || !Number.isFinite(payload.exp)) return true;
 
   // Treat the token as expired 30s before it really is, so a request cannot
   // start just before the expiry and fail just after it.
@@ -82,11 +91,19 @@ export function isUITokenExpired() {
 }
 
 /**
- * Check whether a set of credentials carries all three required values.
+ * Check whether a set of credentials carries all three required values, and
+ * whether the tokens look like tokens rather than arbitrary text.
  *
  * @param credentials the values read from the redirect
- * @returns whether every credential is present
+ * @returns whether the credentials can be stored and used
  */
 export function isValidCredentials(credentials: Partial<Credentials>): credentials is Credentials {
-  return (["username", "uiToken", "npmToken"] satisfies (keyof Credentials)[]).every((key) => !!credentials[key]);
+  const { username, uiToken, npmToken } = credentials;
+
+  return (
+    !!username &&
+    username.length <= MAX_USERNAME_LENGTH &&
+    TOKEN_PATTERN.test(uiToken ?? "") &&
+    TOKEN_PATTERN.test(npmToken ?? "")
+  );
 }

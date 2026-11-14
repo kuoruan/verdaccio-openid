@@ -3,6 +3,7 @@
  * panels in "Configuration → Package Managers" and the empty-registry guide.
  */
 import { getNPMToken } from "./credentials";
+import { getBaseUrl } from "./lib";
 import { t } from "./i18n";
 
 /**
@@ -68,12 +69,21 @@ export function loginHint(alternative: boolean): string {
 /**
  * Build the command that writes the current npm token into `~/.npmrc`.
  *
+ * The command is `npm config set` in every package-manager panel on purpose:
+ * npm, pnpm and yarn classic all read the token from `~/.npmrc`, while
+ * `yarn config set` writes `.yarnrc` and does not authenticate anything.
+ *
  * @returns the command to show in the usage info
  */
 export function tokenCommand(): string {
-  const configBase = window.VERDACCIO_API_URL
-    ? window.VERDACCIO_API_URL.replace(/^https?:/, "").replace(/-\/verdaccio\/$/, "")
-    : `//${location.host}/`;
+  // npm keys the token by `//host/path/`; the path keeps a registry served under
+  // a url_prefix working, and npm walks up from it to the host.
+  const baseUrl = getBaseUrl(true).replace(/^https?:/, "");
+  const configBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
 
-  return `npm config set ${configBase}:_authToken "${getNPMToken()}"`;
+  // Single quotes keep a crafted token from being expanded by the shell; the
+  // escape below is the POSIX way to include a literal quote inside them.
+  const token = String(getNPMToken()).replaceAll("'", String.raw`'\''`);
+
+  return `npm config set ${configBase}:_authToken '${token}'`;
 }

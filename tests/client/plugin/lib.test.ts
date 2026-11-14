@@ -160,6 +160,11 @@ describe("getBaseUrl", () => {
 });
 
 describe("copyToClipboard", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it("writes the text via navigator.clipboard", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });

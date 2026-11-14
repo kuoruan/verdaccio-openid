@@ -29,7 +29,8 @@ function currentVariant(): UsageVariant {
   return usageVariant({
     isOpenIDLoggedIn: isOpenIDLoggedIn(),
     isLoggedIn: isLoggedIn(),
-    keepPasswdLogin: window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin ?? true,
+    // Same default as `init()`: without the option the password login is replaced.
+    keepPasswdLogin: window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin ?? false,
   });
 }
 
@@ -186,8 +187,9 @@ function usageExtraFor(variant: UsageVariant, template: HTMLElement, alternative
  * Rewrite the package-manager panels: drop password commands that cannot work
  * in this session, then show the login hint or the token command.
  *
- * Panels whose rows start with neither `npm`, `pnpm` nor `yarn` are left alone:
- * the yarn berry, bun and `min-release-age` panels do not use password login.
+ * Panels whose first row is not a command are left alone: the yarn berry, bun
+ * and `min-release-age` panels start with a `#` config-file line. Yarn classic
+ * is a command panel and gets the same treatment as npm and pnpm.
  *
  * @param variant what the usage info should show for the current session
  */

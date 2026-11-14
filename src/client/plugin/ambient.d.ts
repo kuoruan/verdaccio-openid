@@ -15,7 +15,6 @@ declare global {
   }
 
   interface Window {
-    VERDACCIO_API_URL?: string;
     __VERDACCIO_BASENAME_UI_OPTIONS?: TemplateUIOptions;
     __VERDACCIO_OPENID_OPTIONS?: OpenIDOptions;
   }
