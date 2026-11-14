@@ -36,6 +36,9 @@ jobs:
       - name: Format check
         run: pnpm fmt:check
 
+      - name: Typecheck
+        run: pnpm typecheck
+
       - name: Test
         run: pnpm test
 

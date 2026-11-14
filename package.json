@@ -41,6 +41,7 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "test": "vitest --run",
+    "typecheck": "tsc -p tsconfig.json && tsc -p src/client/tsconfig.json && tsc -p tests/tsconfig.json",
     "release": "changeset publish",
     "version": "node scripts/version.mjs",
     "prepublishOnly": "pnpm run build",
