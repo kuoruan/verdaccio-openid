@@ -19,7 +19,7 @@ pnpm install
 | ------------------ | ------------------------------------------------------------------------- |
 | `pnpm build`       | 使用 [tsdown](https://github.com/egoist/tsdown) 构建项目。                |
 | `pnpm changeset`   | 为面向用户的变更创建 changeset。                                          |
-| `pnpm start`       | 启动 Verdaccio 6 并加载插件，用于本地测试。                               |
+| `pnpm start`       | 启动 Verdaccio 7 并加载插件，用于本地测试。                               |
 | `pnpm start:5`     | 启动 Verdaccio 5 并加载插件，用于兼容性测试。                             |
 | `pnpm test`        | 使用 [Vitest](https://vitest.dev/) 运行测试。                             |
 | `pnpm lint`        | 运行 [oxlint](https://oxc.rs/docs/guide/usage/linter.html)。              |
@@ -45,11 +45,11 @@ src/
 │   ├── flows/        # OAuth 流程处理（Web、CLI、WebAuthn）
 │   ├── openid/       # OpenID Connect 客户端和认证提供方
 │   ├── plugin/       # Verdaccio 插件接口实现
-│   └── store/        # 存储后端（in-memory、Redis、File、DynamoDB）
+│   └── store/        # 存储后端（in-memory、Redis、File、DynamoDB、MongoDB）
 ├── constants.ts      # 共享常量
 └── paths.ts          # URL 路径工具
 tests/                # Vitest 测试套件
-verdaccio/            # Verdaccio 6 测试配置
+verdaccio/            # Verdaccio 7 测试配置
 verdaccio5/           # Verdaccio 5 测试配置
 ```
 
@@ -93,7 +93,7 @@ pnpm vitest tests/path/to/test.test.ts
 启动加载了插件的 Verdaccio：
 
 ```bash
-# Verdaccio 6
+# Verdaccio 7
 pnpm start
 
 # Verdaccio 5

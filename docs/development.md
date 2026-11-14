@@ -19,7 +19,7 @@ pnpm install
 | ------------------ | ------------------------------------------------------------------------- |
 | `pnpm build`       | Build the project with [tsdown](https://github.com/egoist/tsdown).        |
 | `pnpm changeset`   | Create a changeset for a user-facing change.                              |
-| `pnpm start`       | Start Verdaccio 6 with the plugin for local testing.                      |
+| `pnpm start`       | Start Verdaccio 7 with the plugin for local testing.                      |
 | `pnpm start:5`     | Start Verdaccio 5 with the plugin for compatibility testing.              |
 | `pnpm test`        | Run tests with [Vitest](https://vitest.dev/).                             |
 | `pnpm lint`        | Run [oxlint](https://oxc.rs/docs/guide/usage/linter.html).                |
@@ -47,7 +47,7 @@ src/
 ├── constants.ts      # Shared constants
 └── paths.ts          # URL path helpers
 tests/                # Vitest test suites
-verdaccio/            # Verdaccio 6 test config
+verdaccio/            # Verdaccio 7 test config
 verdaccio5/           # Verdaccio 5 test config
 ```
 
@@ -91,7 +91,7 @@ pnpm vitest tests/path/to/test.test.ts
 Start Verdaccio with the plugin loaded:
 
 ```bash
-# Verdaccio 6
+# Verdaccio 7
 pnpm start
 
 # Verdaccio 5

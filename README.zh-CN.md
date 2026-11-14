@@ -119,7 +119,7 @@ npm login --registry http://your-registry.com
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
 
-它会使用本地回调服务器接收 token。当 Web Authn 不可用时（例如旧版 npm）会回退到这个流程。详见 [CLI 认证](docs/zh-CN/cli-auth.md)。
+CLI 会启动本地回调服务器接收 token。Web Authn 不可用时（例如旧版 npm）改用这个流程。详见 [CLI 认证](docs/zh-CN/cli-auth.md)。
 
 ## 存储后端
 

@@ -91,7 +91,7 @@ Configure these in your OIDC provider:
 
 After setup, clicking the login button sends the user to the OIDC provider.
 
-If `auth.htpasswd.file` is configured, the login dialog shows first with username and password fields, and the OIDC login button appears below it so users can choose either method.
+When `auth.htpasswd.file` is configured, the login dialog opens with the username and password fields and shows the OIDC login button below them, so users pick either method.
 
 ![Login Dialog](docs/images/login-dialog.png)
 
@@ -119,7 +119,7 @@ This opens a browser window for OIDC login and saves the token automatically.
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
 
-This uses a local callback server to receive the token. It falls back to this flow when Web Authn is unavailable, such as on older npm versions. See [CLI Authentication](docs/cli-auth.md) for legacy login options.
+The CLI runs a local callback server that receives the token. Use it when Web Authn is unavailable, for example on older npm versions. See [CLI Authentication](docs/cli-auth.md) for the legacy login options.
 
 ## Store backends
 

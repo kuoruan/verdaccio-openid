@@ -6,11 +6,9 @@
 
 Every option under `auth.openid` can be set through an environment variable. The plugin resolves values in this order:
 
-1. Config file value: if the value is a valid environment variable name matching `/^[a-zA-Z_][a-zA-Z0-9_]*$/`, the plugin reads that environment variable.
-2. Default environment variable: if the config value is empty or is not a valid environment variable name, the plugin checks `VERDACCIO_OPENID_<KEY>` in uppercase snake_case.
-3. Literal config value: if neither of the above applies, the value from the config file is used as-is.
-
-Environment variables take precedence over config-file values.
+1. **Named variable**: when the config value is a valid environment variable name matching `/^[a-zA-Z_][a-zA-Z0-9_]*$/`, the plugin looks up that variable.
+2. **Default variable**: when the config value is empty or is not a valid variable name, the plugin looks up `VERDACCIO_OPENID_<KEY>` in uppercase snake_case.
+3. **Literal value**: when the variable from step 1 or 2 is not set, the plugin uses the config value as-is.
 
 ## Default variable names
 
@@ -70,6 +68,4 @@ The plugin loads `.env` files automatically in this order:
 3. `$PWD/.env`
 4. `$PWD/.env.openid`
 
-Later files do not override earlier ones; the first match wins.
-
-This is handy for setting defaults across machines while still allowing project-specific overrides.
+Later files do not override earlier ones; the first match wins. Because `$HOME` comes first, a key set there wins over the same key in a file in the working directory, which only fills in keys `$HOME` does not set.
