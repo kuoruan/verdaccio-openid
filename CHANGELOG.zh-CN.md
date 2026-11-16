@@ -1,5 +1,17 @@
 # verdaccio-openid
 
+## v0.19.1
+
+_发布于 2026-11-16_
+
+### Patch Changes
+
+- "Configuration → Publishing" 里的空仓库引导现在也会被处理。此前替换密码登录时只处理了首页那份，Publishing 标签页仍然显示 `npm adduser`。此外，当上方命令被隐藏时，登录提示不再多出一段上边距。
+- 收紧客户端对登录回跳参数的校验，并修正评审发现的提示文案。回跳链接里的 token 不是合法 token 时不再写入存储，token 命令改用单引号包裹而不是直接插值。畸形查询串不再导致登录按钮的接管失效。state 错误提示补充“可能已过期”，CLI 用法提示改为「a public npm registry or mirror」。
+- 整理注入到 Configuration → Package Managers 与空 registry 引导页的使用说明。`npm adduser` 与 `npm profile set password` 现在只在当前会话用不上时才移除：使用 OpenID Connect 登录后始终移除，未登录且 `keep-passwd-login` 关闭时也移除。密码命令仍可见时，邀请以「或」的形式出现；密码命令被移除后则是普通提示。"No Package Published Yet" 引导同样处理：`keep-passwd-login` 关闭后，`npm adduser` 命令与其下方的 yarn 替代命令一并隐藏；登录后改为显示 token 命令。注入文案以及登录框里两个按钮之间的「或」现在跟随 Verdaccio 当前语言，提供英文、捷克语、德语、西班牙语、法语、爱尔兰语、加利西亚语、意大利语、韩语、波兰语、葡萄牙语、俄语、土耳其语、简体中文与繁体中文。
+- 重新设计了密码登录弹窗中的 OpenID Connect 登录按钮（启用 `keepPasswdLogin` 时显示）。按钮改为整行描边样式，带锁图标，上方增加 "or" 分隔线，并补充了悬停与键盘焦点样式。配色使用继承的文字颜色和中性灰边框、背景。
+- 调整插件自有页面与 CLI 上的提示文案。登录结果页标题改为「Login failed」「Success」「Access denied」，去掉表情符号，页面 logo 标记为装饰图以便读屏软件跳过；CLI 用法提示改为直述；配置与 token 相关错误信息更清楚；CLI 登录失败改为以错误级别输出。
+
 ## v0.19.0 (2026-09-15)
 
 ### Minor Changes

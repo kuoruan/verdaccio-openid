@@ -1,5 +1,17 @@
 # verdaccio-openid
 
+## 0.19.1
+
+_Released 2026-11-16_
+
+### Patch Changes
+
+- Update the empty-registry guide in "Configuration → Publishing" too. Only the copy on the empty home page was patched when password login was replaced, so the Publishing tab kept showing `npm adduser`. The login hint also no longer carries an extra top margin when the command it sits under is hidden.
+- Harden the client against bad input from the login redirect, and fix the messages the review turned up. A link that carries no valid tokens no longer stores them, and the token command quotes the token instead of interpolating it. A malformed query string no longer stops the login button from being taken over. The state error now also mentions expiry, and the CLI usage hint says "a public npm registry or mirror".
+- Tidy the usage info injected into Configuration → Package Managers and the empty-registry guide. `npm adduser` and `npm profile set password` are now removed whenever they cannot work with the current session: always after an OpenID Connect login, and for anonymous users when `keep-passwd-login` is disabled. Where the password commands stay visible, the invitation is framed as an alternative to them; where they are gone, it is a plain hint. The same applies to the "No Package Published Yet" guide: its `npm adduser` command and the yarn alternative below it are hidden once password login is gone, and the token command is shown after a login. The injected text and the `or` between the two login buttons now follow the language Verdaccio is set to, and ship English, Czech, German, Spanish, French, Irish, Galician, Italian, Korean, Polish, Portuguese, Russian, Turkish, Simplified Chinese and Traditional Chinese.
+- Restyle the OpenID Connect login button shown in the password login dialog (when `keepPasswdLogin` is enabled). The button is now full width, outlined, with a lock icon and an "or" divider above it, and it has hover and keyboard-focus styles. It uses inherited text colors and neutral gray borders and backgrounds.
+- Reword the messages the plugin shows on its own pages and in the CLI. The login outcome pages now lead with "Login failed", "Success", and "Access denied" instead of emoticons, and the logo on those pages is marked as decorative so screen readers skip it. The CLI usage hint reads plainly, the configuration and token error messages are clearer, and a failed CLI login is reported as an error rather than a warning.
+
 ## 0.19.0 (2026-09-15)
 
 ### Minor Changes
