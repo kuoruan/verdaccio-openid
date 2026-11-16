@@ -7,14 +7,35 @@ import { promisify } from "node:util";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const changesetDirectory = resolve(root, ".changeset");
 const packagePath = resolve(root, "package.json");
-const englishChangelogPath = resolve(root, "CHANGELOG.md");
-const chineseChangelogPath = resolve(root, "CHANGELOG.zh-CN.md");
 const execFileAsync = promisify(execFile);
 
 const CHANGESET_MARKER = "<!-- zh-CN -->";
-const CHANGE_TYPES = ["minor", "patch", "major"];
+/** Most severe first, the order `changesets` itself writes the sections in. */
+const CHANGE_TYPES = ["major", "minor", "patch"];
 
-const entries = await readChineseEntries();
+/**
+ * The changelogs a release writes, and how each one renders a release.
+ *
+ * The English heading has to be exactly `## <version>`: `changesets/action`
+ * looks the entry up by matching the heading text against the version, and falls
+ * back to the whole file when nothing matches.
+ */
+const CHANGELOGS = [
+  {
+    path: resolve(root, "CHANGELOG.md"),
+    heading: (version) => `## ${version}`,
+    releasedOn: (date) => `_Released ${date}_`,
+    text: (entry) => entry.english,
+  },
+  {
+    path: resolve(root, "CHANGELOG.zh-CN.md"),
+    heading: (version) => `## v${version}`,
+    releasedOn: (date) => `_发布于 ${date}_`,
+    text: (entry) => entry.chinese,
+  },
+];
+
+const entries = await readChangesets();
 if (entries.length > 0) {
   await runChangesetVersion();
 
@@ -22,7 +43,7 @@ if (entries.length > 0) {
   await updateChangelogs(version, new Date().toISOString().slice(0, 10), entries);
 }
 
-async function readChineseEntries() {
+async function readChangesets() {
   const files = (await readdir(changesetDirectory))
     .filter((file) => file.endsWith(".md") && file !== "README.md")
     .sort();
@@ -36,22 +57,13 @@ async function readChineseEntries() {
 }
 
 async function updateChangelogs(version, date, entries) {
-  const [english, chinese] = await Promise.all([
-    readFile(englishChangelogPath, "utf8"),
-    readFile(chineseChangelogPath, "utf8"),
-  ]);
+  await Promise.all(
+    CHANGELOGS.map(async (changelog) => {
+      const content = await readFile(changelog.path, "utf8");
 
-  const englishSection = formatReleaseSection(version, date, entries, "english");
-  await writeFile(englishChangelogPath, replaceReleaseSection(english, version, englishSection));
-
-  if (chinese.includes(`## v${version} (`)) {
-    return;
-  }
-
-  const chineseSection = formatReleaseSection(version, date, entries, "chinese");
-  const headingEnd = chinese.indexOf("\n");
-  const updated = `${chinese.slice(0, headingEnd + 1)}\n${chineseSection}\n${chinese.slice(headingEnd + 1)}`;
-  await writeFile(chineseChangelogPath, updated);
+      await writeFile(changelog.path, upsertReleaseSection(content, changelog, version, date, entries));
+    }),
+  );
 }
 
 function runChangesetVersion() {
@@ -85,32 +97,38 @@ function parseChangeset(content, fileName) {
   };
 }
 
-function formatReleaseSection(version, date, entries, language) {
+function formatReleaseSection({ heading, releasedOn, text }, version, date, entries) {
   const groups = CHANGE_TYPES.flatMap((type) => {
-    const changes = entries.filter((entry) => entry.type === type);
-    if (changes.length === 0) {
+    const lines = entries
+      .filter((entry) => entry.type === type)
+      .map((entry) => `- ${text(entry).replace(/\n+/g, " ")}`);
+
+    if (lines.length === 0) {
       return [];
     }
 
-    const heading = type[0].toUpperCase() + type.slice(1);
-    const lines = changes.map(({ english, chinese }) => {
-      const text = language === "chinese" ? chinese : english;
-      return `- ${text.replace(/\n+/g, " ")}`;
-    });
+    const title = type[0].toUpperCase() + type.slice(1);
 
-    return [`### ${heading} Changes`, "", ...lines, ""];
+    return [`### ${title} Changes`, "", ...lines, ""];
   });
 
-  return [`## ${language === "chinese" ? "v" : ""}${version} (${date})`, "", ...groups].join("\n").trim();
+  return [heading(version), "", releasedOn(date), "", ...groups].join("\n").trim();
 }
 
-function replaceReleaseSection(changelog, version, section) {
-  const heading = `## ${version}`;
-  const start = changelog.indexOf(heading);
-  if (start === -1) {
-    return changelog;
+function upsertReleaseSection(content, changelog, version, date, entries) {
+  const section = formatReleaseSection(changelog, version, date, entries);
+  const heading = `${changelog.heading(version)}\n`;
+  const start = content.indexOf(heading);
+
+  if (start !== -1) {
+    // `\n## ` skips the `### Patch Changes` blocks; `## ` alone would match them.
+    const end = content.indexOf("\n## ", start + heading.length);
+
+    return `${content.slice(0, start)}${section}${end === -1 ? "\n" : `\n${content.slice(end)}`}`;
   }
 
-  const end = changelog.indexOf("\n## ", start + heading.length);
-  return `${changelog.slice(0, start)}${section}${end === -1 ? "\n" : `\n${changelog.slice(end)}`}`;
+  // No entry yet: insert it right under the file's title.
+  const titleEnd = content.indexOf("\n");
+
+  return `${content.slice(0, titleEnd + 1)}\n${section}\n${content.slice(titleEnd + 1)}`;
 }
