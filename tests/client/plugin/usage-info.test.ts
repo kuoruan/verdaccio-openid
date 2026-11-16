@@ -63,6 +63,14 @@ describe("tokenCommand", () => {
     expect(tokenCommand()).toBe("npm config set //registry.example.com/:_authToken 'test-token'");
   });
 
+  it("normalizes a base URL that ends with several slashes", () => {
+    vi.stubGlobal("window", {
+      __VERDACCIO_BASENAME_UI_OPTIONS: { base: "https://registry.example.com//" },
+    });
+
+    expect(tokenCommand()).toBe("npm config set //registry.example.com/:_authToken 'test-token'");
+  });
+
   it("falls back to the page host", () => {
     expect(tokenCommand()).toBe("npm config set //localhost:4873/:_authToken 'test-token'");
   });

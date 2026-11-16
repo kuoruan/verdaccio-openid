@@ -78,8 +78,7 @@ export function loginHint(alternative: boolean): string {
 export function tokenCommand(): string {
   // npm keys the token by `//host/path/`; the path keeps a registry served under
   // a url_prefix working, and npm walks up from it to the host.
-  const baseUrl = getBaseUrl(true).replace(/^https?:/, "");
-  const configBase = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
+  const configBase = `${getBaseUrl(true).replace(/^https?:/, "")}/`;
 
   // Single quotes keep a crafted token from being expanded by the shell; the
   // escape below is the POSIX way to include a literal quote inside them.

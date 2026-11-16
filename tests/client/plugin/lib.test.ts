@@ -144,6 +144,13 @@ describe("getBaseUrl", () => {
     expect(getBaseUrl(true)).toBe("https://cdn.example/ui");
   });
 
+  it("strips every trailing slash when asked to", () => {
+    vi.stubGlobal("window", { __VERDACCIO_BASENAME_UI_OPTIONS: { base: "https://cdn.example/ui//" } });
+
+    expect(getBaseUrl()).toBe("https://cdn.example/ui//");
+    expect(getBaseUrl(true)).toBe("https://cdn.example/ui");
+  });
+
   it("constructs the base from `location` when `base` is absent and no prefix is set", () => {
     vi.stubGlobal("window", {});
 

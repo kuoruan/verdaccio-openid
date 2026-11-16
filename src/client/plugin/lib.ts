@@ -118,7 +118,7 @@ export function wrapPrefix(prefix: string | void): string {
  * Prefers `base` from `__VERDACCIO_BASENAME_UI_OPTIONS`; otherwise constructs it
  * from `location` and the `url_prefix` option.
  *
- * @param shouldStripTrailingSlash whether to strip a trailing "/" (default false)
+ * @param shouldStripTrailingSlash whether to strip trailing slashes (default false)
  * @returns the resolved base URL
  */
 export function getBaseUrl(shouldStripTrailingSlash = false): string {
@@ -130,7 +130,7 @@ export function getBaseUrl(shouldStripTrailingSlash = false): string {
     baseUrl = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
   }
 
-  return shouldStripTrailingSlash ? baseUrl.replace(/\/$/, "") : baseUrl;
+  return shouldStripTrailingSlash ? baseUrl.replace(/\/+$/, "") : baseUrl;
 }
 
 /**
