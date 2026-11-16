@@ -1,5 +1,6 @@
 allowBuilds:
   es5-ext: false
+minimumReleaseAge: 0
 overrides:
   abab: npm:@nolyfill/abab@^1
   array-flatten: npm:@nolyfill/array-flatten@^1
