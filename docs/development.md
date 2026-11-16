@@ -29,7 +29,9 @@ pnpm install
 | `pnpm run version` | Update package versions and generate the English and Chinese changelogs.  |
 | `pnpm release`     | Publish pending changesets in the release workflow.                       |
 
-Changesets should include an English summary followed by a Chinese section marked with `<!-- zh-CN -->`. The release workflow runs `pnpm run version` and updates `CHANGELOG.zh-CN.md` in the same version PR.
+Changesets should include an English summary followed by a Chinese section marked with `<!-- zh-CN -->`. The release workflow runs `pnpm run version`, which writes the English entries to `CHANGELOG.md` and the Chinese ones to `CHANGELOG.zh-CN.md`, both in the same version PR.
+
+`CHANGELOG.md` stays English-only, and `changesets/action` builds the version PR body from that file alone. `scripts/release-notes.mjs` puts the Chinese section in both places: it appends it to the version PR body whenever the action opens or updates the PR, and the publish job creates the release from notes made of both changelogs (`create-github-releases: false` on the action). The step is safe to re-run: an existing release is left untouched, and a version whose tag was never pushed is skipped.
 
 ## Project structure
 

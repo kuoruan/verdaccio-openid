@@ -30,8 +30,14 @@ pnpm install
 | `pnpm release`     | 发布待处理的 changeset；由发布工作流使用。                                |
 
 Changeset 应先写英文说明，再使用 `<!-- zh-CN -->` 标记添加中文说明。发布
-工作流执行 `pnpm run version`，会在同一个版本 PR 中生成英文 changelog 并
-更新 `CHANGELOG.zh-CN.md`。
+工作流执行 `pnpm run version`，把英文条目写入 `CHANGELOG.md`、中文条目写入
+`CHANGELOG.zh-CN.md`，两者都在同一个版本 PR 中。
+
+`CHANGELOG.md` 只保留英文，`changesets/action` 只从它生成版本 PR 描述。
+`scripts/release-notes.mjs` 把中文部分补到这两处：创建或更新版本 PR 时追加
+到 PR 描述；发布任务则在 action 上设 `create-github-releases: false`，用两份
+changelog 生成中英说明创建 Release。这一步可以重跑：已存在的 Release
+不覆盖，tag 未推送的版本跳过。
 
 ## 项目结构
 

@@ -60,11 +60,20 @@ jobs:
         run: pnpm build
 
       - name: Create or update release pull request
+        id: release-pr
         uses: changesets/action/version@v2
         with:
           script: pnpm run version
           commit-message: "chore(release): publish new version"
           pr-title: "Release verdaccio-openid"
+
+      # The pull request body is rendered from CHANGELOG.md, which is English
+      # only. Add the Chinese section there too, inside markers a re-run replaces.
+      - name: Add the Chinese section to the pull request
+        if: steps.release-pr.outputs.pr-number != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-notes.mjs pr ${{ steps.release-pr.outputs.pr-number }}
 
   publish:
     needs: select-mode
@@ -95,3 +104,13 @@ jobs:
         uses: changesets/action/publish@v2
         with:
           script: pnpm changeset publish
+          # The release is created below, with the Chinese section in its notes.
+          create-github-releases: false
+
+      # Runs even when this run published nothing: a run that published but failed
+      # before creating the release is repaired by the next one. The script skips
+      # an existing release and a tag that never got pushed.
+      - name: Create the release with bilingual notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-notes.mjs release
