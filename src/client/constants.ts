@@ -64,6 +64,9 @@ export const openIDStyles = `
   line-height: 1.43;
   opacity: 0.75;
 }
+[hidden] + .${hintClass} {
+  margin-top: 0;
+}
 .${dividerClass} {
   display: flex;
   align-items: center;

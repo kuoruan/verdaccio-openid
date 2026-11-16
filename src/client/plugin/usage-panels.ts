@@ -227,24 +227,29 @@ function updateUsagePanels(variant: UsageVariant): void {
  * Hide those rows and show the login hint, or the token command after an OpenID
  * Connect login.
  *
+ * The UI renders the same guide twice, on the empty home page and in
+ * "Configuration → Publishing", so every copy is updated.
+ *
  * @param variant what the usage info should show for the current session
  */
 function updateEmptyStateGuide(variant: UsageVariant): void {
   if (variant === "keep") return;
 
-  const row = document.querySelector<HTMLElement>(helpLoginCommandSelector)?.parentElement;
-
-  if (!row) return;
-
   const passwordLoginWorks = variant === "alternative";
 
-  row.hidden = !passwordLoginWorks;
-  // The yarn alternative is a neighbouring block, not part of the command row.
-  const yarnBlock = row.closest("li")?.querySelector<HTMLElement>(helpLoginYarnPluginSelector);
+  for (const command of document.querySelectorAll<HTMLElement>(helpLoginCommandSelector)) {
+    const row = command.parentElement;
 
-  if (yarnBlock) yarnBlock.hidden = !passwordLoginWorks;
+    if (!row) continue;
 
-  renderUsageExtra(row, passwordLoginWorks ? null : usageExtraFor(variant, row, false));
+    row.hidden = !passwordLoginWorks;
+    // The yarn alternative is a neighbouring block, not part of the command row.
+    const yarnBlock = row.closest("li")?.querySelector<HTMLElement>(helpLoginYarnPluginSelector);
+
+    if (yarnBlock) yarnBlock.hidden = !passwordLoginWorks;
+
+    renderUsageExtra(row, passwordLoginWorks ? null : usageExtraFor(variant, row, false));
+  }
 }
 
 /** Add the stylesheet the injected nodes rely on, once per page. */

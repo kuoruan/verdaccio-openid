@@ -167,6 +167,23 @@ describe("syncUsage", () => {
     );
   });
 
+  it("patches every rendering of the guide, including the Publishing tab", () => {
+    document.body.insertAdjacentHTML("beforeend", guide().replaceAll(/>\s+</g, "><"));
+
+    syncUsage();
+
+    const rows = [...document.querySelectorAll<HTMLElement>('[data-testid="help-login-command"]')].map(
+      (command) => command.parentElement!,
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows.every((row) => row.hidden)).toBe(true);
+    expect(rows.map((row) => row.parentElement!.querySelector(".verdaccio-openid-hint")?.textContent)).toEqual([
+      "Sign in with OpenID Connect to get an auth token.",
+      "Sign in with OpenID Connect to get an auth token.",
+    ]);
+  });
+
   it("keeps the whole guide visible while password login works", () => {
     window.__VERDACCIO_OPENID_OPTIONS = { keepPasswdLogin: true, loginButtonText: "Login" };
 
