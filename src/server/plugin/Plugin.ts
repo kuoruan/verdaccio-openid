@@ -157,6 +157,16 @@ export class Plugin
       return;
     }
 
+    if (!this.core.isLegacySecurity) {
+      // A legacy `npm login` sends its password here. In jwt mode that password is
+      // not a password, and a token in that slot would let Verdaccio issue a new
+      // token with a fresh expiry, forever, without asking the provider.
+      debug("jwt npm tokens are not accepted as passwords, next auth plugin will be called");
+
+      callback(null, false);
+      return;
+    }
+
     debug("authenticating user, username: %s", username);
 
     let user: VerifiedUser | false;

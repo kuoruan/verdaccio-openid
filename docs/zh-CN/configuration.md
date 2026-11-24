@@ -81,6 +81,19 @@ security:
 
 插件有两种 token 模式，具体用哪一种由 Verdaccio 的 `security` 配置决定，而不是插件。
 
+### JWT token（推荐）
+
+配置了 `security.api.jwt` 时，npm token 由 Verdaccio 自己校验，插件不会把 token 当作密码接受。在 legacy `npm login` 中把 token 填进密码栏会被拒绝，因此 token 不能用来换取新 token，在提供方移除用户后会在 token 过期时生效。
+
+`npm login --auth-type=legacy` 这类把 token 填进密码栏的方式同样不再可用；其他仍在发送 `_auth: base64(user:token)` 的客户端需要改用 `_authToken`。npm、pnpm、yarn 1 都支持：
+
+```ini
+# 之前
+_auth=YWxpY2U6ZXlKaGJHY2lPaUpJVXpJMU5pSjkuLi4=
+# 之后
+//registry.example.com/:_authToken=eyJhbGciOiJIUzI1NiJ9...
+```
+
 ### AES legacy token（不推荐）
 
 在设置 `security.api.legacy: true` 且没有 `security.api.jwt` 时（这是 Verdaccio 的默认安全配置），Verdaccio 加密而不是签名 npm token。这类 token 的过期时间与签发时使用的 provider token 一致，不遵循 `security.api.jwt.sign.expiresIn`，并且与签发时的账号绑定。旧版本插件签发的 token 会被拒绝，用户需要重新登录一次。

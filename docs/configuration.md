@@ -81,6 +81,19 @@ See the [Verdaccio docs](https://verdaccio.org/docs/configuration#security) for 
 
 The plugin has two token modes, and which one is used is decided by Verdaccio's `security` settings, not by the plugin.
 
+### JWT tokens (recommended)
+
+When `security.api.jwt` is set, Verdaccio verifies npm tokens itself, and the plugin never accepts a token as a password. A legacy `npm login` that puts a token in the password field is rejected, so a token cannot be used to obtain another one and removing a user at the provider takes effect when the token expires.
+
+The same goes for `npm login --auth-type=legacy` and for any other client that sends `_auth: base64(user:token)`: use `_authToken` instead. npm, pnpm and yarn 1 all support it:
+
+```ini
+# before
+_auth=YWxpY2U6ZXlKaGJHY2lPaUpJVXpJMU5pSjkuLi4=
+# after
+//registry.example.com/:_authToken=eyJhbGciOiJIUzI1NiJ9...
+```
+
 ### AES legacy tokens (not recommended)
 
 When `security.api.legacy: true` is set and `security.api.jwt` is not (Verdaccio's default security configuration), Verdaccio encrypts npm tokens instead of signing them. Such a token expires together with the provider token it was issued for, not according to `security.api.jwt.sign.expiresIn`, and it stays tied to the account it was issued to. Tokens issued by earlier versions of the plugin are rejected, so those users have to log in once more.

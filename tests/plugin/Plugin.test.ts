@@ -420,6 +420,24 @@ describe("Plugin permission methods", () => {
       });
     }
 
+    /** A plugin whose registry uses JWT tokens, so `security.api.jwt` is configured. */
+    function asJwtPlugin(): Plugin {
+      (plugin as any).core = { ...mockCore, isLegacySecurity: false };
+
+      return plugin;
+    }
+
+    it("should never accept a jwt as a password, so it cannot renew itself", async () => {
+      const jwtPlugin = asJwtPlugin();
+
+      const { err, user } = await runAuthenticate(jwtPlugin, "test-user", "header.payload.signature");
+
+      // not an error: the next auth plugin (e.g. htpasswd) still gets its turn
+      expect(err).toBeNull();
+      expect(user).toBe(false);
+      expect(mockCore.verifyLegacyToken).not.toHaveBeenCalled();
+    });
+
     it("should skip authentication without a username or a password", async () => {
       for (const [username, password] of [
         ["", "token"],
