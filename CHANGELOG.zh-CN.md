@@ -1,5 +1,13 @@
 # verdaccio-openid
 
+## v0.20.0
+
+_发布于 2026-11-24_
+
+### Minor Changes
+
+- 加固 npm token 的处理方式。 token 不再能当作密码使用：legacy `npm login` 若以 token 作为密码提交，会被拒绝。Verdaccio 会把这样的登录签发成一张新 token，token 因此可以在不询问提供方的情况下无限续期。 破坏性变更：旧版本签发的 AES legacy token 会被拒绝，这批用户需要重新登录。JWT npm token 仍可用到过期，但 legacy `npm login` 不再接受 token 作为密码；`npm login --auth-type=legacy` 以及其他把 token 放进 `_auth: base64(user:token)` 的客户端都受影响，需要改用 `_authToken`。
+
 ## v0.19.1
 
 _发布于 2026-11-16_

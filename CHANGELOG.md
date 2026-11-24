@@ -1,5 +1,13 @@
 # verdaccio-openid
 
+## 0.20.0
+
+_Released 2026-11-24_
+
+### Minor Changes
+
+- Harden how npm tokens are handled. A token is no longer accepted where a password belongs: a legacy `npm login` that sends a token as its password is rejected. Verdaccio answers such a login with a new token, so a token could renew itself indefinitely without asking the provider. Breaking changes: AES legacy tokens issued by older versions are rejected, and those users have to log in again. JWT npm tokens remain valid until they expire, but a legacy `npm login` no longer accepts one as its password; this covers `npm login --auth-type=legacy` and any other client that sends `_auth: base64(user:token)`, which have to send `_authToken` instead.
+
 ## 0.19.1
 
 _Released 2026-11-16_
