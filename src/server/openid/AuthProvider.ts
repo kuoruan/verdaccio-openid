@@ -305,7 +305,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   async getUserinfo(token: OpenIDToken): Promise<ProviderUser> {
     let userinfo: Record<string, unknown>;
 
-    let username: unknown, groups: unknown;
+    let username: unknown, groups: unknown, subject: unknown;
 
     const usernameClaim = this.config.usernameClaim;
     const groupsClaim = this.config.groupsClaim;
@@ -318,6 +318,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
         userinfo = this.getUserinfoFromIdToken(token);
 
         username = userinfo[usernameClaim];
+        subject ??= userinfo.sub;
         if (groupsClaim) {
           groups = userinfo[groupsClaim];
         }
@@ -334,6 +335,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
         userinfo = await this.getUserinfoFromEndpoint(token);
 
         username ??= userinfo[usernameClaim];
+        subject ??= userinfo.sub;
         if (groupsClaim) {
           groups ??= userinfo[groupsClaim];
         }
@@ -359,6 +361,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     return {
       name: String(username),
       groups: groups as string[] | undefined,
+      subject: typeof subject === "string" ? subject : undefined,
     };
   }
 

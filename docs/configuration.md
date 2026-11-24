@@ -62,7 +62,7 @@ With both authentication methods enabled, users can choose between htpasswd and 
 
 ## Token expiration
 
-Token expiration is controlled by Verdaccio's security settings, not by this plugin:
+For JWT tokens, expiration is controlled by Verdaccio's security settings, not by this plugin. AES legacy tokens expire with the provider token instead, see [Token verification](#token-verification):
 
 ```yaml
 security:
@@ -76,3 +76,11 @@ security:
 ```
 
 See the [Verdaccio docs](https://verdaccio.org/docs/configuration#security) for details.
+
+## Token verification
+
+The plugin has two token modes, and which one is used is decided by Verdaccio's `security` settings, not by the plugin.
+
+### AES legacy tokens (not recommended)
+
+When `security.api.legacy: true` is set and `security.api.jwt` is not (Verdaccio's default security configuration), Verdaccio encrypts npm tokens instead of signing them. Such a token expires together with the provider token it was issued for, not according to `security.api.jwt.sign.expiresIn`, and it stays tied to the account it was issued to. Tokens issued by earlier versions of the plugin are rejected, so those users have to log in once more.

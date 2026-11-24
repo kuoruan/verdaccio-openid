@@ -12,35 +12,45 @@ import {
   base64Encode,
   getAllConfiguredGroups,
   getAuthenticatedGroups,
-  isJWT,
   isNowBefore,
+  signHmac,
+  verifyHmac,
 } from "./utils";
 
 interface UserPayload {
+  /** Subject of the provider token */
   sub?: string;
   /** User Name */
   n: string;
-  /** User Groups */
+  /** Frozen groups, not re-read from the provider */
   g: string[];
-  /** Expiration Time */
+  /** Expiration time, as seconds since the epoch */
   exp: number;
 }
+
 interface AccessTokenPayload {
+  /** Subject of the provider token */
   sub?: string;
-  /** Access Token */
+  /** Provider access token */
   at: string;
 }
 
 type LegacyPayload = UserPayload | AccessTokenPayload;
 
+/** The user a verified token stands for. */
+export type VerifiedUser = Omit<RemoteUser, "groups">;
+
 function isAccessTokenPayload(u: LegacyPayload): u is AccessTokenPayload {
-  return !!(u as any).at;
+  return "at" in u;
 }
 
 export class AuthCore {
   private readonly provider: AuthProvider;
 
   private readonly configSecret: string;
+
+  /** Whether npm tokens are AES legacy tokens rather than JWTs. */
+  public readonly isLegacySecurity: boolean;
 
   private readonly security: Security;
 
@@ -57,6 +67,7 @@ export class AuthCore {
 
     this.configSecret = config.secret;
     this.security = config.security;
+    this.isLegacySecurity = isAESLegacy(config.security);
     this.groupUsers = config.groupUsers;
 
     this.configuredGroups = getAllConfiguredGroups(config.packages);
@@ -144,8 +155,16 @@ export class AuthCore {
     return isAuthenticated;
   }
 
-  issueNpmToken(username: string, realGroups: string[], providerToken: OpenIDToken): Promise<string> {
-    if (isAESLegacy(this.security)) {
+  /**
+   * Issue the npm token, which is an AES legacy token or a JWT, depending on the registry.
+   *
+   * @param username the user to issue the token for
+   * @param realGroups the groups to freeze in it
+   * @param providerToken the provider token it has to stay valid with
+   * @returns the token
+   */
+  async issueNpmToken(username: string, realGroups: string[], providerToken: OpenIDToken): Promise<string> {
+    if (this.isLegacySecurity) {
       debug("using legacy encryption for npm token");
 
       const npmToken = this.legacyEncrypt(username, realGroups, providerToken);
@@ -153,62 +172,56 @@ export class AuthCore {
         throw new Error(ERRORS.TOKEN_ENCRYPTION_FAILED_NPM);
       }
 
-      return Promise.resolve(npmToken);
+      return npmToken;
     }
     return this.signJWT(username, realGroups, this.security.api.jwt!.sign);
   }
 
   /**
-   * Verify an npm token issued by this plugin.
+   * Verify an AES legacy npm token.
    *
-   * @param token the token from the Authorization header
-   * @returns the user the token stands for, or false when the token is expired or not authorized
-   * @throws {TypeError} when the token is neither a legacy token nor a JWT
-   * @throws {SyntaxError} when a legacy token does not decode to a payload
+   * JWT npm tokens are verified by Verdaccio itself and never reach this method.
+   *
+   * @param token the token from the Authorization header, or the password of a legacy login
+   * @returns the user the token stands for, or false when the token is expired, belongs to
+   * another subject, or is no longer authorized
+   * @throws {TypeError} when the payload is not one this plugin signed
    */
-  async verifyNpmToken(token: string): Promise<Omit<RemoteUser, "groups"> | false> {
-    // if jwt is not enabled, use legacy encryption
-    // the token is the password in basic auth
-    // decode it and get the token from the payload
-    if (isAESLegacy(this.security)) {
-      debug("verifying npm token using legacy encryption");
+  async verifyLegacyToken(token: string): Promise<VerifiedUser | false> {
+    const payload = this.legacyDecode(token);
 
-      const legacyPayload = this.legacyDecode(token);
+    let name: string;
+    let userGroups: string[];
+    let realGroups: string[];
 
-      debug("legacy payload decoded");
+    if (isAccessTokenPayload(payload)) {
+      const info = await this.provider.getUserinfo(payload.at);
 
-      let name: string;
-      let userGroups: string[];
-      let realGroups: string[];
+      // A recreated account keeps the username but gets a new subject. Only a provider that
+      // reports one can be compared against, so a userinfo endpoint without `sub` is skipped.
+      if (payload.sub) {
+        if (!info.subject) {
+          debug("provider returned no subject, the subject of the token is not checked");
+        } else if (payload.sub !== info.subject) {
+          debug("token subject %s does not match provider subject %s", payload.sub, info.subject);
 
-      if (isAccessTokenPayload(legacyPayload)) {
-        const res = await this.provider.getUserinfo(legacyPayload.at);
-
-        name = res.name;
-        userGroups = res.groups ?? [];
-        realGroups = this.filterRealGroups(name, userGroups);
-      } else {
-        if (!isNowBefore(legacyPayload.exp)) {
           return false;
         }
-
-        name = legacyPayload.n;
-        userGroups = [...legacyPayload.g];
-        realGroups = [...legacyPayload.g];
       }
 
-      if (!this.authenticate(name, userGroups)) {
-        return false;
-      }
+      name = info.name;
+      userGroups = info.groups ?? [];
+      realGroups = this.filterRealGroups(name, userGroups);
+    } else if (!isNowBefore(payload.exp)) {
+      return false;
+    } else {
+      name = payload.n;
+      userGroups = [...payload.g];
+      // The groups were filtered when the token was issued.
+      realGroups = [...payload.g];
+    }
 
-      return { name, real_groups: realGroups };
-    }
-    if (isJWT(token)) {
-      debug("verifying npm token using jwt");
-      return this.verifyJWT(token);
-    }
-    debug("npm token is not a valid jwt");
-    throw new TypeError(ERRORS.INVALID_TOKEN);
+    return this.authenticate(name, userGroups) ? { name, real_groups: realGroups } : false;
   }
 
   /**
@@ -224,6 +237,12 @@ export class AuthCore {
     return this.signJWT(username, realGroups, jwtSignOptions);
   }
 
+  /**
+   * Verify the UI token issued by this plugin.
+   *
+   * @param token the token from the request
+   * @returns the user the token stands for
+   */
   verifyUiToken(token: string): RemoteUser {
     return this.verifyJWT(token);
   }
@@ -247,21 +266,20 @@ export class AuthCore {
       throw new ReferenceError(ERRORS.AUTH_NOT_INITIALIZED);
     }
 
-    // encode the user info as a token, save it to the final token.
-    let u: LegacyPayload;
+    // A legacy token does not have an expiration time of its own: we use the provider
+    // expiration, or the access token, to tell whether the token is still valid.
+    const expiresAt = typeof providerToken === "string" ? undefined : providerToken.expiresAt;
+    const subject = typeof providerToken === "string" ? undefined : providerToken.subject;
 
-    if (typeof providerToken === "string") {
-      u = { at: providerToken };
-    } else {
-      // legacy token does not have a expiration time
-      // we use the provider expire time or token to check if the token is still valid
-      u = providerToken.expiresAt
-        ? { sub: providerToken.subject, n: username, g: [...realGroups], exp: providerToken.expiresAt }
-        : { sub: providerToken.subject, at: providerToken.accessToken };
-    }
-    const payloadToken = this.legacyEncode(u);
+    const payloadToken = this.legacyEncode(
+      expiresAt
+        ? { sub: subject, n: username, g: [...realGroups], exp: expiresAt }
+        : {
+            sub: subject,
+            at: typeof providerToken === "string" ? providerToken : providerToken.accessToken,
+          },
+    );
 
-    // use internal function to encrypt token
     const token = this.auth.aesEncrypt(buildUser(username, payloadToken));
 
     if (!token) {
@@ -272,11 +290,76 @@ export class AuthCore {
     return typeof token === "string" ? token : base64Encode(token);
   }
 
+  /**
+   * Sign and encode the legacy payload.
+   *
+   * The payload has to prove it was issued by this plugin, so it carries a
+   * signature made with the registry secret.
+   *
+   * @param payload the data to encode
+   * @returns `<payload>.<signature>`
+   */
   private legacyEncode(payload: LegacyPayload): string {
-    return base64Encode(JSON.stringify(payload));
+    const encoded = base64Encode(JSON.stringify(payload));
+
+    return `${encoded}.${signHmac(encoded, this.secret)}`;
   }
 
+  /**
+   * Verify the signature of a legacy payload and decode it.
+   *
+   * @param payloadToken the signed payload
+   * @returns the decoded payload
+   * @throws {TypeError} when the signature or the payload shape is invalid
+   */
   private legacyDecode(payloadToken: string): LegacyPayload {
-    return JSON.parse(base64Decode(payloadToken)) as LegacyPayload;
+    const [encoded, signature, ...rest] = payloadToken.split(".");
+
+    if (!encoded || !signature || rest.length) {
+      throw new TypeError(ERRORS.INVALID_TOKEN);
+    }
+
+    if (!verifyHmac(encoded, signature, this.secret)) {
+      throw new TypeError(ERRORS.INVALID_TOKEN);
+    }
+
+    let payload: unknown;
+
+    try {
+      payload = JSON.parse(base64Decode(encoded));
+    } catch {
+      throw new TypeError(ERRORS.INVALID_TOKEN);
+    }
+
+    return this.assertLegacyPayload(payload);
+  }
+
+  /**
+   * Check that a decoded payload has the fields the rest of the code reads.
+   *
+   * The signature is what proves the origin; this only rejects a payload of another shape.
+   *
+   * @throws {TypeError} when the payload does not have the expected shape
+   */
+  private assertLegacyPayload(payload: unknown): LegacyPayload {
+    // Only the fields below are read, so any other shape falls through to the rejection.
+    const { sub, at, n, g, exp } = (payload ?? {}) as Partial<AccessTokenPayload & UserPayload>;
+    const subject = typeof sub === "string" ? sub : undefined;
+
+    if (typeof at === "string" && at) {
+      return { at, sub: subject };
+    }
+
+    if (
+      typeof n === "string" &&
+      n &&
+      typeof exp === "number" &&
+      Array.isArray(g) &&
+      g.every((group) => typeof group === "string")
+    ) {
+      return { n, g, exp, sub: subject };
+    }
+
+    throw new TypeError(ERRORS.INVALID_TOKEN);
   }
 }

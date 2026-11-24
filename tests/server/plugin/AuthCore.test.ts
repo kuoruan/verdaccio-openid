@@ -1,8 +1,12 @@
+import { createHmac } from "node:crypto";
+
+import { isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
+import { createRemoteUser } from "@verdaccio/config";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @verdaccio/auth
 const mockAuthInstance = {
-  secret: "auth-secret",
+  secret: "test-secret",
   jwtEncrypt: vi.fn(),
   aesEncrypt: vi.fn(),
 };
@@ -44,10 +48,9 @@ vi.mock("@/server/plugin/utils", async () => {
 });
 
 import type { ConfigHolder } from "@/server/config/Config";
+import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider, OpenIDToken } from "@/server/plugin/AuthProvider";
-
-// We need to import AuthCore after mocks are set up
-let AuthCore: typeof import("@/server/plugin/AuthCore").AuthCore;
+import { base64Encode } from "@/server/plugin/utils";
 
 function createMockConfig(overrides: Partial<ConfigHolder> = {}): ConfigHolder {
   return {
@@ -74,11 +77,29 @@ function createMockProvider(): AuthProvider {
   };
 }
 
+/**
+ * Build a core that can issue and verify legacy tokens.
+ *
+ * `aesEncrypt` is the identity here, so the token `issueNpmToken` returns is the signed
+ * payload itself; a real registry returns the payload wrapped in its own encryption.
+ */
+function signableCore(
+  config: Partial<ConfigHolder> = {},
+  provider: AuthProvider = createMockProvider(),
+): { core: AuthCore; provider: AuthProvider } {
+  const core = new AuthCore(createMockConfig(config), provider);
+  core.setAuth(mockAuthInstance as any);
+  vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input);
+
+  return { core, provider };
+}
+
 describe("AuthCore", () => {
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
-    const mod = await import("@/server/plugin/AuthCore");
-    AuthCore = mod.AuthCore;
+
+    // Unless a case says otherwise, the registry issues legacy tokens.
+    vi.mocked(isAESLegacy).mockReturnValue(true);
   });
 
   describe("getLoggedUserGroups", () => {
@@ -220,7 +241,6 @@ describe("AuthCore", () => {
 
   describe("verifyUiToken", () => {
     it("should verify JWT and return RemoteUser", async () => {
-      const { verifyJWTPayload } = await import("@verdaccio/auth");
       const mockUser = { name: "testuser", real_groups: ["developers"] };
       vi.mocked(verifyJWTPayload).mockReturnValue(mockUser as any);
 
@@ -232,7 +252,6 @@ describe("AuthCore", () => {
     });
 
     it("should use auth.secret when auth is set", async () => {
-      const { verifyJWTPayload } = await import("@verdaccio/auth");
       vi.mocked(verifyJWTPayload).mockReturnValue({ name: "user", real_groups: [] } as any);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
@@ -240,7 +259,7 @@ describe("AuthCore", () => {
 
       core.verifyUiToken("token");
 
-      expect(verifyJWTPayload).toHaveBeenCalledWith("token", "auth-secret", expect.any(Object));
+      expect(verifyJWTPayload).toHaveBeenCalledWith("token", "test-secret", expect.any(Object));
     });
   });
 
@@ -251,7 +270,6 @@ describe("AuthCore", () => {
 
       vi.mocked(mockAuthInstance.jwtEncrypt).mockResolvedValue("signed-ui-token");
 
-      const { createRemoteUser } = await import("@verdaccio/config");
       const token = await core.issueUiToken("testuser", ["developers"]);
 
       expect(token).toBe("signed-ui-token");
@@ -270,7 +288,6 @@ describe("AuthCore", () => {
 
   describe("signJWT (via issueNpmToken with JWT mode)", () => {
     it("should sign JWT for npm token when security is not legacy", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
       vi.mocked(isAESLegacy).mockReturnValue(false);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
@@ -284,35 +301,157 @@ describe("AuthCore", () => {
     });
   });
 
-  describe("verifyNpmToken", () => {
-    it("should verify JWT npm token", async () => {
-      const { verifyJWTPayload, isAESLegacy } = await import("@verdaccio/auth");
+  describe("isLegacySecurity", () => {
+    // `@verdaccio/auth` is mocked in this file, so this pins the wiring, not the derivation.
+    it("should expose what isAESLegacy reports for the configured security", async () => {
+      vi.mocked(isAESLegacy).mockReturnValue(true);
+      expect(new AuthCore(createMockConfig(), createMockProvider()).isLegacySecurity).toBe(true);
+
       vi.mocked(isAESLegacy).mockReturnValue(false);
-      vi.mocked(verifyJWTPayload).mockReturnValue({
-        name: "testuser",
-        real_groups: ["developers"],
-      } as any);
+      expect(new AuthCore(createMockConfig(), createMockProvider()).isLegacySecurity).toBe(false);
 
-      const core = new AuthCore(createMockConfig({ authorizedGroups: true }), createMockProvider());
+      expect(isAESLegacy).toHaveBeenCalledWith(createMockConfig().security);
+    });
+  });
 
-      const result = await core.verifyNpmToken("header.payload.signature");
+  describe("verifyLegacyToken", () => {
+    it("should reject a payload that is not signed by this plugin", async () => {
+      // A payload that never went through the plugin.
+      const forged = base64Encode(
+        JSON.stringify({ n: "attacker", g: ["admins"], exp: Math.floor(Date.now() / 1000) + 3600 }),
+      );
 
-      expect(result).toEqual({ name: "testuser", real_groups: ["developers"] });
+      const core = new AuthCore(createMockConfig({ authorizedGroups: false }), createMockProvider());
+
+      await expect(core.verifyLegacyToken(forged)).rejects.toThrow("Invalid token format");
     });
 
-    it("should throw TypeError for non-JWT token when not in legacy mode", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
-      vi.mocked(isAESLegacy).mockReturnValue(false);
+    it("should reject a payload signed with another key", async () => {
+      const { core } = signableCore();
+      const foreign = signLegacyPayload(
+        { n: "attacker", g: ["admins"], exp: Math.floor(Date.now() / 1000) + 3600 },
+        "other-secret",
+      );
 
-      const core = new AuthCore(createMockConfig(), createMockProvider());
+      await expect(core.verifyLegacyToken(foreign)).rejects.toThrow("Invalid token format");
+      await expect(core.verifyLegacyToken(foreign.split(".")[0])).rejects.toThrow("Invalid token format");
+    });
 
-      await expect(core.verifyNpmToken("not-a-jwt")).rejects.toThrow("Invalid token format");
+    it("should reject a signature that belongs to another payload", async () => {
+      const { core } = signableCore();
+      const payload = base64Encode(
+        JSON.stringify({ n: "attacker", g: ["admins"], exp: Math.floor(Date.now() / 1000) + 3600 }),
+      );
+      const [, otherSignature] = signLegacyPayload({ n: "attacker", g: [], exp: 9_999_999_999 }, "test-secret").split(
+        ".",
+      );
+
+      await expect(core.verifyLegacyToken(`${payload}.${otherSignature}`)).rejects.toThrow("Invalid token format");
+    });
+
+    it("should reject a signed payload of another shape", async () => {
+      const { core } = signableCore();
+      const token = signLegacyPayload({ name: "attacker" }, "test-secret");
+
+      await expect(core.verifyLegacyToken(token)).rejects.toThrow("Invalid token format");
+    });
+
+    it("should verify a token it issued, with the groups frozen in it", async () => {
+      const { core } = signableCore({ authorizedGroups: false });
+
+      const token = await core.issueNpmToken("testuser", ["developers"], {
+        accessToken: "at-123",
+        expiresAt: 9_999_999_999,
+      });
+
+      await expect(core.verifyLegacyToken(innerPassword(token))).resolves.toEqual({
+        name: "testuser",
+        real_groups: ["developers"],
+      });
+    });
+
+    it("should return false when the frozen expiry has passed", async () => {
+      const { core } = signableCore({ authorizedGroups: false });
+
+      const token = await core.issueNpmToken("testuser", ["developers"], {
+        accessToken: "at-123",
+        expiresAt: 1_000,
+      });
+
+      await expect(core.verifyLegacyToken(innerPassword(token))).resolves.toBe(false);
+    });
+
+    it("should read the user from the provider when the payload carries an access token", async () => {
+      const provider = createMockProvider();
+      vi.mocked(provider.getUserinfo).mockResolvedValue({ name: "testuser", groups: ["dev"] });
+
+      const { core } = signableCore({ authorizedGroups: false }, provider);
+
+      const token = await core.issueNpmToken("testuser", ["dev"], { accessToken: "at-789" });
+
+      await expect(core.verifyLegacyToken(innerPassword(token))).resolves.toEqual({
+        name: "testuser",
+        real_groups: ["testuser"],
+      });
+      expect(provider.getUserinfo).toHaveBeenCalledWith("at-789");
+    });
+
+    it("should return false when the provider subject no longer matches the token", async () => {
+      vi.mocked(isAESLegacy).mockReturnValue(true);
+
+      const provider = createMockProvider();
+      vi.mocked(provider.getUserinfo).mockResolvedValue({
+        name: "testuser",
+        groups: ["dev"],
+        subject: "recreated-account",
+      });
+
+      const core = new AuthCore(createMockConfig({ authorizedGroups: false }), provider);
+      core.setAuth(mockAuthInstance as any);
+      vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input);
+
+      const token = await core.issueNpmToken("testuser", ["dev"], {
+        accessToken: "at-789",
+        subject: "original-account",
+      });
+
+      await expect(core.verifyLegacyToken(innerPassword(token))).resolves.toBe(false);
+    });
+
+    it("should accept the token when the provider reports no subject", async () => {
+      const provider = createMockProvider();
+      vi.mocked(provider.getUserinfo).mockResolvedValue({ name: "testuser", groups: ["dev"] });
+
+      const { core } = signableCore({ authorizedGroups: false }, provider);
+
+      const token = await core.issueNpmToken("testuser", ["dev"], {
+        accessToken: "at-789",
+        subject: "original-account",
+      });
+
+      await expect(core.verifyLegacyToken(innerPassword(token))).resolves.toEqual({
+        name: "testuser",
+        real_groups: ["testuser"],
+      });
+    });
+
+    it("should return false when the user is not in an authorized group", async () => {
+      const { core } = signableCore({
+        authorizedGroups: ["admins"] as any,
+        packages: {},
+      });
+
+      const token = await core.issueNpmToken("testuser", ["developers"], {
+        accessToken: "at-123",
+        expiresAt: 9_999_999_999,
+      });
+
+      await expect(core.verifyLegacyToken(innerPassword(token))).resolves.toBe(false);
     });
   });
 
   describe("legacy encryption (npm token)", () => {
     it("should use legacy encryption when security is legacy AES", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
       vi.mocked(isAESLegacy).mockReturnValue(true);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
@@ -327,18 +466,18 @@ describe("AuthCore", () => {
     });
 
     it("should throw ReferenceError when auth is not initialized for legacy encryption", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
       vi.mocked(isAESLegacy).mockReturnValue(true);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
       // auth not set — legacyEncrypt throws synchronously
 
-      expect(() => core.issueNpmToken("testuser", [], "token")).toThrow(ReferenceError);
-      expect(() => core.issueNpmToken("testuser", [], "token")).toThrow("Unexpected error, auth is not initialized");
+      await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow(ReferenceError);
+      await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow(
+        "Unexpected error, auth is not initialized",
+      );
     });
 
     it("should throw when legacy encryption returns falsy", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
       vi.mocked(isAESLegacy).mockReturnValue(true);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
@@ -346,7 +485,7 @@ describe("AuthCore", () => {
 
       vi.mocked(mockAuthInstance.aesEncrypt).mockReturnValue("" as any);
 
-      expect(() => core.issueNpmToken("testuser", [], "token")).toThrow(
+      await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow(
         "Internal server error, failed to encrypt token",
       );
     });
@@ -354,13 +493,12 @@ describe("AuthCore", () => {
 
   describe("issueNpmToken with legacy providerToken (TokenInfo)", () => {
     it("should encode provider token info with expiresAt", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
       vi.mocked(isAESLegacy).mockReturnValue(true);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
       core.setAuth(mockAuthInstance as any);
 
-      vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input as any);
+      vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input);
 
       const providerToken: OpenIDToken = {
         accessToken: "at-123",
@@ -369,25 +507,21 @@ describe("AuthCore", () => {
       };
 
       const token = await core.issueNpmToken("testuser", ["dev"], providerToken);
+      const payload = signedPayload(token);
 
-      // Token format is "username:base64url(payload)"
-      const parts = token.split(":");
-      expect(parts[0]).toBe("testuser");
-
-      const payload = JSON.parse(Buffer.from(parts.slice(1).join(":"), "base64url").toString("utf8"));
       expect(payload.n).toBe("testuser");
       expect(payload.g).toEqual(["dev"]);
       expect(payload.exp).toBe(1_700_000_000);
+      expect(payload.sub).toBe("sub-456");
     });
 
     it("should encode provider token info without expiresAt as accessToken", async () => {
-      const { isAESLegacy } = await import("@verdaccio/auth");
       vi.mocked(isAESLegacy).mockReturnValue(true);
 
       const core = new AuthCore(createMockConfig(), createMockProvider());
       core.setAuth(mockAuthInstance as any);
 
-      vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input as any);
+      vi.mocked(mockAuthInstance.aesEncrypt).mockImplementation((input: string) => input);
 
       const providerToken: OpenIDToken = {
         accessToken: "at-789",
@@ -395,11 +529,37 @@ describe("AuthCore", () => {
       };
 
       const token = await core.issueNpmToken("testuser", ["dev"], providerToken);
+      const payload = signedPayload(token);
 
-      // Token format is "username:base64url(payload)"
-      const parts = token.split(":");
-      const payload = JSON.parse(Buffer.from(parts.slice(1).join(":"), "base64url").toString("utf8"));
       expect(payload.at).toBe("at-789");
+      expect(payload.sub).toBe("sub-101");
     });
   });
 });
+
+/** The password Verdaccio passes on: everything after the `username:` prefix. */
+function innerPassword(token: string): string {
+  return token.slice(token.indexOf(":") + 1);
+}
+
+/** Decode the payload of the signed inner token issued by `issueNpmToken`. */
+function signedPayload(token: string): Record<string, unknown> {
+  const parts = innerPassword(token).split(".");
+
+  expect(parts).toHaveLength(2);
+
+  return JSON.parse(Buffer.from(parts[0], "base64url").toString("utf8"));
+}
+
+/**
+ * Build the inner token the plugin issues, so a test can tamper with the payload.
+ *
+ * Kept in sync with `AuthCore.legacyEncode` on purpose: a test must not import the code
+ * it is checking.
+ */
+function signLegacyPayload(payload: Record<string, unknown>, secret: string): string {
+  const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const signature = createHmac("sha256", secret).update(encoded).digest("base64url");
+
+  return `${encoded}.${signature}`;
+}

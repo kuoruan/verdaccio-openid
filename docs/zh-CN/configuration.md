@@ -62,7 +62,7 @@ auth:
 
 ## Token 过期时间
 
-Token 过期时间由 Verdaccio 的安全设置控制，而非本插件：
+对于 JWT token，过期时间由 Verdaccio 的安全设置控制，而非本插件；AES legacy token 则随 provider token 过期，见 [Token 校验](#token-校验)：
 
 ```yaml
 security:
@@ -76,3 +76,11 @@ security:
 ```
 
 详见 [Verdaccio 文档](https://verdaccio.org/docs/configuration#security)。
+
+## Token 校验
+
+插件有两种 token 模式，具体用哪一种由 Verdaccio 的 `security` 配置决定，而不是插件。
+
+### AES legacy token（不推荐）
+
+在设置 `security.api.legacy: true` 且没有 `security.api.jwt` 时（这是 Verdaccio 的默认安全配置），Verdaccio 加密而不是签名 npm token。这类 token 的过期时间与签发时使用的 provider token 一致，不遵循 `security.api.jwt.sign.expiresIn`，并且与签发时的账号绑定。旧版本插件签发的 token 会被拒绝，用户需要重新登录一次。

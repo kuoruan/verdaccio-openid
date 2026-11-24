@@ -38,11 +38,12 @@ describe("Plugin permission methods", () => {
   let plugin: Plugin;
 
   interface MockCore {
+    isLegacySecurity: boolean;
     authenticate: ReturnType<typeof vi.fn>;
     getLoggedUserGroups: ReturnType<typeof vi.fn>;
     getNonLoggedUserGroups: ReturnType<typeof vi.fn>;
     setAuth: ReturnType<typeof vi.fn>;
-    verifyNpmToken: ReturnType<typeof vi.fn>;
+    verifyLegacyToken: ReturnType<typeof vi.fn>;
   }
 
   let mockCore: MockCore;
@@ -56,11 +57,12 @@ describe("Plugin permission methods", () => {
 
     // Create a minimal Plugin instance
     mockCore = {
+      isLegacySecurity: true,
       authenticate: vi.fn(),
       getLoggedUserGroups: vi.fn(),
       getNonLoggedUserGroups: vi.fn(),
       setAuth: vi.fn(),
-      verifyNpmToken: vi.fn(),
+      verifyLegacyToken: vi.fn(),
     };
 
     // Create Plugin with minimal config
@@ -409,6 +411,63 @@ describe("Plugin permission methods", () => {
 
       processOnSpy.mockRestore();
       processRemoveSpy.mockRestore();
+    });
+  });
+  describe("authenticate", () => {
+    function runAuthenticate(target: Plugin, username: string, password: string) {
+      return new Promise<{ err: any; user: any }>((resolve) => {
+        target.authenticate(username, password, (err: any, user: any) => resolve({ err, user }));
+      });
+    }
+
+    it("should skip authentication without a username or a password", async () => {
+      for (const [username, password] of [
+        ["", "token"],
+        ["test-user", ""],
+      ]) {
+        const { err, user } = await runAuthenticate(plugin, username, password);
+
+        expect(err).toBeNull();
+        expect(user).toBe(false);
+      }
+
+      expect(mockCore.verifyLegacyToken).not.toHaveBeenCalled();
+    });
+
+    it("should accept an aes legacy token and return its groups", async () => {
+      mockCore.verifyLegacyToken.mockResolvedValue({ name: "test-user", real_groups: ["developers"] });
+
+      const { err, user } = await runAuthenticate(plugin, "test-user", "legacy-token");
+
+      expect(err).toBeNull();
+      expect(user).toEqual(["developers"]);
+    });
+
+    it("should defer to the next plugin when the password is not a token this plugin issued", async () => {
+      mockCore.verifyLegacyToken.mockRejectedValue(new TypeError("Invalid token format"));
+
+      const { err, user } = await runAuthenticate(plugin, "test-user", "plain-password");
+
+      expect(err).toBeNull();
+      expect(user).toBe(false);
+    });
+
+    it("should refuse a token that belongs to another user", async () => {
+      mockCore.verifyLegacyToken.mockResolvedValue({ name: "other-user", real_groups: ["developers"] });
+
+      const { err, user } = await runAuthenticate(plugin, "test-user", "legacy-token");
+
+      expect(err?.message).toBe("invalid username");
+      expect(user).toBe(false);
+    });
+
+    it("should refuse a token that is no longer valid", async () => {
+      mockCore.verifyLegacyToken.mockResolvedValue(false);
+
+      const { err, user } = await runAuthenticate(plugin, "test-user", "legacy-token");
+
+      expect(err?.message).toBe("user test-user is not authenticated");
+      expect(user).toBe(false);
     });
   });
 });

@@ -1,10 +1,13 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import { Groups } from "@gitbeaker/rest";
+import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
+import { authorizationCodeGrant, discovery, fetchUserInfo } from "openid-client";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConfigHolder } from "@/server/config/Config";
+import logger from "@/server/logger";
 import { ERRORS } from "@/server/constants";
 import { OpenIDConnectAuthProvider } from "@/server/openid/AuthProvider";
 import { ProviderType, type TokenInfo } from "@/server/plugin/AuthProvider";
@@ -195,8 +198,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should reuse in-flight discovery started by the constructor", async () => {
-      const { discovery } = await import("openid-client");
-
       mockConfig.authorizationEndpoint = undefined;
       mockConfig.tokenEndpoint = undefined;
       mockConfig.userinfoEndpoint = undefined;
@@ -297,7 +298,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should preserve url_prefix when req.url does not include it (reverse proxy scenario)", async () => {
-      const { getPublicUrl } = await import("@verdaccio/url");
       vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
       mockConfig.urlPrefix = "/prefix/";
@@ -316,7 +316,6 @@ describe("OpenIDConnectAuthProvider", () => {
 
       await provider.getToken(mockRequest);
 
-      const { authorizationCodeGrant } = await import("openid-client");
       const calledUrl = vi.mocked(authorizationCodeGrant).mock.calls[0]?.[1] as URL;
       expect(calledUrl.href).toBe(
         "https://registry.example.com/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
@@ -324,7 +323,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should not duplicate url_prefix when req.url already includes it", async () => {
-      const { getPublicUrl } = await import("@verdaccio/url");
       vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
       mockConfig.urlPrefix = "/prefix/";
@@ -343,7 +341,6 @@ describe("OpenIDConnectAuthProvider", () => {
 
       await provider.getToken(mockRequest);
 
-      const { authorizationCodeGrant } = await import("openid-client");
       const calledUrl = vi.mocked(authorizationCodeGrant).mock.calls[0]?.[1] as URL;
       expect(calledUrl.href).toBe(
         "https://registry.example.com/prefix/-/oauth/callback/authn?code=auth-code-123&state=mock-state-12345",
@@ -351,7 +348,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should throw error if access_token is missing", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: undefined,
         id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
@@ -372,7 +368,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should throw error if id_token is missing when scope includes openid", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
         id_token: undefined,
@@ -397,7 +392,6 @@ describe("OpenIDConnectAuthProvider", () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
         id_token: undefined,
@@ -420,7 +414,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should throw error if no claims found in token response", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
         id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
@@ -441,7 +434,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should delete state before token exchange even on failure", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockRejectedValueOnce(new Error("Token exchange failed"));
 
       const mockRequest = {
@@ -460,7 +452,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should calculate expiresAt from expires_in", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       const nowSec = Math.trunc(Date.now() / 1000);
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
@@ -484,7 +475,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should fallback expiresAt to claims.exp when expires_in is not set", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
         id_token: "header.eyJzdWIiOiJ1c2VyMTIzIiwiZXhwIjoxNzAwMDAwMDAwfQ.signature",
@@ -507,7 +497,6 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should propagate error when claims() throws", async () => {
-      const { authorizationCodeGrant } = await import("openid-client");
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
         id_token: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
@@ -568,6 +557,7 @@ describe("OpenIDConnectAuthProvider", () => {
       expect(userinfo).toEqual({
         name: "user123",
         groups: ["group1", "group2"],
+        subject: "user123",
       });
     });
 
@@ -586,6 +576,7 @@ describe("OpenIDConnectAuthProvider", () => {
       expect(userinfo).toEqual({
         name: "Test User",
         groups: ["group1", "group2"],
+        subject: "user123",
       });
     });
 
@@ -635,7 +626,6 @@ describe("OpenIDConnectAuthProvider", () => {
         expiresAt: 1_700_000_000,
       };
 
-      const { fetchUserInfo } = await import("openid-client");
       vi.mocked(fetchUserInfo).mockResolvedValueOnce({} as any);
 
       mockConfig.usernameClaim = "email";
@@ -656,6 +646,7 @@ describe("OpenIDConnectAuthProvider", () => {
       expect(userinfo).toEqual({
         name: "user123",
         groups: ["single-group"],
+        subject: "user123",
       });
     });
   });
@@ -683,6 +674,7 @@ describe("OpenIDConnectAuthProvider", () => {
       expect(userinfo).toEqual({
         name: "Test User",
         groups: ["gitlab-group1", "gitlab-group2", "gitlab-group3"],
+        subject: "user123",
       });
     });
 
@@ -759,7 +751,6 @@ describe("OpenIDConnectAuthProvider", () => {
 
   describe("error handling", () => {
     it("should handle discovery errors gracefully", async () => {
-      const { discovery } = await import("openid-client");
       vi.mocked(discovery).mockRejectedValueOnce(new Error("Discovery failed"));
 
       mockConfig.configurationUri = "https://provider.example.com/.well-known/openid-configuration";
@@ -769,14 +760,12 @@ describe("OpenIDConnectAuthProvider", () => {
       // Wait for discovery to fail and error to be logged
       await new Promise((resolve) => setTimeout(resolve, 100));
 
-      const logger = await import("@/server/logger");
-      expect(logger.default.error).toHaveBeenCalled();
+      expect(logger.error).toHaveBeenCalled();
       // Configuration discovery fails but process should not exit
       expect(processExitSpy).not.toHaveBeenCalled();
     });
 
     it("should fail fast during retry cooldown and retry after it expires", async () => {
-      const { discovery } = await import("openid-client");
       let now = 1_700_000_000_000;
 
       vi.spyOn(Date, "now").mockImplementation(() => now);

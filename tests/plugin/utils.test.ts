@@ -11,8 +11,9 @@ import {
   getFullUrl,
   getPackageSpec,
   hashObject,
-  isJWT,
   isNowBefore,
+  signHmac,
+  verifyHmac,
 } from "@/server/plugin/utils";
 
 vi.mock("@verdaccio/url", () => ({
@@ -72,6 +73,51 @@ describe("isNowBefore", () => {
   it("should return false if now is after expireAt", () => {
     const past = Math.floor(Date.now() / 1000) - 3600;
     expect(isNowBefore(past)).toBe(false);
+  });
+});
+
+describe("signHmac", () => {
+  it("should sign the same value the same way", () => {
+    expect(signHmac("payload", "secret")).toBe(signHmac("payload", "secret"));
+  });
+
+  it("should sign differently when the secret or the value changes", () => {
+    const signature = signHmac("payload", "secret");
+
+    expect(signHmac("payload", "other-secret")).not.toBe(signature);
+    expect(signHmac("payload2", "secret")).not.toBe(signature);
+  });
+
+  it("should return a base64url signature", () => {
+    // 300 signatures of a two-part input cover the characters standard base64 would add.
+    for (let i = 0; i < 300; i++) {
+      expect(signHmac(`payload-${i}`, "secret")).toMatch(/^[A-Za-z0-9_-]+$/);
+    }
+  });
+});
+
+describe("verifyHmac", () => {
+  it("should accept the signature of the same value and secret", () => {
+    const signature = signHmac("payload", "secret");
+
+    expect(verifyHmac("payload", signature, "secret")).toBe(true);
+  });
+
+  it("should reject a signature of another value", () => {
+    const signature = signHmac("payload", "secret");
+
+    expect(verifyHmac("another-payload", signature, "secret")).toBe(false);
+  });
+
+  it("should reject a signature made with another secret", () => {
+    const signature = signHmac("payload", "other-secret");
+
+    expect(verifyHmac("payload", signature, "secret")).toBe(false);
+  });
+
+  it("should reject a signature of another length", () => {
+    expect(verifyHmac("payload", "short", "secret")).toBe(false);
+    expect(verifyHmac("payload", "", "secret")).toBe(false);
   });
 });
 
@@ -412,31 +458,5 @@ describe("getPackageSpec", () => {
       const pkg = { name: "my-package", tag };
       expect(getPackageSpec(pkg)).toBe(`my-package@${tag}`);
     }
-  });
-});
-
-describe("isJWT", () => {
-  it("should return true for a valid JWT format (3 parts)", () => {
-    expect(isJWT("header.payload.signature")).toBe(true);
-  });
-
-  it("should return true for JWT with empty parts", () => {
-    expect(isJWT("..")).toBe(true);
-  });
-
-  it("should return false for a string with 2 parts", () => {
-    expect(isJWT("header.payload")).toBe(false);
-  });
-
-  it("should return false for a string with 4 parts", () => {
-    expect(isJWT("a.b.c.d")).toBe(false);
-  });
-
-  it("should return false for a plain string", () => {
-    expect(isJWT("not-a-jwt")).toBe(false);
-  });
-
-  it("should return false for an empty string", () => {
-    expect(isJWT("")).toBe(false);
   });
 });

@@ -1,3 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 import type { AllowAccess, PackageList } from "@verdaccio/types";
 import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
@@ -72,6 +74,33 @@ export function base64Encode(str: string): string {
  */
 export function base64Decode(str: string): string {
   return Buffer.from(str, "base64").toString("utf8");
+}
+
+/**
+ * Sign a string with HMAC-SHA256.
+ *
+ * @param value the string to sign
+ * @param secret the key to sign it with
+ * @returns the signature, as base64url
+ */
+export function signHmac(value: string, secret: string): string {
+  return createHmac("sha256", secret).update(value).digest("base64url");
+}
+
+/**
+ * Compare a signature with the one the same value and secret produce.
+ *
+ * @param value the signed string
+ * @param signature the signature to check
+ * @param secret the key both signatures use
+ * @returns whether the signature belongs to the value
+ */
+export function verifyHmac(value: string, signature: string, secret: string): boolean {
+  const expected = Buffer.from(signHmac(value, secret), "base64url");
+  const actual = Buffer.from(signature, "base64url");
+
+  // `timingSafeEqual` throws when the lengths differ, so compare the lengths first.
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 
 /**
@@ -152,17 +181,6 @@ export function getFullUrl(urlPrefix: string, req: Request): URL {
   const hasPrefix = !!(cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/")));
 
   return hasPrefix ? new URL(reqPath, baseUrl) : new URL(baseUrl + reqPath);
-}
-
-/**
- * Check whether a token has the three dot-separated parts of a JWT.
- *
- * @param token the token to check
- * @returns whether the token looks like a JWT
- */
-export function isJWT(token: string): boolean {
-  // A JWT token typically has three parts separated by dots
-  return typeof token === "string" && token.split(".").length === 3;
 }
 
 /**

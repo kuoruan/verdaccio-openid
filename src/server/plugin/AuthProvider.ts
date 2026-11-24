@@ -17,6 +17,8 @@ export type OpenIDToken = TokenInfo | string;
 export interface ProviderUser {
   name: string;
   groups?: string[];
+  /** The `sub` claim, when the provider returned one. */
+  subject?: string;
 }
 
 export enum ProviderType {

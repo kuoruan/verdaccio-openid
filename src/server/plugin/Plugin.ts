@@ -8,6 +8,7 @@ import type { Application } from "express";
 
 import { plugin } from "@/constants";
 import ParsedPluginConfig, { type OpenIDConfig } from "@/server/config/Config";
+import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
 import { CliFlow, WebFlow } from "@/server/flows";
 import logger, { setLogger } from "@/server/logger";
@@ -17,7 +18,7 @@ import { createStore } from "@/server/store";
 import type { Store } from "@/server/store/Store";
 
 import { WebAuthFlow } from "../flows/WebAuthFlow";
-import { AuthCore } from "./AuthCore";
+import { AuthCore, type VerifiedUser } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
 import { ServeStatic } from "./ServeStatic";
@@ -158,19 +159,28 @@ export class Plugin
 
     debug("authenticating user, username: %s", username);
 
-    let user: Omit<RemoteUser, "groups"> | boolean;
+    let user: VerifiedUser | false;
     try {
-      user = await this.core.verifyNpmToken(token);
+      user = await this.core.verifyLegacyToken(token);
     } catch (e: any) {
-      debug(`%s. user: "%s", falling back to legacy auth`, e.message, username);
+      // Not a token this plugin issued: the next auth plugin (e.g. htpasswd) gets its turn.
+      if (e?.message === ERRORS.INVALID_TOKEN) {
+        debug(`%s. user: "%s", falling back to legacy auth`, e.message, username);
 
-      // Not a token this plugin issued: let the next auth plugin handle it.
-      callback(null, false);
+        callback(null, false);
+        return;
+      }
+
+      // Our own token, but it could not be checked: a provider outage must not look like
+      // a wrong password.
+      logger.warn({ err: e }, "failed to verify the npm token of @{username}");
+
+      callback(errorUtils.getUnauthorized(`user ${username} is not authenticated`), false);
       return;
     }
 
-    // A false result means the token could not be authenticated.
-    if (user === false || !user.name) {
+    // `false` means the token is expired, belongs to another subject, or is not authorized.
+    if (!user || !user.name) {
       callback(errorUtils.getUnauthorized(`user ${username} is not authenticated`), false);
       return;
     }
