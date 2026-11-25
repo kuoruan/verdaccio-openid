@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mock @verdaccio/auth
 const mockAuthInstance = {
-  secret: "test-secret",
+  secret: "auth-secret",
   jwtEncrypt: vi.fn(),
   aesEncrypt: vi.fn(),
 };
@@ -30,20 +30,17 @@ vi.mock("@/server/debugger", () => ({
 }));
 
 // Mock constants
-vi.mock("@/server/constants", () => ({
-  ERRORS: {
-    INVALID_TOKEN: "Invalid token format",
-    TOKEN_ENCRYPTION_FAILED_NPM: "Internal server error, failed to encrypt npm token",
-    TOKEN_ENCRYPTION_FAILED: "Internal server error, failed to encrypt token",
-    AUTH_NOT_INITIALIZED: "Unexpected error, auth is not initialized",
-  },
-}));
+vi.mock("@/server/constants", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/server/constants")>();
 
-// Import the real utils - we only mock specific functions when needed
-vi.mock("@/server/plugin/utils", async () => {
-  const actual = await vi.importActual<typeof import("@/server/plugin/utils")>("@/server/plugin/utils");
   return {
     ...actual,
+    ERRORS: {
+      INVALID_TOKEN: "Invalid token format",
+      TOKEN_ENCRYPTION_FAILED_NPM: "Internal server error, failed to encrypt npm token",
+      TOKEN_ENCRYPTION_FAILED: "Internal server error, failed to encrypt token",
+      AUTH_NOT_INITIALIZED: "Unexpected error, auth is not initialized",
+    },
   };
 });
 
@@ -259,7 +256,7 @@ describe("AuthCore", () => {
 
       core.verifyUiToken("token");
 
-      expect(verifyJWTPayload).toHaveBeenCalledWith("token", "test-secret", expect.any(Object));
+      expect(verifyJWTPayload).toHaveBeenCalledWith("token", "auth-secret", expect.any(Object));
     });
   });
 

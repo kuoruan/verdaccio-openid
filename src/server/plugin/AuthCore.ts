@@ -216,9 +216,9 @@ export class AuthCore {
       return false;
     } else {
       name = payload.n;
-      userGroups = [...payload.g];
       // The groups were filtered when the token was issued.
-      realGroups = [...payload.g];
+      userGroups = [...payload.g];
+      realGroups = userGroups;
     }
 
     return this.authenticate(name, userGroups) ? { name, real_groups: realGroups } : false;

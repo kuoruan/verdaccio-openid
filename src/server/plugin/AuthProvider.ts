@@ -6,8 +6,8 @@ export interface TokenInfo {
   accessToken: string;
   idToken?: string;
   /** Seconds since the epoch. */
-  // `expires_in` from the token response is not used: it is only accurate at
-  // the moment that response is received.
+  // Set from `expires_in` once the token response arrives, so the relative
+  // value is not stale by the time it is read.
   expiresAt?: number;
 }
 
