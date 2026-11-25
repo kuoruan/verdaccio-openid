@@ -12,6 +12,25 @@ export const VERDACCIO_UI_OPTIONS_SCRIPT_MARKER = "ui-options.js";
 
 export const CONFIG_ENV_NAME_REGEX = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
+/** Provider id the npm WebAuth login routes are mounted under. */
+export const webAuthnProviderId = "authn";
+
+/** Provider id the removed loopback CLI login used. */
+export const cliProviderId = "cli";
+
+/** Length of a WebAuthn session id, which is `openid-client`'s state length. */
+export const SESSION_ID_LENGTH = 43;
+
+export const SESSION_ID_REGEX = /^[A-Za-z0-9_-]+$/;
+
+/** Answer for a CLI that still calls the removed loopback login routes. */
+export const messageCliUpgrade =
+  "this login flow is no longer supported: CLI 0.20.0 and older must upgrade to " +
+  "0.21.0 or newer (npx verdaccio-openid@latest)";
+
+export const messageGroupRequired = "You are not a member of the required access group.";
+export const messageLoggedAndCloseWindow = "You have logged in successfully and may close this window.";
+
 /**
  * Cookies that bind each login flow to the browser that started it.
  *

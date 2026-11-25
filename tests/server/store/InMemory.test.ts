@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import InMemoryStore from "@/server/store/InMemory";
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS } from "@/server/store/constants";
+import { isUndefined } from "@/utils";
 
 describe("InMemoryStore constructor", () => {
   it("should create instance with default options", () => {
@@ -133,7 +134,7 @@ describe("InMemoryStore methods", () => {
     await store.setLoginResult("race", { username: "dave", uiToken: "ui", npmToken: "npm" });
 
     const [first, second] = await Promise.all([store.takeLoginResult("race"), store.takeLoginResult("race")]);
-    const winners = [first, second].filter((r) => r !== undefined);
+    const winners = [first, second].filter((r) => !isUndefined(r));
 
     expect(winners).toHaveLength(1);
     expect(winners[0]).toEqual({ username: "dave", uiToken: "ui", npmToken: "npm" });
@@ -146,7 +147,7 @@ describe("InMemoryStore methods", () => {
     await store.setWebAuthnSession("race", { status: "ready", token: "issued-token" });
 
     const [first, second] = await Promise.all([store.takeWebAuthnSession("race"), store.takeWebAuthnSession("race")]);
-    const winners = [first, second].filter((r) => r !== undefined);
+    const winners = [first, second].filter((r) => !isUndefined(r));
 
     expect(winners).toHaveLength(1);
     expect(winners[0]).toEqual({ status: "ready", token: "issued-token" });

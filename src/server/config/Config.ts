@@ -13,6 +13,7 @@ import {
   type RedisConfig,
   StoreType,
 } from "@/server/store/Store";
+import { isNonEmptyString, isObject, isStringArray, isUndefined } from "@/utils";
 
 import {
   DynamoConfigSchema,
@@ -182,12 +183,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
             name: "is-string-array-or-boolean",
             skipAbsent: true,
             message: "must be a string, string[] or a boolean",
-            test: (value) => {
-              if (Array.isArray(value)) {
-                return value.every((item) => typeof item === "string");
-              }
-              return typeof value === "string" || typeof value === "boolean";
-            },
+            test: (value) => isStringArray(value) || typeof value === "string" || typeof value === "boolean",
           })
           .optional(),
       ) ?? false
@@ -203,12 +199,10 @@ export default class ParsedPluginConfig implements ConfigHolder {
           skipAbsent: true,
           message: "must be a Record<string, string[]>",
           test: (value) => {
-            if (typeof value !== "object" || value === null) {
+            if (!isObject(value)) {
               return false;
             }
-            return Object.values(value).every(
-              (item) => Array.isArray(item) && item.every((subItem) => typeof subItem === "string"),
-            );
+            return Object.values(value).every((item) => isStringArray(item));
           },
         })
         .optional(),
@@ -239,7 +233,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
       case StoreType.InMemory: {
         const storeConfig = this.getConfigValue<InMemoryConfig | undefined>(configKey, InMemoryConfigSchema.optional());
 
-        if (storeConfig === undefined) return;
+        if (isUndefined(storeConfig)) return;
 
         return withTTL(storeConfig) satisfies InMemoryConfig;
       }
@@ -251,13 +245,13 @@ export default class ParsedPluginConfig implements ConfigHolder {
             name: "is-redis-config-or-redis-url",
             message: "must be a valid RedisConfig object or a string",
             test: (value) => {
-              if (value === undefined) return true;
-              if (typeof value === "string" && value !== "") {
+              if (isUndefined(value)) return true;
+              if (isNonEmptyString(value)) {
                 return string()
                   .matches(/^rediss?:\/\//)
                   .isValidSync(value);
               }
-              if (typeof value === "object" && value !== null) {
+              if (isObject(value)) {
                 return RedisConfigSchema.isValidSync(value);
               }
               return false;
@@ -265,7 +259,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           }),
         );
 
-        if (storeConfig === undefined) return;
+        if (isUndefined(storeConfig)) return;
 
         if (typeof storeConfig === "string") {
           return storeConfig;
@@ -287,10 +281,10 @@ export default class ParsedPluginConfig implements ConfigHolder {
             name: "is-file-config-or-string",
             message: "must be a valid FileConfig object or a string",
             test: (value) => {
-              if (typeof value === "string" && value !== "") {
+              if (isNonEmptyString(value)) {
                 return true;
               }
-              if (typeof value === "object" && value !== null) {
+              if (isObject(value)) {
                 return FileConfigSchema.isValidSync(value);
               }
               return false;
@@ -317,7 +311,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
             name: "is-dynamo-config",
             message: "must be a valid DynamoConfig object",
             test: (value) => {
-              if (typeof value === "object" && value !== null) {
+              if (isObject(value)) {
                 return DynamoConfigSchema.isValidSync(value);
               }
               return false;
@@ -325,7 +319,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           }),
         );
 
-        if (storeConfig === undefined) return;
+        if (isUndefined(storeConfig)) return;
 
         const configHolder = new DynamoStoreConfigHolder(storeConfig, configKey);
 
@@ -344,13 +338,13 @@ export default class ParsedPluginConfig implements ConfigHolder {
             name: "is-mongo-config-or-mongo-uri",
             message: "must be a valid MongoConfig object or a MongoDB connection string",
             test: (value) => {
-              if (value === undefined) return true;
-              if (typeof value === "string" && value !== "") {
+              if (isUndefined(value)) return true;
+              if (isNonEmptyString(value)) {
                 return string()
                   .matches(/^mongodb(\+srv)?:\/\//)
                   .isValidSync(value);
               }
-              if (typeof value === "object" && value !== null) {
+              if (isObject(value)) {
                 return MongoConfigSchema.isValidSync(value);
               }
               return false;

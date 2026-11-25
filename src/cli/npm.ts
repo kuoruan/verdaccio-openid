@@ -6,6 +6,7 @@ import minimist from "minimist";
 import colors from "picocolors";
 
 import logger from "./logger";
+import { isNonEmptyString, isUndefined, safeJsonParse } from "@/utils";
 
 /** Registries the CLI refuses to authenticate against. */
 export const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com", "registry.npm.taobao.org"];
@@ -42,18 +43,14 @@ function runCommand(command: string, args: string[] = [], logCommand: boolean | 
 }
 
 function getNpmConfig(): Record<string, unknown> {
-  if (npmConfig !== undefined) {
+  if (!isUndefined(npmConfig)) {
     return npmConfig;
   }
 
   const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
 
-  try {
-    npmConfig = (JSON.parse(npmConfigJson) as Record<string, unknown> | null) ?? {};
-  } catch {
-    // Cache the empty result too, so a broken config is not re-read on every call.
-    npmConfig = {};
-  }
+  // Cache the empty result too, so a broken config is not re-read on every call.
+  npmConfig = (safeJsonParse(npmConfigJson) as Record<string, unknown> | null | undefined) ?? {};
 
   return npmConfig;
 }
@@ -71,7 +68,7 @@ export function getRegistryUrl(): string {
   const cliArgs = parseCliArgs();
   const cliRegistry = cliArgs.registry;
 
-  if (cliRegistry !== undefined && (typeof cliRegistry !== "string" || cliRegistry.trim() === "")) {
+  if (!isUndefined(cliRegistry) && !isNonEmptyString(cliRegistry)) {
     throw new Error("--registry expects a URL");
   }
 

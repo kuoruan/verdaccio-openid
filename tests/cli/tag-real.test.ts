@@ -24,6 +24,7 @@ import type { AddressInfo } from "node:net";
 
 import { webLogin } from "@/cli/web-login";
 import { WebAuthFlow as WorktreeFlow } from "@/server/flows/WebAuthFlow";
+import { isUndefined } from "@/utils";
 
 vi.mock("open", () => ({ default: vi.fn().mockResolvedValue(undefined) }));
 
@@ -336,12 +337,12 @@ describe("compat: webLogin against released login/done", () => {
             store.data.set(k, s.status === "pending" ? "__pending__" : s.token),
           getWebAuthnSession: async (k: string) => {
             const v = store.data.get(k);
-            if (v === undefined) return undefined;
+            if (isUndefined(v)) return undefined;
             return v === "__pending__" ? { status: "pending" } : { status: "ready", token: v };
           },
           takeWebAuthnSession: async (k: string) => {
             const v = store.data.get(k);
-            if (v === undefined) return undefined;
+            if (isUndefined(v)) return undefined;
             if (v === "__pending__") return { status: "pending" };
             store.data.delete(k);
             return { status: "ready", token: v };

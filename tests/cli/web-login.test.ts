@@ -8,7 +8,7 @@ import {
   CLI_TIMEOUT_MS,
   CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS,
   CLI_WEB_LOGIN_POLL_INTERVAL_MS,
-} from "@/constants";
+} from "@/cli/constants";
 import { webLogin } from "@/cli/web-login";
 import mockLogger from "@/cli/logger";
 

@@ -1,6 +1,9 @@
 import {
   escapeHtml,
+  isNonEmptyString,
   isNull,
+  isObject,
+  isStringArray,
   isUndefOrNull,
   isUndefined,
   redactUrlCredentials,
@@ -135,6 +138,39 @@ describe("nullish guards", () => {
     expect(isUndefOrNull(0)).toBe(false);
     expect(isUndefOrNull(false)).toBe(false);
     expect(isUndefOrNull("")).toBe(false);
+  });
+});
+
+describe("isObject", () => {
+  it("accepts objects and rejects null and primitives", () => {
+    expect(isObject({})).toBe(true);
+    expect(isObject([])).toBe(true);
+    expect(isObject(null)).toBe(false);
+    expect(isObject(undefined)).toBe(false);
+    expect(isObject("object")).toBe(false);
+    expect(isObject(0)).toBe(false);
+  });
+});
+
+describe("isNonEmptyString", () => {
+  it("accepts strings that hold more than whitespace", () => {
+    expect(isNonEmptyString("a")).toBe(true);
+    expect(isNonEmptyString(" a ")).toBe(true);
+    expect(isNonEmptyString("")).toBe(false);
+    expect(isNonEmptyString("   ")).toBe(false);
+    expect(isNonEmptyString(undefined)).toBe(false);
+    expect(isNonEmptyString(1)).toBe(false);
+  });
+});
+
+describe("isStringArray", () => {
+  it("accepts arrays of strings and rejects mixed or non-string entries", () => {
+    expect(isStringArray([])).toBe(true);
+    expect(isStringArray(["a", "b"])).toBe(true);
+    expect(isStringArray(["a", 1])).toBe(false);
+    expect(isStringArray("a")).toBe(false);
+    expect(isStringArray(null)).toBe(false);
+    expect(isStringArray(undefined)).toBe(false);
   });
 });
 

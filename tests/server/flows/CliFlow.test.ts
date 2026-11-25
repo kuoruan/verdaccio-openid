@@ -1,4 +1,4 @@
-import { messageCliUpgrade } from "@/constants";
+import { messageCliUpgrade } from "@/server/constants";
 import { CliFlow } from "@/server/flows/CliFlow";
 
 function fakeRes() {

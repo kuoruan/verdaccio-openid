@@ -3,6 +3,7 @@ import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN, ROW_FIELD } from "./constants";
 import logger from "@/server/logger";
 import { importOptional } from "@/server/utils";
+import { isUndefined } from "@/utils";
 
 import { validateStoredValue } from "./utils";
 
@@ -311,7 +312,7 @@ export default class DynamoStore extends BaseStore implements Store {
     const sk = this.rowKey("webAuthn", key, context);
     const item = await this.get<{ token?: string }>(sk, true);
     const current = item?.token;
-    if (current === undefined) return undefined;
+    if (isUndefined(current)) return undefined;
     if (current === PENDING_TOKEN) return current;
 
     try {

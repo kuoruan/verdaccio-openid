@@ -2,7 +2,7 @@ import { stripVTControlCharacters } from "node:util";
 
 import colors from "picocolors";
 
-import { messageNpmConfigUpdated } from "@/constants";
+import { messageNpmConfigUpdated } from "@/cli/constants";
 
 import logger from "./logger";
 import { getNpmConfigFile } from "./npm";

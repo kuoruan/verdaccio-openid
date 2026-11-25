@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { resetLanguage, supportedLanguages, t } from "@/client/plugin/i18n";
+import { isUndefined } from "@/utils";
 
 /** What the stubbed browser exposes: a stored language and the configured one. */
 interface Environment {
@@ -20,7 +21,7 @@ function stubEnvironment({ stored, uiLanguage }: Environment): void {
   // the UI resets the cache once per render pass, tests start a new pass each time
   resetLanguage();
   vi.stubGlobal("localStorage", {
-    getItem: vi.fn(() => (stored === undefined ? null : stored)),
+    getItem: vi.fn(() => (isUndefined(stored) ? null : stored)),
   });
   vi.stubGlobal("window", uiLanguage ? { __VERDACCIO_BASENAME_UI_OPTIONS: { language: uiLanguage } } : {});
 }

@@ -6,6 +6,7 @@ import ms, { type StringValue } from "ms";
 import { pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import logger from "@/server/logger";
+import { isObject, isUndefined, safeJsonParse } from "@/utils";
 
 /**
  * Resolve a configuration value that may name an environment variable.
@@ -36,21 +37,17 @@ export function resolveConfigValue(valueOrName: unknown, defaultName: string): u
 export function getEnvironmentValue(name: string): unknown {
   const value = process.env[name];
 
-  if (value === undefined) return value;
+  if (isUndefined(value)) return value;
 
   if (value === "true" || value === "false") {
     return value === "true";
   }
 
-  try {
-    const v = JSON.parse(value);
+  const v = safeJsonParse(value);
 
-    // Only return the parsed value if it is an object.
-    if (typeof v === "object" && v !== null) {
-      return v;
-    }
-  } catch {
-    // Do nothing
+  // Only return the parsed value if it is an object.
+  if (isObject(v)) {
+    return v;
   }
 
   return value;
@@ -75,7 +72,7 @@ export function handleValidationError(error: any, ...keyPaths: string[]): never 
  * @returns the duration in milliseconds, or undefined when the value is not one
  */
 export function getTTLValue(ttl?: number | string): number | undefined {
-  if (ttl === undefined) return undefined;
+  if (isUndefined(ttl)) return undefined;
 
   try {
     const value = typeof ttl === "string" ? ms(ttl as StringValue) : ttl;
@@ -111,5 +108,5 @@ export function withTTL<T extends { ttl?: number | string }>(config: T): Omit<T,
   const { ttl, ...rest } = config;
   const resolved = getTTLValue(ttl);
 
-  return (resolved === undefined ? rest : { ...rest, ttl: resolved }) as Omit<T, "ttl"> & { ttl?: number };
+  return (isUndefined(resolved) ? rest : { ...rest, ttl: resolved }) as Omit<T, "ttl"> & { ttl?: number };
 }

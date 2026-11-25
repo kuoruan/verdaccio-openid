@@ -9,6 +9,7 @@ import {
   type MongoConfig,
   type RedisConfig,
 } from "@/server/store/Store";
+import { isObject, isUndefined } from "@/utils";
 
 import { getTTLValue, handleValidationError, resolveConfigValue } from "./utils";
 
@@ -20,7 +21,7 @@ const ttlSchema = mixed().test({
   name: "is-duration",
   message: `must be a duration like "5m", or a number of milliseconds above ${MIN_TTL_MS}`,
   test: (value) => {
-    if (value === undefined) return true;
+    if (isUndefined(value)) return true;
 
     // The number threshold predates the conversion and stays as it was: a value
     // below it is a config error, not a duration to be rounded. Infinity would
@@ -28,7 +29,7 @@ const ttlSchema = mixed().test({
     if (typeof value === "number") return Number.isFinite(value) && value > MIN_TTL_MS;
     if (typeof value !== "string") return false;
 
-    return getTTLValue(value) !== undefined;
+    return !isUndefined(getTTLValue(value));
   },
 });
 
@@ -56,7 +57,7 @@ export const RedisConfigSchema = object<RedisConfig>({
         name: "is-valid-node",
         message: "must be an object, number, or string.",
         test: (value) => {
-          if (typeof value === "object" && value !== null) {
+          if (isObject(value)) {
             return nodeObjectSchema.isValidSync(value);
           }
 

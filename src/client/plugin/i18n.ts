@@ -12,6 +12,7 @@
  * means adding an entry here. The translations are not proofread by native
  * speakers.
  */
+import { safeJsonParse } from "@/utils";
 import { fallbackLanguage, languageStorageKey } from "@/client/constants";
 
 export type MessageKey = "loginDialogDivider" | "usageLoginHint" | "usageLoginHintAlternative";
@@ -114,7 +115,7 @@ function storedLanguage(): string {
 
     if (!stored) return "";
 
-    const parsed: unknown = JSON.parse(stored);
+    const parsed = safeJsonParse(stored);
 
     return typeof parsed === "string" ? parsed : "";
   } catch {

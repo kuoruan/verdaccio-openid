@@ -11,7 +11,7 @@ vi.mock("@/cli/npm", () => ({
   getNpmConfigFile: vi.fn(() => "/home/user/.npmrc"),
 }));
 
-vi.mock("@/constants", () => ({
+vi.mock("@/cli/constants", () => ({
   messageNpmConfigUpdated: "All done. We've updated your npm configuration.",
 }));
 

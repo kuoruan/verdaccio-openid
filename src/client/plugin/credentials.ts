@@ -5,6 +5,7 @@
  */
 import { LOCAL_STORAGE_KEYS } from "@/client/constants";
 import { AUTH_TOKEN_REGEX } from "@/constants";
+import { isNull } from "@/utils";
 import { parseJwt } from "./lib";
 
 /** A user name longer than this is a payload, not a name. */
@@ -45,7 +46,7 @@ export function saveCredentials(credentials: Credentials) {
       try {
         const old = previous[index];
 
-        if (old === null) localStorage.removeItem(key);
+        if (isNull(old)) localStorage.removeItem(key);
         else localStorage.setItem(key, old);
       } catch {
         // Storage is already failing; the original error is the useful one.

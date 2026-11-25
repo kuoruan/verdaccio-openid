@@ -44,23 +44,23 @@
 import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
 
-import {
-  messageLoggedAndCloseWindow,
-  npmDonePath,
-  npmLoginPath,
-  SESSION_ID_LENGTH,
-  SESSION_ID_REGEX,
-  webAuthnProviderId,
-} from "@/constants";
+import { npmDonePath, npmLoginPath } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/paths";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { getOpenIDClient } from "@/server/openid/client";
+import { clearLoginCookie, getLoginCookie, setLoginCookie } from "@/server/cookies";
+import {
+  messageLoggedAndCloseWindow,
+  SESSION_ID_LENGTH,
+  SESSION_ID_REGEX,
+  webAuthnProviderId,
+} from "@/server/constants";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
-import { clearLoginCookie, getBaseUrl, getLoginCookie, setLoginCookie } from "@/server/plugin/utils";
+import { getBaseUrl } from "@/server/plugin/utils";
 import type { WebAuthnStore } from "@/server/store/Store";
 import { buildAccessDeniedPage, buildErrorPage, buildSuccessPage } from "@/status-page";
 

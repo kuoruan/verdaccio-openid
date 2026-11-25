@@ -2,6 +2,7 @@ import { LOGIN_COOKIE_NAMES } from "@/server/constants";
 import type { LoginResult } from "@/server/store/Store";
 import InMemoryStore from "@/server/store/InMemory";
 import { WebFlow } from "@/server/flows/WebFlow";
+import { isUndefined } from "@/utils";
 
 import { cookiesOf, fakeResponse } from "../../helpers/express";
 
@@ -10,7 +11,7 @@ const STATE = "state-123";
 function fakeReq({ query = {}, body = {}, cookie }: { query?: any; body?: any; cookie?: string } = {}) {
   const headers: Record<string, string> = { host: "registry.example.com" };
 
-  if (cookie !== undefined) headers.cookie = `${LOGIN_COOKIE_NAMES.ui}=${cookie}`;
+  if (!isUndefined(cookie)) headers.cookie = `${LOGIN_COOKIE_NAMES.ui}=${cookie}`;
 
   return { query, body, headers, protocol: "https", url: "/-/oauth/callback" } as any;
 }

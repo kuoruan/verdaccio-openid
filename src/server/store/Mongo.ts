@@ -3,6 +3,7 @@ import type { Collection, MongoClient } from "mongodb";
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN, ROW_FIELD } from "./constants";
 import logger from "@/server/logger";
 import { importOptional } from "@/server/utils";
+import { isUndefined } from "@/utils";
 
 import { validateStoredValue } from "./utils";
 
@@ -311,7 +312,7 @@ export default class MongoStore extends BaseStore implements Store {
     const _id = this.rowKey("webAuthn", key, context);
     const current = (await this.get(_id))?.token;
 
-    if (current === undefined) return undefined;
+    if (isUndefined(current)) return undefined;
     if (current === PENDING_TOKEN) return current;
 
     try {

@@ -1,6 +1,6 @@
 /**
- * Pure helpers shared by the server and the CLI: no Express, no Verdaccio, no
- * network. They cover strings, URLs, JSON and nullish values.
+ * Pure helpers shared by the server, the CLI and the browser: no Express, no
+ * Verdaccio, no network.
  */
 
 /** The characters HTML special characters are replaced with. */
@@ -104,6 +104,21 @@ export function isUndefined(value: unknown): value is undefined {
 /** Type guard for `null`, using a strict comparison. */
 export function isNull(value: unknown): value is null {
   return value === null;
+}
+
+/** Type guard for a non-null object, whether plain or not. */
+export function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+/** Type guard for a string that holds more than whitespace. */
+export function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/** Type guard for an array whose entries are all strings. */
+export function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
 /** Type guard for `null` or `undefined`, using strict comparisons. */

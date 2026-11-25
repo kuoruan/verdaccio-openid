@@ -12,6 +12,7 @@ import {
   updatedAttrKey,
 } from "@/client/constants";
 import { loginHref, logoutHref, sessionPath } from "@/constants";
+import { isNull } from "@/utils";
 import { parseQueryParams } from "@/query-params";
 
 import {
@@ -127,7 +128,7 @@ export async function init(): Promise<void> {
   // The UI mounts after this script runs, and the empty-registry guide only
   // renders once the package list request resolves (~400ms in a warm browser),
   // so poll until it is there. The bound is an upper bound for slow machines.
-  retry(syncUsage, 10, () => document.querySelector(helpLoginCommandSelector) !== null);
+  retry(syncUsage, 10, () => !isNull(document.querySelector(helpLoginCommandSelector)));
 
   // Dialogs mount ~25ms after the click that opened them, history buttons fire
   // no click at all.

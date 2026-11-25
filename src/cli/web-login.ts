@@ -1,13 +1,13 @@
 import open from "open";
 
 import {
-  AUTH_TOKEN_REGEX,
   CLI_OPEN_BROWSER_TIMEOUT_MS,
   CLI_TIMEOUT_MS,
   CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS,
   CLI_WEB_LOGIN_POLL_INTERVAL_MS,
-  npmLoginPath,
-} from "@/constants";
+} from "@/cli/constants";
+import { AUTH_TOKEN_REGEX, npmLoginPath } from "@/constants";
+import { isNull, isObject } from "@/utils";
 
 import logger from "./logger";
 
@@ -163,7 +163,7 @@ function discardBody(response: Response): void {
 async function readJsonObject(response: Response, unexpected: string): Promise<Record<string, unknown>> {
   const body = (await response.json()) as unknown;
 
-  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+  if (!isObject(body) || Array.isArray(body)) {
     throw new Error(unexpected);
   }
 
@@ -257,7 +257,7 @@ function openWithTimeout(url: string, signal: AbortSignal): Promise<void> {
 }
 
 function retryAfterMs(value: string | null): number {
-  const seconds = value === null ? Number.NaN : Number(value);
+  const seconds = isNull(value) ? Number.NaN : Number(value);
 
   if (!Number.isFinite(seconds) || seconds <= 0) return CLI_WEB_LOGIN_POLL_INTERVAL_MS;
 

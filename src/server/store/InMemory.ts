@@ -1,6 +1,7 @@
 import { TTLCache } from "@isaacs/ttlcache";
 
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./constants";
+import { isUndefined } from "@/utils";
 
 import {
   BaseStore,
@@ -44,7 +45,7 @@ export default class InMemoryStore extends BaseStore implements Store {
     const cache = this.cacheFor(kind);
     const value = cache.get(rowKey);
 
-    if (value === undefined) {
+    if (isUndefined(value)) {
       return undefined;
     }
 

@@ -4,15 +4,17 @@ import express from "express";
 import { sessionPath } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/paths";
 import { stringifyQueryParams } from "@/query-params";
+import { isNonEmptyString } from "@/utils";
 import type { ConfigHolder } from "@/server/config/Config";
 import type { LoginResult, LoginResultStore } from "@/server/store/Store";
 import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { getOpenIDClient } from "@/server/openid/client";
+import { clearLoginCookie, getLoginCookie, setLoginCookie } from "@/server/cookies";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
-import { clearLoginCookie, getBaseUrl, getLoginCookie, setLoginCookie } from "@/server/plugin/utils";
+import { getBaseUrl } from "@/server/plugin/utils";
 
 import { buildAccessDeniedPage, buildErrorPage } from "@/status-page";
 
@@ -69,7 +71,7 @@ export class WebFlow implements PluginMiddleware {
 
       // Only the browser that started this login may finish it. Without this,
       // a login started elsewhere could be completed here with another account.
-      if (typeof state !== "string" || !state || getLoginCookie(req, "ui") !== state) {
+      if (!isNonEmptyString(state) || getLoginCookie(req, "ui") !== state) {
         res
           .status(400)
           .send(buildErrorPage(new Error("login state does not match this browser"), { backUrl: baseUrl }));
@@ -121,7 +123,7 @@ export class WebFlow implements PluginMiddleware {
   session: Handler = async (req, res) => {
     const code = req.body?.code;
 
-    if (typeof code !== "string" || !code) {
+    if (!isNonEmptyString(code)) {
       res.status(400).json({ error: "missing code" });
 
       return;

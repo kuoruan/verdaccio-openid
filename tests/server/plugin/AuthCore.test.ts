@@ -47,7 +47,7 @@ vi.mock("@/server/constants", async (importOriginal) => {
 import type { ConfigHolder } from "@/server/config/Config";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider, OpenIDToken } from "@/server/plugin/AuthProvider";
-import { base64Encode } from "@/server/plugin/utils";
+import { base64Encode } from "@/server/crypto";
 
 function createMockConfig(overrides: Partial<ConfigHolder> = {}): ConfigHolder {
   return {

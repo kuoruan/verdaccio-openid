@@ -4,11 +4,13 @@
  * @param m the module, or a promise for it
  * @returns the value the module exports as default, or the module itself
  */
+import { isObject } from "@/utils";
+
 export async function interopDefault<T>(m: PromiseLike<T> | T): Promise<T extends { default: infer U } ? U : T> {
   const resolved = await m;
 
-  if (!!resolved && typeof resolved === "object" && "default" in resolved) {
-    return (resolved as { default: any }).default;
+  if (isObject(resolved) && "default" in resolved) {
+    return (resolved as unknown as { default: any }).default;
   }
 
   return resolved as any;

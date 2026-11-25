@@ -1,3 +1,5 @@
+import { safeJsonParse } from "@/utils";
+
 /**
  * Decode the payload of a JWT without verifying it.
  *
@@ -29,7 +31,7 @@ export function parseJwt(token: string): Record<string, any> | null {
         .join(""),
     );
 
-    return JSON.parse(jsonPayload) as Record<string, any>;
+    return (safeJsonParse(jsonPayload) as Record<string, any>) ?? null;
   } catch {
     return null;
   }

@@ -1,5 +1,4 @@
-import { SESSION_ID_LENGTH } from "@/constants";
-import { LOGIN_COOKIE_NAMES } from "@/server/constants";
+import { LOGIN_COOKIE_NAMES, SESSION_ID_LENGTH } from "@/server/constants";
 import { isValidSessionId, WebAuthFlow } from "@/server/flows/WebAuthFlow";
 
 import { cookiesOf, fakeResponse } from "../../helpers/express";

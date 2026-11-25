@@ -4,6 +4,7 @@
  */
 import { parseSetCookie, serialize, type SetCookie } from "cookie";
 import type { CookieOptions } from "express";
+import { isUndefined } from "@/utils";
 
 export interface FakeResponse {
   statusCode: number;
@@ -33,7 +34,7 @@ export interface FakeResponse {
  * @returns the options for `cookie.serialize`
  */
 function toCookieOptions(options: CookieOptions): CookieOptions {
-  if (options.maxAge === undefined) return options;
+  if (isUndefined(options.maxAge)) return options;
 
   const milliseconds = Number(options.maxAge);
 

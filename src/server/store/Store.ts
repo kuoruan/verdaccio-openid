@@ -2,8 +2,8 @@ import type { TTLCacheOptions } from "@isaacs/ttlcache";
 import type { ClusterNode as RedisClusterNode, ClusterOptions as RedisClusterOptions, RedisOptions } from "ioredis";
 import type { InitOptions as FileInitOptions } from "node-persist";
 
-import { webAuthnProviderId } from "@/constants";
-import { safeJsonStringify } from "@/utils";
+import { webAuthnProviderId } from "@/server/constants";
+import { isObject, isUndefined, safeJsonStringify } from "@/utils";
 import { loginResultNamespace, PENDING_TOKEN } from "./constants";
 
 import { parseLoginResult, toWebAuthnSession } from "./utils";
@@ -114,9 +114,8 @@ export interface StoredValues {
 
 export abstract class BaseStore {
   /**
-   * Resolve the namespaced row key of a kind. Backends call this in
-   * the storage hooks instead of repeating the kind switch; the
-   * hooks still receive the raw `key` so key checks keep targeting
+   * Resolve the namespaced row key of a kind. Backends call this in the
+   * storage hooks. The hooks receive the raw `key`, so key checks target
    * the original key.
    */
   protected rowKey(kind: StoreKind, key: string, context?: StoreContext): string {
@@ -158,7 +157,7 @@ export abstract class BaseStore {
   /**
    * Remove the row of a kind. DynamoDB and MongoDB swallow delete errors
    * (a stale row expires via TTL); the other backends propagate them.
-   * Key validation errors still throw on every backend.
+   * Key validation errors are thrown by every backend.
    */
   protected abstract remove(kind: StoreKind, key: string, context?: StoreContext): MaybePromise<void>;
 
@@ -168,7 +167,7 @@ export abstract class BaseStore {
    * hook; backends only implement their own size rules. `value` is the
    * encoded storage input (`undefined` for paths without one: reads,
    * removes, and takes); callers must test it with `!== undefined` so an
-   * empty string still counts as a value.
+   * empty string counts as a value.
    */
   protected validate<K extends StoreKind>(
     _kind: K,
@@ -225,7 +224,7 @@ export abstract class BaseStore {
   }
 
   setUserInfo(key: string, data: unknown, providerId: string): MaybePromise<void> {
-    if (typeof data !== "object" || data === null) {
+    if (!isObject(data)) {
       throw new TypeError("userinfo data must be an object");
     }
 
@@ -288,7 +287,7 @@ export abstract class BaseStore {
     const serialized = safeJsonStringify(result);
 
     // The credentials are three strings, so this guards the type, not real data.
-    if (serialized === undefined) throw new Error("The login result is not serializable");
+    if (isUndefined(serialized)) throw new Error("The login result is not serializable");
 
     return this.writeValidated("loginResult", key, serialized);
   }

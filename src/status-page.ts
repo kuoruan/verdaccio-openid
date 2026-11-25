@@ -2,7 +2,8 @@ import ErrorIcon from "@/assets/icon-error.svg?raw";
 import SuccessIcon from "@/assets/icon-success.svg?raw";
 import WarningIcon from "@/assets/icon-warning.svg?raw";
 import Logo from "@/assets/logo.svg";
-import { messageGroupRequired, plugin } from "@/constants";
+import { plugin } from "@/constants";
+import { messageGroupRequired } from "@/server/constants";
 import { escapeHtml, safeUrl } from "@/utils";
 
 const styles = `

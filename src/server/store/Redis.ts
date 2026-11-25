@@ -2,7 +2,7 @@ import type { Cluster, Redis as RedisClient } from "ioredis";
 
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./constants";
 import { importOptional } from "@/server/utils";
-import { safeJsonParse } from "@/utils";
+import { isNull, isObject, safeJsonParse } from "@/utils";
 
 import {
   BaseStore,
@@ -125,11 +125,11 @@ export default class RedisStore extends BaseStore implements Store {
           throw error;
         }
 
-        if (raw === null) return undefined;
+        if (isNull(raw)) return undefined;
 
         const parsed: unknown = safeJsonParse(raw);
 
-        return (typeof parsed === "object" && parsed !== null ? parsed : undefined) as StoredValues[K] | undefined;
+        return (isObject(parsed) ? parsed : undefined) as StoredValues[K] | undefined;
       }
       case "userGroups": {
         const groups = await redis.lrange(rowKey, 0, -1);

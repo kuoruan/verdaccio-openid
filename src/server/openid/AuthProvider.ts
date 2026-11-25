@@ -13,7 +13,8 @@ import {
   type ProviderUser,
   type TokenInfo,
 } from "@/server/plugin/AuthProvider";
-import { getClaimsFromIdToken, getFullUrl, hashObject } from "@/server/plugin/utils";
+import { getClaimsFromIdToken, hashObject } from "@/server/crypto";
+import { getFullUrl } from "@/server/plugin/utils";
 import type { OpenIDStateStore, ProviderCache } from "@/server/store/Store";
 
 import { createDiscoveryCooldownError, createDiscoveryError } from "./DiscoveryErrorUtils";

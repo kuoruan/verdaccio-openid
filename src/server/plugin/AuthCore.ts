@@ -5,17 +5,11 @@ import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 import type { ConfigHolder } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
+import { isNonEmptyString, isStringArray } from "@/utils";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
-import {
-  base64Decode,
-  base64Encode,
-  getAllConfiguredGroups,
-  getAuthenticatedGroups,
-  isNowBefore,
-  signHmac,
-  verifyHmac,
-} from "./utils";
+import { base64Decode, base64Encode, signHmac, verifyHmac } from "@/server/crypto";
+import { getAllConfiguredGroups, getAuthenticatedGroups, isNowBefore } from "./utils";
 
 interface UserPayload {
   /** Subject of the provider token */
@@ -346,17 +340,11 @@ export class AuthCore {
     const { sub, at, n, g, exp } = (payload ?? {}) as Partial<AccessTokenPayload & UserPayload>;
     const subject = typeof sub === "string" ? sub : undefined;
 
-    if (typeof at === "string" && at) {
+    if (isNonEmptyString(at)) {
       return { at, sub: subject };
     }
 
-    if (
-      typeof n === "string" &&
-      n &&
-      typeof exp === "number" &&
-      Array.isArray(g) &&
-      g.every((group) => typeof group === "string")
-    ) {
+    if (isNonEmptyString(n) && typeof exp === "number" && isStringArray(g)) {
       return { n, g, exp, sub: subject };
     }
 
