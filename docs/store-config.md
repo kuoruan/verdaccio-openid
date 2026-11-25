@@ -1,6 +1,6 @@
 # Store configuration
 
-The `store-type` and `store-config` settings control where OIDC state, user info, user groups, and WebAuthn tokens are saved.
+The `store-type` and `store-config` settings control where OIDC state, user info, user groups, WebAuthn tokens, and pending login results are saved.
 
 | Store       | Persistence      | Typical use                                   |
 | ----------- | ---------------- | --------------------------------------------- |
@@ -41,11 +41,15 @@ npm install mongodb
 
 All store backends support the `ttl` option, which accepts milliseconds or a time string like `1m`:
 
-| Config key | Type                 | Default            | Description                             |
-| ---------- | -------------------- | ------------------ | --------------------------------------- |
-| `ttl`      | `number` \| `string` | `60000` (1 minute) | TTL for OIDC state and WebAuthn tokens. |
+| Config key | Type                 | Default            | Description                                                    |
+| ---------- | -------------------- | ------------------ | -------------------------------------------------------------- |
+| `ttl`      | `number` \| `string` | `60000` (1 minute) | TTL for OIDC state, WebAuthn tokens and pending login results. |
 
 > User info and group caches always expire after five minutes, regardless of `ttl`.
+>
+> `ttl` also does not change how long the browser keeps the cookie that binds a login to it: that cookie is kept for five minutes, so raising `ttl` above five minutes lengthens how long a pending login stays in the store, not how long the browser may present it.
+
+A `ttl` that is not a duration, or not positive, is a configuration error: the config is rejected with a message naming the key rather than falling back to a default. A plain number must also be above 1000, the threshold this option has always had.
 
 ---
 
@@ -61,7 +65,7 @@ auth:
       ttl: 1m
 ```
 
-All options are passed to the `TTLCache` constructor. Supported options include `max`, `ttl`, and `noDisposeOnSet`.
+The options are passed to the cache that holds login state, so `max` bounds those rows only. The user info and group cache is a second, fixed cache: 5-minute TTL, capped at 2000 entries. Supported options include `max`, `ttl`, and `noDisposeOnSet`.
 
 ---
 
@@ -144,6 +148,10 @@ This backend uses [node-persist](https://www.npmjs.com/package/node-persist) and
 
 **Install:** `npm install node-persist`
 
+node-persist has no lock, so run a single Verdaccio process per directory. Unlike Redis, MongoDB and DynamoDB, this backend cannot promise that a pending login is handed out exactly once; use one of those when that matters.
+
+The store directory is created with mode `0700`, and an existing directory is tightened to `0700` at startup; if that fails, the plugin logs a warning.
+
 ### String config (directory path)
 
 ```yaml
@@ -178,7 +186,7 @@ auth:
 
 ## `dynamodb`
 
-This backend uses the AWS SDK for DynamoDB. OIDC state, user info, groups, and WebAuthn tokens are stored in one DynamoDB table and shared across replicas.
+This backend uses the AWS SDK for DynamoDB. OIDC state, user info, groups, WebAuthn tokens, and pending login results are stored in one DynamoDB table and shared across replicas.
 
 **Install:** `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb`
 
@@ -237,7 +245,7 @@ auth:
 
 ## `mongodb`
 
-This backend uses the official [mongodb](https://www.npmjs.com/package/mongodb) Node.js driver. OIDC state, user info, groups, and WebAuthn tokens are stored as documents in a single collection and shared across replicas. It works with any MongoDB 4.0+ compatible server, including MongoDB Atlas, Azure Cosmos DB for MongoDB (vCore), and Amazon DocumentDB.
+This backend uses the official [mongodb](https://www.npmjs.com/package/mongodb) Node.js driver. OIDC state, user info, groups, WebAuthn tokens, and pending login results are stored as documents in a single collection and shared across replicas. It works with any MongoDB 4.0+ compatible server, including MongoDB Atlas, Azure Cosmos DB for MongoDB (vCore), and Amazon DocumentDB — useful when a MongoDB instance already runs next to the registry.
 
 **Install:** `npm install mongodb`
 

@@ -21,6 +21,7 @@ pnpm install
 | `pnpm changeset`   | Create a changeset for a user-facing change.                              |
 | `pnpm start`       | Start Verdaccio 7 with the plugin for local testing.                      |
 | `pnpm start:5`     | Start Verdaccio 5 with the plugin for compatibility testing.              |
+| `pnpm start:6`     | Start Verdaccio 6 with the plugin for compatibility testing.              |
 | `pnpm test`        | Run tests with [Vitest](https://vitest.dev/).                             |
 | `pnpm lint`        | Run [oxlint](https://oxc.rs/docs/guide/usage/linter.html).                |
 | `pnpm lint:fix`    | Auto-fix lint issues.                                                     |
@@ -47,10 +48,12 @@ src/
 │   ├── plugin/       # Verdaccio plugin interface implementation
 │   └── store/        # Store backends (in-memory, Redis, file, DynamoDB, MongoDB)
 ├── constants.ts      # Shared constants
-└── paths.ts          # URL path helpers
+├── paths.ts          # URL path helpers
+└── utils.ts          # Helpers shared by every bundle: HTML escaping, URL checks
 tests/                # Vitest test suites
 verdaccio/            # Verdaccio 7 test config
 verdaccio5/           # Verdaccio 5 test config
+verdaccio6/           # Verdaccio 6 test config
 ```
 
 ## Code quality
@@ -62,6 +65,15 @@ This project uses the [oxc](https://oxc.rs/) toolchain for linting and formattin
 
 A pre-commit hook powered by [husky](https://typicode.github.io/husky/) and [lint-staged](https://github.com/lint-staged/lint-staged) runs linting and formatting on staged files automatically.
 
+### Where helpers go
+
+- `src/utils.ts` — helpers that only touch strings and URLs, which the server, the CLI and the browser bundle can all import.
+- `src/server/utils.ts` — helpers for loading modules (`interopDefault`, `importOptional`).
+- `src/server/plugin/utils.ts` — helpers that need Express or Verdaccio: cookies, base URL, groups, HMAC.
+- `src/server/config/utils.ts` — helpers for parsing the config.
+
+Before writing a helper, check whether Node or a maintained package already does it: `cookie` parses cookies, Express writes them, `node:util` removes terminal escape sequences, and `ms` parses durations.
+
 ## Naming
 
 Types, interfaces and enums use `PascalCase`. Everything else follows the kind of constant it is:
@@ -69,7 +81,7 @@ Types, interfaces and enums use `PascalCase`. Everything else follows the kind o
 | Style         | Used for                                                                                                                                  | Examples                                                                                      |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `UPPER_SNAKE` | Literal tables (`as const` objects, `Set`s, fixed arrays) and file-local fixed literals: regexes, byte or length limits, sentinel strings | `ERRORS`, `LOCAL_STORAGE_KEYS`, `PUBLIC_REGISTRIES`, `CONFIG_ENV_NAME_REGEX`, `MAX_KEY_BYTES` |
-| `camelCase`   | Every other constant: DOM selectors, ids, class names, paths, ports, messages, CSS, and anything derived from another constant            | `loginButtonSelector`, `openIDStyleId`, `loginHref`, `cliPort`, `pluginKey`                   |
+| `camelCase`   | Every other constant: DOM selectors, ids, class names, paths, ports, messages, CSS, and anything derived from another constant            | `loginButtonSelector`, `openIDStyleId`, `loginHref`, `npmLoginPath`, `pluginKey`              |
 
 Keys inside a literal table stay `UPPER_SNAKE` (`LOCAL_STORAGE_KEYS.USERNAME`), since they are entries of that table rather than standalone constants.
 

@@ -1,6 +1,6 @@
 # 存储配置
 
-`store-type` 和 `store-config` 选项控制 OIDC 状态、用户信息、用户组和 WebAuthn token 的持久化存储位置。
+`store-type` 和 `store-config` 选项控制 OIDC 状态、用户信息、用户组、WebAuthn token 和待领取登录凭证的持久化存储位置。
 
 | 存储        | 持久化方式   | 适用场景                 |
 | ----------- | ------------ | ------------------------ |
@@ -41,11 +41,15 @@ npm install mongodb
 
 所有存储后端都支持 `ttl` 选项（毫秒数或时间字符串，如 `1m`）：
 
-| 配置项 | 类型                 | 默认值            | 说明                                    |
-| ------ | -------------------- | ----------------- | --------------------------------------- |
-| `ttl`  | `number` \| `string` | `60000`（1 分钟） | OIDC 状态和 WebAuthn token 的过期时间。 |
+| 配置项 | 类型                 | 默认值            | 说明                                                   |
+| ------ | -------------------- | ----------------- | ------------------------------------------------------ |
+| `ttl`  | `number` \| `string` | `60000`（1 分钟） | OIDC 状态、WebAuthn token 和待领取登录凭证的过期时间。 |
 
 > **注意**：用户信息和组缓存的过期时间固定为 5 分钟，不受 `ttl` 影响。
+>
+> `ttl` 也不改变浏览器保留登录绑定 cookie 的时长：该 cookie 固定保留 5 分钟。把 `ttl` 调到 5 分钟以上只会让待领取的登录在存储里留得更久，不会延长浏览器可出示它的时间。
+
+`ttl` 不是合法时长或不是正数时视为配置错误：配置会被拒绝并指出该配置项，而不是悄悄退回默认值。直接写数字时还必须大于 1000，这是该选项一直以来的下限。
 
 ---
 
@@ -61,7 +65,7 @@ auth:
       ttl: 1m
 ```
 
-所有选项将传递给 `TTLCache` 构造函数。支持的选项包括 `max`、`ttl`、`noDisposeOnSet` 等。
+这些选项传给存放登录状态的缓存，因此 `max` 只限制这部分行。用户信息和组缓存是独立的固定缓存：5 分钟过期、上限 2000 条。支持的选项包括 `max`、`ttl`、`noDisposeOnSet` 等。
 
 ---
 
@@ -144,6 +148,10 @@ auth:
 
 **安装：** `npm install node-persist`
 
+node-persist 没有锁，因此每个目录只应运行一个 Verdaccio 进程。与 Redis、MongoDB 和 DynamoDB 不同，该后端无法保证待领取登录只发放一次；需要该保证时请改用那几个后端。
+
+存储目录以 `0700` 权限创建，已存在的目录也会在启动时收紧为 `0700`；收紧失败时插件会记录一条警告。
+
 ### 字符串配置（目录路径）
 
 ```yaml
@@ -178,7 +186,7 @@ auth:
 
 ## `dynamodb`
 
-使用 AWS SDK for DynamoDB。OIDC 状态、用户信息、组和 WebAuthn token 持久化存储在 DynamoDB 表中 — 所有副本共享。
+使用 AWS SDK for DynamoDB。OIDC 状态、用户信息、组、WebAuthn token 和待领取登录凭证持久化存储在 DynamoDB 表中 — 所有副本共享。
 
 **安装：** `npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb`
 
@@ -237,7 +245,7 @@ auth:
 
 ## `mongodb`
 
-使用官方 [mongodb](https://www.npmjs.com/package/mongodb) Node.js 驱动。OIDC 状态、用户信息、组和 WebAuthn token 以文档形式持久化存储在同一个集合中 — 所有副本共享。兼容任何 MongoDB 4.0+ 服务器，包括 MongoDB Atlas、Azure Cosmos DB for MongoDB（vCore）和 Amazon DocumentDB — 当 registry 旁边已经有一个 MongoDB 时尤为方便。
+使用官方 [mongodb](https://www.npmjs.com/package/mongodb) Node.js 驱动。OIDC 状态、用户信息、组、WebAuthn token 和待领取登录凭证以文档形式持久化存储在同一个集合中 — 所有副本共享。兼容任何 MongoDB 4.0+ 服务器，包括 MongoDB Atlas、Azure Cosmos DB for MongoDB（vCore）和 Amazon DocumentDB — 当 registry 旁边已经有一个 MongoDB 时尤为方便。
 
 **安装：** `npm install mongodb`
 

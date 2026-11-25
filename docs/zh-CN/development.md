@@ -21,6 +21,7 @@ pnpm install
 | `pnpm changeset`   | 为面向用户的变更创建 changeset。                                          |
 | `pnpm start`       | 启动 Verdaccio 7 并加载插件，用于本地测试。                               |
 | `pnpm start:5`     | 启动 Verdaccio 5 并加载插件，用于兼容性测试。                             |
+| `pnpm start:6`     | 启动 Verdaccio 6 并加载插件，用于兼容性测试。                             |
 | `pnpm test`        | 使用 [Vitest](https://vitest.dev/) 运行测试。                             |
 | `pnpm lint`        | 运行 [oxlint](https://oxc.rs/docs/guide/usage/linter.html)。              |
 | `pnpm lint:fix`    | 自动修复 lint 问题。                                                      |
@@ -53,10 +54,12 @@ src/
 │   ├── plugin/       # Verdaccio 插件接口实现
 │   └── store/        # 存储后端（in-memory、Redis、File、DynamoDB、MongoDB）
 ├── constants.ts      # 共享常量
-└── paths.ts          # URL 路径工具
+├── paths.ts          # URL 路径工具
+└── utils.ts          # 各产物共用的工具：HTML 转义、URL 校验
 tests/                # Vitest 测试套件
 verdaccio/            # Verdaccio 7 测试配置
 verdaccio5/           # Verdaccio 5 测试配置
+verdaccio6/           # Verdaccio 6 测试配置
 ```
 
 ## 代码质量
@@ -68,6 +71,15 @@ verdaccio5/           # Verdaccio 5 测试配置
 
 通过 pre-commit 钩子（[husky](https://typicode.github.io/husky/) + [lint-staged](https://github.com/lint-staged/lint-staged)）在暂存文件上自动运行 lint 和格式化。
 
+### 工具函数放哪里
+
+- `src/utils.ts` — 只处理字符串和 URL，服务端、CLI 与浏览器产物都可引用。
+- `src/server/utils.ts` — 模块加载相关（`interopDefault`、`importOptional`）。
+- `src/server/plugin/utils.ts` — 需要 Express 或 Verdaccio 的工具：cookie、基础 URL、组、HMAC。
+- `src/server/config/utils.ts` — 配置解析相关工具。
+
+写工具函数前先确认 Node 或现成依赖能否解决：`cookie` 负责解析 cookie，Express 负责写出 cookie，`node:util` 负责去除终端转义序列，`ms` 负责解析时长。
+
 ## 命名
 
 类型、接口和枚举使用 `PascalCase`。其余常量按种类区分：
@@ -75,7 +87,7 @@ verdaccio5/           # Verdaccio 5 测试配置
 | 风格          | 适用                                                                                                 | 示例                                                                                          |
 | ------------- | ---------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `UPPER_SNAKE` | 字面量表（`as const` 对象、`Set`、固定数组）以及文件内的固定字面量：正则、字节或长度上限、哨兵字符串 | `ERRORS`、`LOCAL_STORAGE_KEYS`、`PUBLIC_REGISTRIES`、`CONFIG_ENV_NAME_REGEX`、`MAX_KEY_BYTES` |
-| `camelCase`   | 其余所有常量：DOM 选择器、id、类名、路径、端口、文案、CSS，以及任何由其他常量派生的值                | `loginButtonSelector`、`openIDStyleId`、`loginHref`、`cliPort`、`pluginKey`                   |
+| `camelCase`   | 其余所有常量：DOM 选择器、id、类名、路径、端口、文案、CSS，以及任何由其他常量派生的值                | `loginButtonSelector`、`openIDStyleId`、`loginHref`、`npmLoginPath`、`pluginKey`              |
 
 字面量表内部的下标保持 `UPPER_SNAKE`（如 `LOCAL_STORAGE_KEYS.USERNAME`），它们是表的条目，而不是独立常量。
 
