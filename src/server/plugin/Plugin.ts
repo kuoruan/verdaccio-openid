@@ -10,14 +10,13 @@ import { plugin } from "@/constants";
 import ParsedPluginConfig, { type OpenIDConfig } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
-import { CliFlow, WebFlow } from "@/server/flows";
+import { CliFlow, WebAuthFlow, WebFlow } from "@/server/flows";
 import logger, { setLogger } from "@/server/logger";
 import { OpenIDConnectAuthProvider } from "@/server/openid";
 import { registerGlobalProxy } from "@/server/proxy-agent";
 import { createStore } from "@/server/store";
 import type { Store } from "@/server/store/Store";
 
-import { WebAuthFlow } from "../flows/WebAuthFlow";
 import { AuthCore, type VerifiedUser } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
 import { PatchHtml } from "./PatchHtml";
@@ -138,8 +137,8 @@ export class Plugin
     const children = [
       new ServeStatic(),
       new PatchHtml(this.parsedConfig),
-      new WebFlow(this.parsedConfig, this.core, this.provider),
-      new CliFlow(this.parsedConfig, this.core, this.provider),
+      new WebFlow(this.parsedConfig, this.core, this.provider, this.store),
+      new CliFlow(),
       new WebAuthFlow(this.parsedConfig, this.core, this.provider, this.store),
     ] satisfies PluginMiddleware[];
 

@@ -44,7 +44,14 @@
 import { errorUtils } from "@verdaccio/core";
 import express, { type Application, type Handler } from "express";
 
-import { messageLoggedAndCloseWindow, npmDonePath, npmLoginPath, webAuthnProviderId } from "@/constants";
+import {
+  messageLoggedAndCloseWindow,
+  npmDonePath,
+  npmLoginPath,
+  SESSION_ID_LENGTH,
+  SESSION_ID_REGEX,
+  webAuthnProviderId,
+} from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/paths";
 import type { ConfigHolder } from "@/server/config/Config";
 import { debug } from "@/server/debugger";
@@ -53,17 +60,12 @@ import { getOpenIDClient } from "@/server/openid/client";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
-import { getBaseUrl } from "@/server/plugin/utils";
-import type { Store } from "@/server/store/Store";
+import { clearLoginCookie, getBaseUrl, getLoginCookie, setLoginCookie } from "@/server/plugin/utils";
+import type { WebAuthnStore } from "@/server/store/Store";
 import { buildAccessDeniedPage, buildErrorPage, buildSuccessPage } from "@/status-page";
-
-const PENDING_TOKEN = "__pending__";
 
 const webAuthnAuthorizePath = getAuthorizePath(webAuthnProviderId);
 const webAuthnCallbackPath = getCallbackPath(webAuthnProviderId);
-
-export const SESSION_ID_LENGTH = 43; // openid-client default length for state parameter
-const SESSION_ID_REGEX = /^[A-Za-z0-9_-]+$/;
 
 export function isValidSessionId(sessionId: string): boolean {
   return sessionId.length === SESSION_ID_LENGTH && SESSION_ID_REGEX.test(sessionId);
@@ -74,7 +76,7 @@ export class WebAuthFlow implements PluginMiddleware {
     private readonly config: ConfigHolder,
     private readonly core: AuthCore,
     private readonly provider: AuthProvider,
-    private readonly store: Store,
+    private readonly store: WebAuthnStore,
   ) {}
 
   register_middlewares(app: Application): void {
@@ -89,7 +91,7 @@ export class WebAuthFlow implements PluginMiddleware {
       const openidClient = await getOpenIDClient();
       const sessionId = openidClient.randomState();
 
-      await this.store.setWebAuthnToken(sessionId, PENDING_TOKEN);
+      await this.store.setWebAuthnSession(sessionId, { status: "pending" });
 
       const baseUrl = getBaseUrl(this.config.urlPrefix, req, true);
 
@@ -119,21 +121,21 @@ export class WebAuthFlow implements PluginMiddleware {
     }
 
     try {
-      const token = await this.store.takeWebAuthnToken(sessionId, PENDING_TOKEN);
+      const session = await this.store.takeWebAuthnSession(sessionId);
 
-      if (!token) {
+      if (!session) {
         next(errorUtils.getUnauthorized("invalid or expired session"));
 
         return;
       }
 
-      if (token === PENDING_TOKEN) {
+      if (session.status === "pending") {
         res.header("Retry-After", "3").status(202).json({});
 
         return;
       }
 
-      res.json({ token });
+      res.json({ token: session.token });
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
@@ -162,11 +164,16 @@ export class WebAuthFlow implements PluginMiddleware {
       const redirectUrl = baseUrl + webAuthnCallbackPath;
 
       const url = await this.provider.getLoginUrl(redirectUrl, sessionId);
+
+      // The callback receives the token in the browser that started this login.
+      // The login URL itself stays an invitation: whoever opens it completes
+      // that login, as npm's own registry behaves.
+      setLoginCookie(res, req, this.config.urlPrefix, "npm", sessionId);
       res.redirect(url);
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
-      void this.store.deleteWebAuthnToken(sessionId);
+      this.discardSession(sessionId);
       res.status(500).send(buildErrorPage(e));
     }
   };
@@ -187,10 +194,16 @@ export class WebAuthFlow implements PluginMiddleware {
       return;
     }
 
-    try {
-      const sessionToken = await this.store.getWebAuthnToken(sessionId);
+    if (getLoginCookie(req, "npm") !== sessionId) {
+      res.status(400).send(buildErrorPage(new Error("login state does not match this browser")));
 
-      if (sessionToken !== PENDING_TOKEN) {
+      return;
+    }
+
+    try {
+      const session = await this.store.getWebAuthnSession(sessionId);
+
+      if (session?.status !== "pending") {
         res.status(401).send(buildErrorPage(new Error("invalid or expired session")));
 
         return;
@@ -211,18 +224,42 @@ export class WebAuthFlow implements PluginMiddleware {
 
         const npmToken = await this.core.issueNpmToken(userinfo.name, realGroups, providerToken);
 
-        await this.store.setWebAuthnToken(sessionId, npmToken);
+        await this.store.setWebAuthnSession(sessionId, { status: "ready", token: npmToken });
 
+        clearLoginCookie(res, req, this.config.urlPrefix, "npm");
         res.status(200).send(buildSuccessPage(messageLoggedAndCloseWindow));
       } else {
-        void this.store.deleteWebAuthnToken(sessionId);
+        this.discardSession(sessionId);
         res.status(401).send(buildAccessDeniedPage());
       }
     } catch (e: any) {
       logger.error({ message: e.message ?? e }, "auth error: @{message}");
 
-      void this.store.deleteWebAuthnToken(sessionId);
+      this.discardSession(sessionId);
       res.status(500).send(buildErrorPage(e));
     }
   };
+
+  /**
+   * Drop a session after a failed login.
+   *
+   * Cleanup must not change the response the user already gets, and the store
+   * backends differ in how they report errors: Redis, File and InMemory
+   * propagate a failed delete, so leaving the promise unattended would become
+   * an unhandled rejection and stop the process.
+   *
+   * @param sessionId the session to drop
+   */
+  private discardSession(sessionId: string): void {
+    const report = (error: any) => {
+      logger.error({ message: error?.message ?? error }, "failed to drop the login session: @{message}");
+    };
+
+    try {
+      Promise.resolve(this.store.deleteWebAuthnSession(sessionId)).catch(report);
+    } catch (error: any) {
+      // A synchronous backend (or a validation failure) throws before any promise.
+      report(error);
+    }
+  }
 }

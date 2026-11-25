@@ -1,24 +1,107 @@
 import type { Request } from "express";
 
-import { ERRORS } from "@/server/constants";
+import { ERRORS, LOGIN_COOKIE_NAMES } from "@/server/constants";
 import {
   base64Decode,
   base64Encode,
+  clearLoginCookie,
   getAllConfiguredGroups,
   getAuthenticatedGroups,
   getBaseUrl,
   getClaimsFromIdToken,
+  getCookie,
   getFullUrl,
   getPackageSpec,
   hashObject,
   isNowBefore,
+  setLoginCookie,
   signHmac,
   verifyHmac,
 } from "@/server/plugin/utils";
 
+import { getPublicUrl } from "@verdaccio/url";
+
+import { cookiesOf, fakeResponse } from "../helpers/express";
+
 vi.mock("@verdaccio/url", () => ({
   getPublicUrl: vi.fn().mockReturnValue("http://localhost/"),
 }));
+
+describe("getCookie", () => {
+  const request = (cookie?: string) => ({ headers: cookie ? { cookie } : {} }) as Request;
+
+  it("should read the cookie it is asked for", () => {
+    expect(getCookie(request("a=1; openid-login-ui=abc; b=2"), LOGIN_COOKIE_NAMES.ui)).toBe("abc");
+  });
+
+  it("should decode the value the way it was encoded", () => {
+    expect(getCookie(request(`${LOGIN_COOKIE_NAMES.ui}=a%2Fb`), LOGIN_COOKIE_NAMES.ui)).toBe("a/b");
+  });
+
+  it("should return undefined when it is not there", () => {
+    expect(getCookie(request("a=1"), LOGIN_COOKIE_NAMES.ui)).toBeUndefined();
+    expect(getCookie(request(), LOGIN_COOKIE_NAMES.ui)).toBeUndefined();
+  });
+});
+
+describe("setLoginCookie", () => {
+  const request = { headers: { host: "registry.example.com" }, protocol: "https" } as Request;
+
+  it("should keep the binding cookie for five minutes", () => {
+    const res = fakeResponse();
+    const cookie = vi.fn(res.cookie);
+
+    res.cookie = cookie;
+    setLoginCookie(res as any, request, "", "ui", "state-123");
+
+    // Express takes milliseconds and serializes them as seconds.
+    expect(cookie.mock.calls[0][2]).toMatchObject({ maxAge: 5 * 60 * 1000 });
+  });
+
+  it("should confine the login cookie to the browser", () => {
+    vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/");
+
+    const res = fakeResponse();
+
+    setLoginCookie(res as any, request, "", "ui", "state-123");
+
+    const cookie = cookiesOf(res)[LOGIN_COOKIE_NAMES.ui];
+
+    expect(cookie.value).toBe("state-123");
+    expect(cookie.httpOnly).toBe(true);
+    expect(cookie.sameSite).toBe("lax");
+    expect(cookie.secure).toBe(true);
+    expect(cookie.path).toBe("/");
+  });
+
+  it("should not mark it secure when the registry is served over http", () => {
+    const res = fakeResponse();
+
+    setLoginCookie(
+      res as any,
+      { headers: { host: "localhost:4873" }, protocol: "http" } as Request,
+      "",
+      "ui",
+      "state-123",
+    );
+
+    expect(cookiesOf(res)[LOGIN_COOKIE_NAMES.ui].secure).not.toBe(true);
+  });
+
+  it("should clear it when the login is over", () => {
+    const res = fakeResponse();
+    const clear = vi.fn(res.clearCookie);
+
+    res.clearCookie = clear;
+    clearLoginCookie(res as any, request, "", "ui");
+
+    // Express 4 forwards the options it receives, so a lingering maxAge would
+    // win over the expired date and the cookie would stay.
+    expect(clear.mock.calls[0][1]).not.toHaveProperty("maxAge");
+    expect(cookiesOf(res)[LOGIN_COOKIE_NAMES.ui].expires).toEqual(new Date(0));
+    expect(cookiesOf(res)[LOGIN_COOKIE_NAMES.ui].maxAge).toBeUndefined();
+  });
+});
 
 describe("base64Encode", () => {
   it("should encode string to base64", () => {
