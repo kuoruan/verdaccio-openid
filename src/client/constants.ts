@@ -21,6 +21,17 @@ export const helpLoginYarnPluginSelector = `[data-testid="help-login-yarn-plugin
 /** Marks a DOM node the plugin already handled. */
 export const updatedAttrKey = `data-${pluginKey}`;
 
+/**
+ * Marks a host row this plugin hides.
+ *
+ * The scoped `[hidden]` rule relies on it so the plugin never overrides
+ * `display` on rows it does not own.
+ */
+export const hiddenMarker = `data-${pluginKey}-hidden`;
+
+/** How long the client waits for the login code exchange before giving up. */
+export const SESSION_EXCHANGE_TIMEOUT_MS = 30_000;
+
 /** Class names of the nodes the plugin injects into the Verdaccio UI. */
 export const hintClass = "verdaccio-openid-hint";
 export const commandRowClass = "verdaccio-openid-command";
@@ -66,6 +77,12 @@ export const openIDStyles = `
 }
 [hidden] + .${hintClass} {
   margin-top: 0;
+}
+/* The host rows can carry an inline display, which outranks the browser's
+   [hidden] rule; scoping the override to the rows this plugin hides keeps it
+   from affecting anything else on the page. */
+[${hiddenMarker}][hidden] {
+  display: none !important;
 }
 .${dividerClass} {
   display: flex;

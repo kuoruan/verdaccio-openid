@@ -24,9 +24,17 @@ export const CLI_WEB_LOGIN_POLL_INTERVAL_MS = 2_000;
 /** The longest gap the CLI leaves between web-login polls, whatever the server asks for. */
 export const CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS = 5_000;
 
+/** A token is a JWT or a base64url string; nothing outside this set can be one. */
+export const AUTH_TOKEN_REGEX = /^[A-Za-z0-9_\-+/=.]{1,4096}$/;
+
 export const npmLoginPath = "/-/v1/login";
 export const npmDonePath = "/-/v1/done";
 export const webAuthnProviderId = "authn";
+
+/** Length of a WebAuthn session id, which is `openid-client`'s state length. */
+export const SESSION_ID_LENGTH = 43;
+
+export const SESSION_ID_REGEX = /^[A-Za-z0-9_-]+$/;
 
 /** Answer for a CLI that still calls the removed loopback login routes. */
 export const messageCliUpgrade =

@@ -3,14 +3,7 @@ import SuccessIcon from "@/assets/icon-success.svg?raw";
 import WarningIcon from "@/assets/icon-warning.svg?raw";
 import Logo from "@/assets/logo.svg";
 import { messageGroupRequired, plugin } from "@/constants";
-
-const escapeHtml = (str: string): string =>
-  str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+import { escapeHtml, safeUrl } from "@/utils";
 
 const styles = `
 *,
@@ -221,7 +214,7 @@ const themeScript = `
 /** Whether to show a back link, and where it goes. A string is used as the link target. */
 export type BackOptions = boolean | Record<"backUrl", string>;
 
-const defaultBackUrl = "javascript:history.back()";
+const defaultBackUrl = "/";
 
 /**
  * Wrap a card body in the standalone page the plugin serves outside the UI.
@@ -233,7 +226,7 @@ const defaultBackUrl = "javascript:history.back()";
 export function buildStatusPage(body: string, withBack: BackOptions = false): string {
   let backUrl;
   if (typeof withBack === "object") {
-    backUrl = withBack.backUrl || defaultBackUrl;
+    backUrl = safeUrl(withBack.backUrl || defaultBackUrl, defaultBackUrl);
   } else if (withBack) {
     backUrl = defaultBackUrl;
   }
@@ -276,14 +269,14 @@ export function buildErrorPage(error: any, withBack: BackOptions = false) {
 /**
  * Build the page shown when the flow finished and the user can close the window.
  *
- * @param message the message to show, inserted as HTML
+ * @param message the message to show, escaped before insertion
  * @param withBack whether to offer a back link, and where it points
  */
 export function buildSuccessPage(message: string, withBack: BackOptions = false) {
   return buildStatusPage(
     `<div class="icon success">${SuccessIcon}</div>
     <h1 class="success">Success</h1>
-    <p class="message">${message}</p>`,
+    <p class="message">${escapeHtml(message)}</p>`,
     withBack,
   );
 }

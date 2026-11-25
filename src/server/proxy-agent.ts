@@ -1,6 +1,8 @@
 import type { Config } from "@verdaccio/types";
 import { bootstrap } from "global-agent";
 
+import { redactUrlCredentials } from "@/utils";
+
 import logger from "./logger";
 
 bootstrap({
@@ -26,6 +28,9 @@ export function registerGlobalProxy(proxyConfig: Pick<Config, "http_proxy" | "ht
 
     global.GLOBAL_AGENT[proxyAgentEnvKey] = value;
 
-    logger.info({ key: proxyAgentEnvKey, value }, "setting proxy environment variable: @{key}=@{value}");
+    logger.info(
+      { key: proxyAgentEnvKey, value: redactUrlCredentials(value) },
+      "setting proxy environment variable: @{key}=@{value}",
+    );
   }
 }

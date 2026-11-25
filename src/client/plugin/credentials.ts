@@ -1,18 +1,13 @@
 /**
- * The login redirect brings the username and the tokens back to the UI as query
- * parameters. Verdaccio reads the session from `localStorage`, so the plugin
- * stores them there.
+ * The login redirect leaves a one-time code in the URL. The plugin exchanges
+ * it, together with the session cookie, for the credentials and stores them
+ * in `localStorage`, where Verdaccio reads the session.
  */
 import { LOCAL_STORAGE_KEYS } from "@/client/constants";
+import { AUTH_TOKEN_REGEX } from "@/constants";
 import { parseJwt } from "./lib";
 
-/**
- * A token is a JWT or base64url string, so nothing outside this set can be one.
- * The set also keeps shell metacharacters out of the command the usage info
- * shows, which is meant to be copied and pasted; the length bound keeps a link
- * from stuffing storage.
- */
-const TOKEN_PATTERN = /^[A-Za-z0-9_\-+/=.]{1,4096}$/;
+/** A user name longer than this is a payload, not a name. */
 const MAX_USERNAME_LENGTH = 256;
 
 export interface Credentials {
@@ -31,9 +26,34 @@ export interface Credentials {
  */
 export function saveCredentials(credentials: Credentials) {
   // The UI considers a session logged in once the username and the UI token are stored.
-  localStorage.setItem(LOCAL_STORAGE_KEYS.USERNAME, credentials.username);
-  localStorage.setItem(LOCAL_STORAGE_KEYS.UI_TOKEN, credentials.uiToken);
-  localStorage.setItem(LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken);
+  const entries = [
+    [LOCAL_STORAGE_KEYS.USERNAME, credentials.username],
+    [LOCAL_STORAGE_KEYS.UI_TOKEN, credentials.uiToken],
+    [LOCAL_STORAGE_KEYS.NPM_TOKEN, credentials.npmToken],
+  ] as const;
+
+  // A failed write must not leave half a session behind, and a previous
+  // complete login must not be wiped by the rollback either.
+  const previous = entries.map(([key]) => localStorage.getItem(key));
+
+  try {
+    for (const [key, value] of entries) {
+      localStorage.setItem(key, value);
+    }
+  } catch (error) {
+    entries.forEach(([key], index) => {
+      try {
+        const old = previous[index];
+
+        if (old === null) localStorage.removeItem(key);
+        else localStorage.setItem(key, old);
+      } catch {
+        // Storage is already failing; the original error is the useful one.
+      }
+    });
+
+    throw error;
+  }
 }
 
 /** Remove every stored credential. */
@@ -103,7 +123,7 @@ export function isValidCredentials(credentials: Partial<Credentials>): credentia
   return (
     !!username &&
     username.length <= MAX_USERNAME_LENGTH &&
-    TOKEN_PATTERN.test(uiToken ?? "") &&
-    TOKEN_PATTERN.test(npmToken ?? "")
+    AUTH_TOKEN_REGEX.test(uiToken ?? "") &&
+    AUTH_TOKEN_REGEX.test(npmToken ?? "")
   );
 }

@@ -41,6 +41,61 @@ describe("credentials", () => {
       expect(store.token).toBe("ui-token-123");
       expect(store.npm).toBe("npm-token-456");
     });
+
+    it("should roll back a partial write and keep the previous session", async () => {
+      store.username = "old-user";
+      store.token = "old-ui";
+      store.npm = "old-npm";
+
+      let calls = 0;
+
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: (key: string, value: string) => {
+          calls += 1;
+
+          if (calls === 2) throw new Error("quota exceeded");
+
+          store[key] = value;
+        },
+        removeItem: (key: string) => {
+          delete store[key];
+        },
+      });
+
+      const { saveCredentials } = await import("@/client/plugin/credentials");
+
+      expect(() => saveCredentials({ username: "new-user", uiToken: "new-ui", npmToken: "new-npm" })).toThrow(
+        "quota exceeded",
+      );
+      expect(store).toEqual({ username: "old-user", token: "old-ui", npm: "old-npm" });
+    });
+
+    it("should remove the keys it wrote when there was no previous session", async () => {
+      let calls = 0;
+
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: (key: string, value: string) => {
+          calls += 1;
+
+          if (calls === 2) throw new Error("quota exceeded");
+
+          store[key] = value;
+        },
+        removeItem: (key: string) => {
+          delete store[key];
+        },
+      });
+
+      const { saveCredentials } = await import("@/client/plugin/credentials");
+
+      expect(() => saveCredentials({ username: "new-user", uiToken: "new-ui", npmToken: "new-npm" })).toThrow(
+        "quota exceeded",
+      );
+      // The partial write is undone: no half-session is left behind.
+      expect(store).toEqual({});
+    });
   });
 
   describe("clearCredentials", () => {

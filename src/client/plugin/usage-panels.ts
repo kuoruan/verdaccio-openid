@@ -8,6 +8,7 @@ import {
   commandRowClass,
   helpLoginCommandSelector,
   helpLoginYarnPluginSelector,
+  hiddenMarker,
   hintClass,
   openIDStyleId,
   openIDStyles,
@@ -71,6 +72,8 @@ function createCommandRow(template: HTMLElement, text: string): HTMLElement {
   const row = template.cloneNode(true) as HTMLElement;
 
   row.hidden = false;
+  // The template may have been a hidden host row; the marker must go with it.
+  row.removeAttribute(hiddenMarker);
   row.classList.add(commandRowClass);
   setRowText(row, text);
 
@@ -106,7 +109,6 @@ function createHint(text: string): HTMLElement {
   return hint;
 }
 
-/** A hint to show in place of the commands. */
 interface HintExtra {
   kind: "hint";
   text: string;
@@ -243,10 +245,14 @@ function updateEmptyStateGuide(variant: UsageVariant): void {
     if (!row) continue;
 
     row.hidden = !passwordLoginWorks;
+    row.toggleAttribute(hiddenMarker, !passwordLoginWorks);
     // The yarn alternative is a neighbouring block, not part of the command row.
     const yarnBlock = row.closest("li")?.querySelector<HTMLElement>(helpLoginYarnPluginSelector);
 
-    if (yarnBlock) yarnBlock.hidden = !passwordLoginWorks;
+    if (yarnBlock) {
+      yarnBlock.hidden = !passwordLoginWorks;
+      yarnBlock.toggleAttribute(hiddenMarker, !passwordLoginWorks);
+    }
 
     renderUsageExtra(row, passwordLoginWorks ? null : usageExtraFor(variant, row, false));
   }

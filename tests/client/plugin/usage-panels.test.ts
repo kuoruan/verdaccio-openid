@@ -17,6 +17,7 @@ vi.mock("@/client/plugin/credentials", () => ({
 }));
 
 import { isLoggedIn, isOpenIDLoggedIn } from "@/client/plugin/credentials";
+import { hiddenMarker } from "@/client/constants";
 import { syncUsage } from "@/client/plugin/usage-panels";
 
 const row = (command: string, testId?: string) => `
@@ -178,6 +179,8 @@ describe("syncUsage", () => {
 
     expect(rows).toHaveLength(2);
     expect(rows.every((row) => row.hidden)).toBe(true);
+    // The scoped `[data-openid-hidden][hidden]` rule only applies with the marker.
+    expect(rows.every((row) => row.hasAttribute(hiddenMarker))).toBe(true);
     expect(rows.map((row) => row.parentElement!.querySelector(".verdaccio-openid-hint")?.textContent)).toEqual([
       "Sign in with OpenID Connect to get an auth token.",
       "Sign in with OpenID Connect to get an auth token.",

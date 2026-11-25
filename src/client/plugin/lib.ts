@@ -67,9 +67,9 @@ export function retry(action: () => void, times = 5, isDone?: () => boolean): vo
  */
 function hasElementInPath(selector: string, e: MouseEvent): boolean {
   const path = e.path || e.composedPath?.();
-  const element = document.querySelector(selector)!;
-
-  return path.includes(element);
+  // A selector can match several controls (e.g. both logout entries); any of
+  // them in the path means the click belongs to this plugin.
+  return Array.from(document.querySelectorAll(selector)).some((element) => path.includes(element));
 }
 
 /**
@@ -91,8 +91,7 @@ export function interruptClick(selector: string, callback: () => void): void {
     e.stopPropagation();
     callback();
   };
-  const isCapture = true;
-  document.addEventListener("click", handleClick, isCapture);
+  document.addEventListener("click", handleClick, true);
 }
 
 /**

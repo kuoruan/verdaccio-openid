@@ -26,7 +26,8 @@ describe("buildStatusPage", () => {
   it("should include back button when withBack is true", () => {
     const html = buildStatusPage("<p>Test</p>", true);
     expect(html).toContain("Go back");
-    expect(html).toContain('href="javascript:history.back()"');
+    expect(html).toContain('href="/"');
+    expect(html).not.toContain("javascript:");
   });
 
   it("should include back button with custom URL when withBack is an object", () => {
@@ -40,7 +41,23 @@ describe("buildStatusPage", () => {
 
   it("should use default backUrl when withBack object has empty backUrl", () => {
     const html = buildStatusPage("<p>Test</p>", { backUrl: "" });
-    expect(html).toContain('href="javascript:history.back()"');
+    expect(html).toContain('href="/"');
+  });
+
+  it("should reject a backUrl that is not a link", () => {
+    for (const backUrl of ["javascript:alert(1)", "data:text/html,x", "jav&#x61;script:1", "//evil.example.com"]) {
+      const html = buildStatusPage("<p>Test</p>", { backUrl });
+
+      expect(html).toContain('href="/"');
+      expect(html).not.toContain("evil.example.com");
+      expect(html).not.toContain("javascript:");
+    }
+  });
+
+  it("should keep a relative backUrl and escape it", () => {
+    const html = buildStatusPage("<p>Test</p>", { backUrl: '/-/web/detail?a="b"&c=<d>' });
+
+    expect(html).toContain('href="/-/web/detail?a=&quot;b&quot;&amp;c=&lt;d&gt;"');
   });
 
   it("should include CSS styles with theme variables", () => {

@@ -8,9 +8,10 @@ import {
   loginButtonSelector,
   loginDialogSelector,
   logoutButtonSelector,
+  SESSION_EXCHANGE_TIMEOUT_MS,
   updatedAttrKey,
 } from "@/client/constants";
-import { loginHref, logoutHref } from "@/constants";
+import { loginHref, logoutHref, sessionPath } from "@/constants";
 import { parseQueryParams } from "@/query-params";
 
 import {
@@ -33,30 +34,7 @@ import { injectOpenIDStyles, syncUsage } from "./usage-panels";
 function reloadToPathname() {
   history.replaceState(null, "", location.pathname);
 
-  // reload the page to refetch the packages
   location.reload();
-}
-
-/**
- * Save the credentials handed back by the login redirect.
- *
- * @returns whether the URL carried a complete set of credentials
- */
-function didParseAndSavedCredentials(): boolean {
-  const credentials: Partial<Credentials> = parseQueryParams(location.search);
-
-  if (!isValidCredentials(credentials)) {
-    return false;
-  }
-
-  try {
-    saveCredentials(credentials);
-  } catch {
-    // Storage can be disabled or full; the login then simply does not stick.
-    return false;
-  }
-
-  return true;
 }
 
 /**
@@ -108,11 +86,18 @@ function addOpenIDLoginButton(callback: () => void): void {
  * By default the login button opens a form that asks the user to submit credentials.
  * We replace this behaviour and instead redirect to the route that handles OAuth.
  */
-export function init(): void {
-  if (didParseAndSavedCredentials()) {
-    // If we are new logged in, reload the page to remove the query params
+export async function init(): Promise<void> {
+  const { code } = parseQueryParams(location.search);
+
+  if (await didExchangeCredentials(code)) {
     reloadToPathname();
     return;
+  }
+
+  // A code that could not be exchanged must not stay in the URL: it is spent or
+  // it never belonged to this browser, and the next login needs a clean address.
+  if (code) {
+    history.replaceState(null, "", location.pathname);
   }
 
   if (isUITokenExpired()) {
@@ -148,4 +133,54 @@ export function init(): void {
   // no click at all.
   document.addEventListener("click", () => retry(syncUsage, 3));
   window.addEventListener("popstate", () => retry(syncUsage, 2));
+}
+
+/**
+ * Exchange the one-time code the login redirect leaves in the URL for the
+ * credentials, and store them.
+ *
+ * The code alone is not enough: the server hands the credentials out only to the
+ * browser that carries the cookie of the login it belongs to. Query parameters
+ * are never trusted on their own, so a link cannot sign this browser in as
+ * somebody else.
+ *
+ * @returns whether a complete set of credentials was stored
+ */
+async function didExchangeCredentials(code: string | undefined): Promise<boolean> {
+  if (!code) {
+    return false;
+  }
+
+  // A hung exchange must not keep the plugin from wiring the rest of the UI.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SESSION_EXCHANGE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(getBaseUrl(true) + sessionPath, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return false;
+    }
+
+    const credentials: Partial<Credentials> = await response.json();
+
+    if (!isValidCredentials(credentials)) {
+      return false;
+    }
+
+    saveCredentials(credentials);
+
+    return true;
+  } catch {
+    // Storage or the request can fail; the login then does not stick.
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
 }
