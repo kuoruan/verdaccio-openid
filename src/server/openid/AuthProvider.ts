@@ -406,8 +406,13 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   /**
    * Read the groups of the user from the GitLab API.
    *
+   * Returns the full path of each group, not its name: a name is neither unique
+   * nor reserved, so anyone who may create a group could name it like a group
+   * they do not belong to and match `authorized-groups` with it. The full path
+   * is unique across GitLab (`parent/child`, or just `group` at the top level).
+   *
    * @param token the provider token
-   * @returns the names of the groups the user is in
+   * @returns the full paths of the groups the user is in
    */
   async getGitlabGroups(token: OpenIDToken): Promise<string[]> {
     const group = new Groups({
@@ -415,8 +420,12 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       oauthToken: typeof token === "string" ? token : token.accessToken,
     });
 
-    const userGroups = await group.all();
+    // GitLab defaults `all_available` to false for users but to true for
+    // administrators, which would let an administrator token match every group
+    // on the instance. Pass it so the list is always the groups the user is in.
+    // https://docs.gitlab.com/api/groups/#list-groups
+    const userGroups = await group.all({ allAvailable: false });
 
-    return userGroups.map((g) => g.name);
+    return userGroups.map((g) => g.full_path);
   }
 }

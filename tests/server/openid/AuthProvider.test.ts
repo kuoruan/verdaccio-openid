@@ -11,7 +11,7 @@ import logger from "@/server/logger";
 import { ERRORS } from "@/server/constants";
 import { OpenIDConnectAuthProvider } from "@/server/openid/AuthProvider";
 import { ProviderType, type TokenInfo } from "@/server/plugin/AuthProvider";
-import type { Store } from "@/server/store/Store";
+import type { OpenIDStateStore, ProviderCache } from "@/server/store/Store";
 
 // Mock openid-client module
 vi.mock("openid-client", () => ({
@@ -60,12 +60,21 @@ vi.mock("openid-client", () => ({
 }));
 
 // Mock @gitbeaker/rest
+const { groupsAll } = vi.hoisted(() => ({
+  groupsAll: vi.fn(() => [
+    { name: "gitlab-group1", path: "gitlab-group1", full_path: "gitlab-group1" },
+    { name: "gitlab-group2", path: "gitlab-group2", full_path: "team/gitlab-group2" },
+    // A nested group may be named like any group; only its full path tells them apart.
+    { name: "gitlab-group3", path: "gitlab-group3", full_path: "someone-else/gitlab-group3" },
+  ]),
+}));
+
 vi.mock("@gitbeaker/rest", () => ({
   Groups: vi.fn(function (options) {
     return {
       host: options.host,
       oauthToken: options.oauthToken,
-      all: vi.fn(() => [{ name: "gitlab-group1" }, { name: "gitlab-group2" }, { name: "gitlab-group3" }]),
+      all: groupsAll,
     };
   }),
 }));
@@ -91,7 +100,7 @@ vi.mock("@verdaccio/url", () => ({
 
 describe("OpenIDConnectAuthProvider", () => {
   let mockConfig: ConfigHolder;
-  let mockStore: Store;
+  let mockStore: OpenIDStateStore & ProviderCache;
   let provider: OpenIDConnectAuthProvider;
   let processExitSpy: any;
 
@@ -140,20 +149,11 @@ describe("OpenIDConnectAuthProvider", () => {
       setUserInfo: vi.fn(() => {
         // no-op
       }),
-      getUserInfo: vi.fn(() => null),
+      getUserInfo: vi.fn(() => undefined),
       setUserGroups: vi.fn(() => {
         // no-op
       }),
-      getUserGroups: vi.fn(() => null),
-      setWebAuthnToken: vi.fn(() => {
-        // no-op
-      }),
-      getWebAuthnToken: vi.fn(() => null),
-      takeWebAuthnToken: vi.fn(() => null),
-      deleteWebAuthnToken: vi.fn(() => {
-        // no-op
-      }),
-      close: vi.fn(),
+      getUserGroups: vi.fn(() => undefined),
     };
   });
 
@@ -283,7 +283,7 @@ describe("OpenIDConnectAuthProvider", () => {
     });
 
     it("should throw error if state is not found in store", async () => {
-      mockStore.getOpenIDState = vi.fn(() => null);
+      mockStore.getOpenIDState = vi.fn(() => undefined);
 
       const mockRequest = {
         url: "/callback?code=auth-code-123&state=invalid-state",
@@ -673,7 +673,7 @@ describe("OpenIDConnectAuthProvider", () => {
 
       expect(userinfo).toEqual({
         name: "Test User",
-        groups: ["gitlab-group1", "gitlab-group2", "gitlab-group3"],
+        groups: ["gitlab-group1", "team/gitlab-group2", "someone-else/gitlab-group3"],
         subject: "user123",
       });
     });
@@ -729,7 +729,8 @@ describe("OpenIDConnectAuthProvider", () => {
 
       const groups = await provider.getGitlabGroups(tokenInfo);
 
-      expect(groups).toEqual(["gitlab-group1", "gitlab-group2", "gitlab-group3"]);
+      expect(groups).toEqual(["gitlab-group1", "team/gitlab-group2", "someone-else/gitlab-group3"]);
+      expect(groupsAll).toHaveBeenCalledWith({ allAvailable: false });
       expect(Groups).toHaveBeenCalledWith({
         host: "https://provider.example.com",
         oauthToken: "gitlab-access-token",
@@ -741,7 +742,7 @@ describe("OpenIDConnectAuthProvider", () => {
 
       const groups = await provider.getGitlabGroups(token);
 
-      expect(groups).toEqual(["gitlab-group1", "gitlab-group2", "gitlab-group3"]);
+      expect(groups).toEqual(["gitlab-group1", "team/gitlab-group2", "someone-else/gitlab-group3"]);
       expect(Groups).toHaveBeenCalledWith({
         host: "https://provider.example.com",
         oauthToken: token,
