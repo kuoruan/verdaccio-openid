@@ -4,7 +4,28 @@ import process from "node:process";
 import ms, { type StringValue } from "ms";
 
 import { pluginKey } from "@/constants";
+import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import logger from "@/server/logger";
+
+/**
+ * Resolve a configuration value that may name an environment variable.
+ *
+ * A value that looks like a variable name is read from that variable; anything
+ * else falls back to the default name for its key. A variable that is set wins
+ * over the value written in the config.
+ *
+ * @param valueOrName the value written in the config
+ * @param defaultName the variable to read when the value is not a name
+ * @returns the value the variable holds, or the configured value
+ */
+export function resolveConfigValue(valueOrName: unknown, defaultName: string): unknown {
+  const environmentName =
+    typeof valueOrName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrName)
+      ? valueOrName
+      : defaultName.toUpperCase().replaceAll("-", "_");
+
+  return getEnvironmentValue(environmentName) ?? valueOrName;
+}
 
 /**
  * Read an environment variable and parse booleans, JSON objects and JSON arrays.
@@ -15,7 +36,7 @@ import logger from "@/server/logger";
 export function getEnvironmentValue(name: string): unknown {
   const value = process.env[name];
 
-  if (value === undefined || value === null) return value;
+  if (value === undefined) return value;
 
   if (value === "true" || value === "false") {
     return value === "true";
@@ -47,15 +68,23 @@ export function handleValidationError(error: any, ...keyPaths: string[]): never 
 /**
  * Convert a duration such as `"5m"` to milliseconds.
  *
+ * The config schema rejects a value this cannot convert, so a store config is
+ * only ever converted once it is known to be a duration.
+ *
  * @param ttl the duration as a number of milliseconds or a string like `"1m"`
- * @returns the duration in milliseconds, or undefined when none was given
+ * @returns the duration in milliseconds, or undefined when the value is not one
  */
 export function getTTLValue(ttl?: number | string): number | undefined {
-  if (typeof ttl === "string") {
-    return ms(ttl as StringValue);
-  }
+  if (ttl === undefined) return undefined;
 
-  return ttl;
+  try {
+    const value = typeof ttl === "string" ? ms(ttl as StringValue) : ttl;
+
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
+  } catch {
+    // `ms` throws rather than returning undefined for some inputs.
+    return undefined;
+  }
 }
 
 /**
@@ -67,4 +96,20 @@ export function getTTLValue(ttl?: number | string): number | undefined {
  */
 export function getStoreFilePath(configPath: string, storePath: string): string {
   return path.isAbsolute(storePath) ? storePath : path.normalize(path.join(path.dirname(configPath), storePath));
+}
+
+/**
+ * Resolve the `ttl` of a store config, leaving the key out when it is not set.
+ *
+ * The stores default an absent `ttl`; the key is therefore only added when a
+ * usable duration is written.
+ *
+ * @param config the store config as written
+ * @returns the config with `ttl` in milliseconds, or without the key
+ */
+export function withTTL<T extends { ttl?: number | string }>(config: T): Omit<T, "ttl"> & { ttl?: number } {
+  const { ttl, ...rest } = config;
+  const resolved = getTTLValue(ttl);
+
+  return (resolved === undefined ? rest : { ...rest, ttl: resolved }) as Omit<T, "ttl"> & { ttl?: number };
 }

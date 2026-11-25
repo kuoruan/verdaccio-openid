@@ -2,26 +2,33 @@ import { array, mixed, type Schema, string } from "yup";
 import { number, object } from "yup";
 
 import { plugin } from "@/constants";
-import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import {
   type DynamoConfig,
   type FileConfig,
   type InMemoryConfig,
   type MongoConfig,
   type RedisConfig,
-  StoreType,
 } from "@/server/store/Store";
 
-import { getEnvironmentValue, handleValidationError } from "./utils";
+import { getTTLValue, handleValidationError, resolveConfigValue } from "./utils";
+
+/** Smallest `ttl` a number may express, in milliseconds. */
+const MIN_TTL_MS = 1000;
 
 const portSchema = number().min(1).max(65_535);
 const ttlSchema = mixed().test({
-  name: "is-time-string-or-integer",
-  message: "must be a time string or integer",
+  name: "is-duration",
+  message: `must be a duration like "5m", or a number of milliseconds above ${MIN_TTL_MS}`,
   test: (value) => {
-    return (
-      value === undefined || (typeof value === "string" && value !== "") || (typeof value === "number" && value > 1000) // 1 second
-    );
+    if (value === undefined) return true;
+
+    // The number threshold predates the conversion and stays as it was: a value
+    // below it is a config error, not a duration to be rounded. Infinity would
+    // slip through a plain comparison and then be dropped as unset.
+    if (typeof value === "number") return Number.isFinite(value) && value > MIN_TTL_MS;
+    if (typeof value !== "string") return false;
+
+    return getTTLValue(value) !== undefined;
   },
 });
 
@@ -84,8 +91,6 @@ export const MongoConfigSchema = object<MongoConfig>({
 });
 
 abstract class StoreConfig<T> {
-  abstract storeType: StoreType;
-
   constructor(
     private config: T,
     private configKey: string,
@@ -94,13 +99,7 @@ abstract class StoreConfig<T> {
   protected getConfigValue<K extends keyof T>(key: K, schema: Schema): T[K] {
     const valueOrEnvironmentName = this.config[key as string] as string;
 
-    const environmentName =
-      typeof valueOrEnvironmentName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrEnvironmentName)
-        ? valueOrEnvironmentName
-        : `${plugin.name}-${this.configKey}-${key as string}`.toUpperCase().replaceAll("-", "_");
-
-    // A variable that is set wins over the value written in the config.
-    const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
+    const value = resolveConfigValue(valueOrEnvironmentName, `${plugin.name}-${this.configKey}-${key as string}`);
 
     try {
       schema.validateSync(value);
@@ -120,10 +119,6 @@ export class RedisStoreConfigHolder extends StoreConfig<RedisConfig> {
   get password() {
     return this.getConfigValue("password", string().optional());
   }
-
-  get storeType() {
-    return StoreType.Redis;
-  }
 }
 
 export class DynamoStoreConfigHolder extends StoreConfig<DynamoConfig> {
@@ -138,10 +133,6 @@ export class DynamoStoreConfigHolder extends StoreConfig<DynamoConfig> {
   get partitionKey() {
     return this.getConfigValue("partitionKey", string().optional());
   }
-
-  get storeType() {
-    return StoreType.DynamoDB;
-  }
 }
 
 export class MongoStoreConfigHolder extends StoreConfig<MongoConfig> {
@@ -155,9 +146,5 @@ export class MongoStoreConfigHolder extends StoreConfig<MongoConfig> {
 
   get collection() {
     return this.getConfigValue("collection", string().optional());
-  }
-
-  get storeType() {
-    return StoreType.MongoDB;
   }
 }

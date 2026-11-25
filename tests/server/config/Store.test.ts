@@ -20,6 +20,10 @@ describe("InMemoryConfigSchema", () => {
     const invalidConfigs = [
       { ttl: "" },
       { ttl: 500 }, // less than 1 second
+      { ttl: "5x" }, // not a duration
+      { ttl: "0s" }, // not positive
+      { ttl: Number.POSITIVE_INFINITY }, // infinite
+      { ttl: Number.NaN }, // not a number
       { ttl: true },
       { ttl: {} },
       { ttl: [] },
@@ -27,6 +31,12 @@ describe("InMemoryConfigSchema", () => {
 
     for (const config of invalidConfigs) {
       expect(InMemoryConfigSchema.isValidSync(config)).toBeFalsy();
+    }
+  });
+
+  it("should accept the durations getTTLValue converts", () => {
+    for (const ttl of ["1s", "5m", "1h", "500ms", 1001]) {
+      expect(InMemoryConfigSchema.isValidSync({ ttl })).toBeTruthy();
     }
   });
 

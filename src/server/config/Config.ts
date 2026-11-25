@@ -4,7 +4,6 @@ import merge from "deepmerge";
 import { boolean, mixed, object, Schema, string } from "yup";
 
 import { plugin, pluginKey } from "@/constants";
-import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import { ProviderType } from "@/server/plugin/AuthProvider";
 import {
   type DynamoConfig,
@@ -25,7 +24,7 @@ import {
   RedisConfigSchema,
   RedisStoreConfigHolder,
 } from "./Store";
-import { getEnvironmentValue, getStoreFilePath, getTTLValue, handleValidationError } from "./utils";
+import { getStoreFilePath, handleValidationError, resolveConfigValue, withTTL } from "./utils";
 
 export interface ConfigHolder {
   providerHost: string;
@@ -90,15 +89,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
       this.verdaccioConfig.auth?.[pluginKey]?.[key] ??
       this.verdaccioConfig.middlewares?.[pluginKey]?.[key];
 
-    // A value that is not itself an environment variable name is looked up under
-    // the default name for its key, e.g. client-id -> `VERDACCIO_OPENID_CLIENT_ID`.
-    const environmentName: string =
-      typeof valueOrEnvironmentName === "string" && CONFIG_ENV_NAME_REGEX.test(valueOrEnvironmentName)
-        ? valueOrEnvironmentName
-        : `${plugin.name}-${key}`.toUpperCase().replaceAll("-", "_");
-
-    // A variable that is set wins over the value written in the config.
-    const value = getEnvironmentValue(environmentName) ?? valueOrEnvironmentName;
+    const value = resolveConfigValue(valueOrEnvironmentName, `${plugin.name}-${key}`);
 
     try {
       schema.validateSync(value);
@@ -250,7 +241,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
 
         if (storeConfig === undefined) return;
 
-        return { ...storeConfig, ttl: getTTLValue(storeConfig.ttl) } satisfies InMemoryConfig;
+        return withTTL(storeConfig) satisfies InMemoryConfig;
       }
 
       case StoreType.Redis: {
@@ -283,10 +274,9 @@ export default class ParsedPluginConfig implements ConfigHolder {
         const configHolder = new RedisStoreConfigHolder(storeConfig, configKey);
 
         return {
-          ...storeConfig,
+          ...withTTL(storeConfig),
           username: configHolder.username,
           password: configHolder.password,
-          ttl: getTTLValue(storeConfig.ttl),
         } satisfies RedisConfig;
       }
 
@@ -315,9 +305,8 @@ export default class ParsedPluginConfig implements ConfigHolder {
         }
 
         return {
-          ...config,
+          ...withTTL(config),
           dir: getStoreFilePath(configPath, config.dir),
-          ttl: getTTLValue(config.ttl),
         } satisfies FileConfig;
       }
 
@@ -341,11 +330,10 @@ export default class ParsedPluginConfig implements ConfigHolder {
         const configHolder = new DynamoStoreConfigHolder(storeConfig, configKey);
 
         return {
-          ...storeConfig,
+          ...withTTL(storeConfig),
           tableName: configHolder.tableName,
           region: configHolder.region,
           partitionKey: configHolder.partitionKey,
-          ttl: getTTLValue(storeConfig.ttl),
         } satisfies DynamoConfig;
       }
 
@@ -378,11 +366,10 @@ export default class ParsedPluginConfig implements ConfigHolder {
         const configHolder = new MongoStoreConfigHolder(objectConfig, configKey);
 
         return {
-          ...objectConfig,
+          ...withTTL(objectConfig),
           uri: configHolder.uri,
           database: configHolder.database,
           collection: configHolder.collection,
-          ttl: getTTLValue(objectConfig.ttl),
         } satisfies MongoConfig;
       }
 

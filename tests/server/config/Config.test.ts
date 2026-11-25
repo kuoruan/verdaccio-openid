@@ -3,7 +3,6 @@ import type { Config } from "@verdaccio/types";
 import merge from "deepmerge";
 
 import ParsedPluginConfig from "@/server/config/Config";
-import * as utils from "@/server/config/utils";
 import { ProviderType } from "@/server/plugin/AuthProvider";
 import { StoreType } from "@/server/store/Store";
 
@@ -115,6 +114,58 @@ describe("ParsedPluginConfig", () => {
     });
   });
 
+  it("should leave ttl out of the store config when it is not set", () => {
+    const config = new ParsedPluginConfig(
+      {
+        ...mockConfig,
+        "store-type": StoreType.InMemory,
+        "store-config": { max: 1000 },
+      },
+      mockVerdaccioConfig,
+    );
+
+    const storeConfig = config.getStoreConfig(StoreType.InMemory) as Record<string, unknown>;
+
+    expect(storeConfig).toEqual({ max: 1000 });
+    expect("ttl" in storeConfig).toBe(false);
+  });
+
+  it("should resolve a duration ttl to milliseconds", () => {
+    const config = new ParsedPluginConfig(
+      {
+        ...mockConfig,
+        "store-type": StoreType.File,
+        "store-config": { dir: "/tmp/store", ttl: "2m" },
+      },
+      mockVerdaccioConfig,
+    );
+
+    expect(config.getStoreConfig(StoreType.File)).toMatchObject({ dir: "/tmp/store", ttl: 120_000 });
+  });
+
+  it("should reject an invalid ttl through the config schema", () => {
+    const config = new ParsedPluginConfig(
+      {
+        ...mockConfig,
+        "store-type": StoreType.File,
+        "store-config": { dir: "/tmp/store", ttl: "5x" },
+      },
+      mockVerdaccioConfig,
+    );
+
+    const exit = vi.spyOn(process, "exit").mockImplementation((() => undefined) as never);
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    try {
+      config.getStoreConfig(StoreType.File);
+
+      expect(exit).toHaveBeenCalledWith(1);
+    } finally {
+      exit.mockRestore();
+      error.mockRestore();
+    }
+  });
+
   it("should get store config for in-memory store", () => {
     const config = new ParsedPluginConfig(
       {
@@ -128,7 +179,8 @@ describe("ParsedPluginConfig", () => {
   });
 
   it("should handle environment variables", () => {
-    vi.spyOn(utils, "getEnvironmentValue").mockReturnValue("env-value");
+    vi.stubEnv("VERDACCIO_OPENID_CLIENT_ID", "env-value");
+
     const config = new ParsedPluginConfig(
       {
         ...mockConfig,
@@ -136,7 +188,10 @@ describe("ParsedPluginConfig", () => {
       },
       mockVerdaccioConfig,
     );
+
     expect(config.clientId).toBe("env-value");
+
+    vi.unstubAllEnvs();
   });
 });
 

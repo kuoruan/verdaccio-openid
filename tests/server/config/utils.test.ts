@@ -91,7 +91,16 @@ describe("getTTLValue", () => {
     expect(getTTLValue("1h")).toBe(3_600_000);
   });
 
-  it("should return undefined when input is invalid string", () => {
+  it("should return undefined when the string is not a duration", () => {
+    // The config schema rejects these; the conversion itself never throws.
+    expect(() => getTTLValue("invalid")).not.toThrow();
     expect(getTTLValue("invalid")).toBeUndefined();
+    expect(getTTLValue("")).toBeUndefined();
+  });
+
+  it("should return undefined when the duration is not positive", () => {
+    expect(getTTLValue("0s")).toBeUndefined();
+    expect(getTTLValue(0)).toBeUndefined();
+    expect(getTTLValue(-1)).toBeUndefined();
   });
 });
