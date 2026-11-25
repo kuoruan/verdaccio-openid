@@ -47,9 +47,9 @@ src/
 │   ├── openid/       # OpenID Connect client and auth provider
 │   ├── plugin/       # Verdaccio plugin interface implementation
 │   └── store/        # Store backends (in-memory, Redis, file, DynamoDB, MongoDB)
-├── constants.ts      # Shared constants
+├── constants.ts      # Constants shared by every bundle
 ├── paths.ts          # URL path helpers
-└── utils.ts          # Helpers shared by every bundle: HTML escaping, URL checks
+└── utils.ts          # Helpers shared by every bundle: HTML escaping, URL checks, JSON
 tests/                # Vitest test suites
 verdaccio/            # Verdaccio 7 test config
 verdaccio5/           # Verdaccio 5 test config
@@ -67,10 +67,15 @@ A pre-commit hook powered by [husky](https://typicode.github.io/husky/) and [lin
 
 ### Where helpers go
 
-- `src/utils.ts` — helpers that only touch strings and URLs, which the server, the CLI and the browser bundle can all import.
+- `src/utils.ts` — helpers every bundle can import because they only touch strings, URLs and JSON: escaping, URL checks, `safeJsonParse`/`safeJsonStringify`, nullish guards.
 - `src/server/utils.ts` — helpers for loading modules (`interopDefault`, `importOptional`).
-- `src/server/plugin/utils.ts` — helpers that need Express or Verdaccio: cookies, base URL, groups, HMAC.
+- `src/server/crypto.ts` — encoding and signing: base64, HMAC, cache-key hashing, ID-token claims.
+- `src/server/cookies.ts` — the cookie layer and the helpers that bind a login to the browser that started it.
+- `src/server/plugin/utils.ts` — helpers that need Verdaccio types or an Express request: groups, base URL, package spec.
 - `src/server/config/utils.ts` — helpers for parsing the config.
+- `src/server/store/utils.ts` — helpers over stored values: size checks, session and login-result decoding.
+
+Constants follow the same scopes: `src/constants.ts` holds what every bundle shares (paths, plugin identity, the token pattern), `src/cli/constants.ts`, `src/server/constants.ts`, `src/server/store/constants.ts` and `src/client/constants.ts` hold the ones only that part uses.
 
 Before writing a helper, check whether Node or a maintained package already does it: `cookie` parses cookies, Express writes them, `node:util` removes terminal escape sequences, and `ms` parses durations.
 

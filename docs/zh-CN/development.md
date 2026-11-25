@@ -53,9 +53,9 @@ src/
 │   ├── openid/       # OpenID Connect 客户端和认证提供方
 │   ├── plugin/       # Verdaccio 插件接口实现
 │   └── store/        # 存储后端（in-memory、Redis、File、DynamoDB、MongoDB）
-├── constants.ts      # 共享常量
+├── constants.ts      # 各产物共享的常量
 ├── paths.ts          # URL 路径工具
-└── utils.ts          # 各产物共用的工具：HTML 转义、URL 校验
+└── utils.ts          # 各产物共用的工具：HTML 转义、URL 校验、JSON
 tests/                # Vitest 测试套件
 verdaccio/            # Verdaccio 7 测试配置
 verdaccio5/           # Verdaccio 5 测试配置
@@ -73,10 +73,15 @@ verdaccio6/           # Verdaccio 6 测试配置
 
 ### 工具函数放哪里
 
-- `src/utils.ts` — 只处理字符串和 URL，服务端、CLI 与浏览器产物都可引用。
+- `src/utils.ts` — 只处理字符串、URL 与 JSON，服务端、CLI 与浏览器产物都可引用：转义、URL 校验、`safeJsonParse`/`safeJsonStringify`、空值判断。
 - `src/server/utils.ts` — 模块加载相关（`interopDefault`、`importOptional`）。
-- `src/server/plugin/utils.ts` — 需要 Express 或 Verdaccio 的工具：cookie、基础 URL、组、HMAC。
+- `src/server/crypto.ts` — 编码与签名：base64、HMAC、缓存键哈希、ID token 声明解析。
+- `src/server/cookies.ts` — cookie 通用层，以及把登录绑定到发起它的浏览器的工具。
+- `src/server/plugin/utils.ts` — 需要 Verdaccio 类型或 Express 请求的工具：组、基础 URL、包描述符。
 - `src/server/config/utils.ts` — 配置解析相关工具。
+- `src/server/store/utils.ts` — 存储取值相关工具：尺寸校验、会话与登录结果的解码。
+
+常量按同样的范围归置：`src/constants.ts` 放各产物共享的部分（路径、插件标识、token 形态），`src/cli/constants.ts`、`src/server/constants.ts`、`src/server/store/constants.ts` 与 `src/client/constants.ts` 各放只有对应部分使用的常量。
 
 写工具函数前先确认 Node 或现成依赖能否解决：`cookie` 负责解析 cookie，Express 负责写出 cookie，`node:util` 负责去除终端转义序列，`ms` 负责解析时长。
 
