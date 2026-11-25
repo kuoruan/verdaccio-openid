@@ -16,33 +16,50 @@ function parseCliArgs() {
   return minimist(process.argv.slice(2));
 }
 
+/**
+ * Run a command and return its stdout.
+ *
+ * On failure the error is replaced: Node's message embeds the full argv, which
+ * for `npm config set` is the token itself, and stderr can carry anything.
+ *
+ * @param command the executable
+ * @param args the arguments
+ * @param logCommand what to print as the command; `false` prints nothing
+ * @returns the command's stdout
+ */
 function runCommand(command: string, args: string[] = [], logCommand: boolean | string = true): string {
-  if (logCommand) {
-    const displayCommand = typeof logCommand === "string" ? logCommand : [command, ...args].join(" ");
+  const displayCommand = typeof logCommand === "string" ? logCommand : [command, ...args].join(" ");
 
+  if (logCommand) {
     logger.info("Running command:", colors.blackBright(displayCommand));
   }
 
-  return execFileSync(command, args, { encoding: "utf8" });
+  try {
+    return execFileSync(command, args, { encoding: "utf8" });
+  } catch {
+    throw new Error(`command failed: ${displayCommand}`);
+  }
 }
 
 function getNpmConfig(): Record<string, unknown> {
-  if (npmConfig) {
+  if (npmConfig !== undefined) {
     return npmConfig;
   }
 
   const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
 
   try {
-    npmConfig = JSON.parse(npmConfigJson) as Record<string, unknown>;
+    npmConfig = (JSON.parse(npmConfigJson) as Record<string, unknown> | null) ?? {};
   } catch {
-    return {};
+    // Cache the empty result too, so a broken config is not re-read on every call.
+    npmConfig = {};
   }
+
   return npmConfig;
 }
 
 function removeTrailingSlash(input: string): string {
-  return input.trim().replace(/\/?$/, "");
+  return input.trim().replace(/\/+$/, "");
 }
 
 /**
@@ -52,8 +69,14 @@ function removeTrailingSlash(input: string): string {
  */
 export function getRegistryUrl(): string {
   const cliArgs = parseCliArgs();
+  const cliRegistry = cliArgs.registry;
 
-  const registry = cliArgs.registry ?? getNpmConfig().registry;
+  if (cliRegistry !== undefined && (typeof cliRegistry !== "string" || cliRegistry.trim() === "")) {
+    throw new Error("--registry expects a URL");
+  }
+
+  const configured = cliRegistry ?? getNpmConfig().registry;
+  const registry = typeof configured === "string" ? configured : "";
 
   if (!registry) {
     return PUBLIC_REGISTRIES[0];

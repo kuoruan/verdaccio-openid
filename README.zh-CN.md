@@ -79,11 +79,13 @@ auth:
 
 在 OIDC 提供方中配置这些回调地址：
 
-| 流程      | 回调地址                                           |
-| --------- | -------------------------------------------------- |
-| Web Authn | `https://your-registry.com/-/oauth/callback/authn` |
-| Web UI    | `https://your-registry.com/-/oauth/callback`       |
-| CLI       | `https://your-registry.com/-/oauth/callback/cli`   |
+| 流程                                      | 回调地址                                           |
+| ----------------------------------------- | -------------------------------------------------- |
+| Web Authn                                 | `https://your-registry.com/-/oauth/callback/authn` |
+| Web UI                                    | `https://your-registry.com/-/oauth/callback`       |
+| CLI（旧版 CLI ≤0.20，且仅限服务端 ≤0.20） | `https://your-registry.com/-/oauth/callback/cli`   |
+
+服务端 `0.21.0` 及之后版本中，旧 CLI 路由只返回 `400` 升级提示，无需在 OIDC 提供方配置该回调。
 
 ## 认证
 
@@ -119,7 +121,7 @@ npm login --registry http://your-registry.com
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
 
-CLI 会启动本地回调服务器接收 token。Web Authn 不可用时（例如旧版 npm）改用这个流程。详见 [CLI 认证](docs/zh-CN/cli-auth.md)。
+CLI 通过 npm 自身的 Web 登录协议登录（需服务端 `0.14.0` 及之后版本）。Web Authn 不可用时（例如旧版 npm）改用这个流程。详见 [CLI 认证](docs/zh-CN/cli-auth.md)。
 
 ## 存储后端
 

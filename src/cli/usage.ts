@@ -3,27 +3,24 @@ import process from "node:process";
 import { plugin } from "@/constants";
 
 import logger from "./logger";
+import { cliErrorMessage } from "./response";
 import { getRegistryUrl, PUBLIC_REGISTRIES } from "./npm";
 
-/** Lines explaining that the CLI needs a Verdaccio registry rather than the public one. */
-export function getUsageInfo() {
-  return [
-    "========================= Usage =========================",
-    "You are using a public npm registry or mirror.",
-    "Point npm at your Verdaccio URL first:",
-    "",
-    "npm config set registry <URL>",
-    "",
-    "Or pass the registry to the CLI:",
-    "",
-    `npx ${plugin.name} --registry <URL>`,
-    "========================================================",
-  ];
-}
+const usageLines = [
+  "========================= Usage =========================",
+  "You are using a public npm registry or mirror.",
+  "Point npm at your Verdaccio URL first:",
+  "",
+  "npm config set registry <URL>",
+  "",
+  "Or pass the registry to the CLI:",
+  "",
+  `npx ${plugin.name} --registry <URL>`,
+  "========================================================",
+];
 
-/** Print the usage lines through the CLI logger. */
-export function printUsage() {
-  for (const line of getUsageInfo()) {
+function printUsage() {
+  for (const line of usageLines) {
     logger.info(line);
   }
 }
@@ -33,8 +30,16 @@ export function printUsage() {
  *
  * @returns the configured registry URL
  */
-export function validateRegistry() {
-  const registry = getRegistryUrl();
+export function validateRegistry(): string {
+  let registry: string;
+
+  try {
+    registry = getRegistryUrl();
+  } catch (error) {
+    logger.error(cliErrorMessage(error));
+    printUsage();
+    process.exit(1);
+  }
 
   if (PUBLIC_REGISTRIES.some((item) => registry.includes(item))) {
     printUsage();

@@ -79,11 +79,13 @@ See [Configuration](docs/configuration.md) for the full option list.
 
 Configure these in your OIDC provider:
 
-| Flow      | Callback URL                                       |
-| --------- | -------------------------------------------------- |
-| Web Authn | `https://your-registry.com/-/oauth/callback/authn` |
-| Web UI    | `https://your-registry.com/-/oauth/callback`       |
-| CLI       | `https://your-registry.com/-/oauth/callback/cli`   |
+| Flow                                           | Callback URL                                       |
+| ---------------------------------------------- | -------------------------------------------------- |
+| Web Authn                                      | `https://your-registry.com/-/oauth/callback/authn` |
+| Web UI                                         | `https://your-registry.com/-/oauth/callback`       |
+| CLI (legacy CLI ≤0.20, only with server ≤0.20) | `https://your-registry.com/-/oauth/callback/cli`   |
+
+On server `0.21.0` and newer the legacy CLI routes only answer `400` with an upgrade notice, so this callback never needs to be configured at the provider.
 
 ## Authentication
 
@@ -119,7 +121,7 @@ This opens a browser window for OIDC login and saves the token automatically.
 npx verdaccio-openid@latest --registry http://your-registry.com
 ```
 
-The CLI runs a local callback server that receives the token. Use it when Web Authn is unavailable, for example on older npm versions. See [CLI Authentication](docs/cli-auth.md) for the legacy login options.
+The CLI logs in through npm's own web protocol against servers since `0.14.0`. Use it when Web Authn is unavailable, for example on older npm versions. See [CLI Authentication](docs/cli-auth.md).
 
 ## Store backends
 

@@ -1,70 +1,34 @@
-import type { Response } from "express";
+import { stripVTControlCharacters } from "node:util";
+
 import colors from "picocolors";
 
-import { messageGroupRequired, messageLoggedAndCloseWindow } from "@/constants";
-import { buildAccessDeniedPage, buildErrorPage, buildSuccessPage } from "@/status-page";
+import { messageNpmConfigUpdated } from "@/constants";
 
 import logger from "./logger";
 import { getNpmConfigFile } from "./npm";
 
-const messageSuccess = "All done. We've updated your npm configuration.";
-
 /**
- * Report the outcome of the CLI login on the terminal.
+ * Report a login that finished.
  *
- * @param status `success`, `denied`, or anything else, which is reported as an error
- * @param message the message the server sent for a non-success status
+ * Only a successful login reaches this: a failure exits before it runs.
  */
-export function respondWithCliMessage(status: string, message: string) {
-  switch (status) {
-    case "success": {
-      logger.success(messageSuccess);
-      logger.info("Path:", colors.blackBright(getNpmConfigFile()));
-      break;
-    }
-
-    case "denied": {
-      logger.error(messageGroupRequired);
-      break;
-    }
-
-    default: {
-      logger.error(message);
-      break;
-    }
-  }
+export function respondWithCliSuccess() {
+  logger.success(messageNpmConfigUpdated);
+  logger.info("Path:", colors.blackBright(getNpmConfigFile()));
 }
 
 /**
- * Report the outcome of the CLI login in the browser tab the CLI opened.
+ * Turn a failure into terminal text.
  *
- * @param status `success`, `denied`, or anything else, which is reported as an error page
- * @param message the message the server sent for a non-success status
- * @param res the response of the local callback server
+ * The message can come from a remote server, so control sequences are stripped
+ * and line breaks are flattened before it reaches the terminal: a bare `\r`
+ * would otherwise let the message overwrite what was printed before it.
+ *
+ * @param error the thrown value
+ * @returns the message to print
  */
-export function respondWithWebPage(status: string, message: string, res: Response) {
-  res.setHeader("Content-Type", "text/html");
+export function cliErrorMessage(error: unknown): string {
+  const message = (error as any)?.message ?? error;
 
-  switch (status) {
-    case "success": {
-      res.status(200).send(
-        buildSuccessPage(
-          `${messageSuccess}<br>
-          <code>${getNpmConfigFile()}</code><br>
-          ${messageLoggedAndCloseWindow}`,
-        ),
-      );
-      break;
-    }
-
-    case "denied": {
-      res.status(401).send(buildAccessDeniedPage());
-      break;
-    }
-
-    default: {
-      res.status(500).send(buildErrorPage(message));
-      break;
-    }
-  }
+  return stripVTControlCharacters(String(message)).replace(/[\r\n]+/g, " ");
 }
