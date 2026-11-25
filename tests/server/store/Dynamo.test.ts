@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import DynamoStore from "@/server/store/Dynamo";
-import { BaseStore } from "@/server/store/Store";
+import { DEFAULT_STATE_TTL_MS } from "@/server/store/constants";
 
 // Mock the AWS SDK v3 DocumentClient. Every test resets the send()
 // implementation per its needs.
@@ -44,6 +44,7 @@ const baseConfig = { tableName: "test-table", region: "us-east-1" };
 beforeEach(() => {
   sendMock.mockReset();
   destroyMock.mockReset();
+  vi.restoreAllMocks();
 });
 
 describe("DynamoStore — required config", () => {
@@ -66,7 +67,7 @@ describe("DynamoStore — required config", () => {
 describe("DynamoStore — read consistency", () => {
   // Strongly consistent reads cost twice the RCUs. Only read-after-write
   // paths need them; cache-style rows tolerate eventual reads.
-  const readConsistencyOf = async (fn: (s: DynamoStore) => Promise<unknown>) => {
+  const readConsistencyOf = async (fn: (s: DynamoStore) => MaybePromise<unknown>) => {
     sendMock.mockResolvedValue({});
     await fn(new DynamoStore(baseConfig));
     const cmd = sendMock.mock.calls.at(-1)![0];
@@ -78,8 +79,8 @@ describe("DynamoStore — read consistency", () => {
     await expect(readConsistencyOf((s) => s.getOpenIDState("session-abc", "openid"))).resolves.toBe(true);
   });
 
-  it("reads the webauthn token strongly consistently", async () => {
-    await expect(readConsistencyOf((s) => s.getWebAuthnToken("key"))).resolves.toBe(true);
+  it("reads the webauthn session strongly consistently", async () => {
+    await expect(readConsistencyOf((s) => s.getWebAuthnSession("key"))).resolves.toBe(true);
   });
 
   it("reads cached user info eventually consistently", async () => {
@@ -172,11 +173,13 @@ describe("DynamoStore — size enforcement (security)", () => {
     expect(sendMock).not.toHaveBeenCalled();
   });
 
-  it("rejects oversize webauthn token (>64 KB)", async () => {
+  it("rejects oversize webauthn session (>64 KB)", async () => {
     const store = new DynamoStore(baseConfig);
     const huge = "x".repeat(100 * 1024);
 
-    await expect(store.setWebAuthnToken("k", huge)).rejects.toThrow(/exceeds 65536 byte limit/);
+    await expect(store.setWebAuthnSession("k", { status: "ready", token: huge })).rejects.toThrow(
+      /exceeds 65536 byte limit/,
+    );
     expect(sendMock).not.toHaveBeenCalled();
   });
 
@@ -197,6 +200,24 @@ describe("DynamoStore — user info + groups", () => {
     await store.setUserGroups("user", [], "openid");
     expect(sendMock).toHaveBeenCalledOnce();
     expect(sendMock.mock.calls[0][0].__type).toBe("Delete");
+  });
+
+  it("takeLoginResult reports an oversized key as a miss", async () => {
+    sendMock.mockReset();
+    const store = new DynamoStore(baseConfig);
+
+    await expect(store.takeLoginResult("k".repeat(2000))).resolves.toBeUndefined();
+    expect(sendMock).not.toHaveBeenCalled();
+  });
+
+  it("setUserGroups rejects an oversized key without touching the database", async () => {
+    sendMock.mockReset();
+    const store = new DynamoStore(baseConfig);
+    const validateSpy = vi.spyOn(store as any, "validate");
+
+    expect(() => store.setUserGroups("k".repeat(2000), [], "openid")).toThrow(/byte limit/);
+    expect(validateSpy).toHaveBeenCalledWith("userGroups", "k".repeat(2000), [], { providerId: "openid" });
+    expect(sendMock).not.toHaveBeenCalled();
   });
 
   it("setUserGroups writes the array when non-empty", async () => {
@@ -227,21 +248,21 @@ describe("DynamoStore — user info + groups", () => {
   });
 });
 
-describe("DynamoStore — webauthn takeWebAuthnToken (atomic CAS)", () => {
+describe("DynamoStore — webauthn takeWebAuthnSession (atomic CAS)", () => {
   it("returns the current value AND does NOT delete when current equals pendingToken", async () => {
     // First call: GET returns the current token equal to pending.
     sendMock.mockResolvedValueOnce({
       Item: {
         pk: "OIDC",
         sk: "webauthn:session1",
-        token: "pending-T",
+        token: "__pending__",
         expires: Math.floor(Date.now() / 1000) + 60,
       },
     });
     const store = new DynamoStore(baseConfig);
 
-    const result = await store.takeWebAuthnToken("session1", "pending-T");
-    expect(result).toBe("pending-T");
+    const result = await store.takeWebAuthnSession("session1");
+    expect(result).toEqual({ status: "pending" });
     // Only the GET call — no DELETE, because current === pending.
     expect(sendMock).toHaveBeenCalledOnce();
     expect(sendMock.mock.calls[0][0].__type).toBe("Get");
@@ -259,8 +280,8 @@ describe("DynamoStore — webauthn takeWebAuthnToken (atomic CAS)", () => {
     sendMock.mockResolvedValueOnce({});
     const store = new DynamoStore(baseConfig);
 
-    const result = await store.takeWebAuthnToken("session1", "pending-T");
-    expect(result).toBe("real-T");
+    const result = await store.takeWebAuthnSession("session1");
+    expect(result).toEqual({ status: "ready", token: "real-T" });
     expect(sendMock).toHaveBeenCalledTimes(2);
     const del = sendMock.mock.calls[1][0];
     expect(del.__type).toBe("Delete");
@@ -272,7 +293,7 @@ describe("DynamoStore — webauthn takeWebAuthnToken (atomic CAS)", () => {
     sendMock.mockResolvedValueOnce({});
     const store = new DynamoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("session1", "pending-T")).resolves.toBeUndefined();
+    await expect(store.takeWebAuthnSession("session1")).resolves.toBeUndefined();
   });
 
   it("rethrows non-ConditionalCheckFailed errors (matching Redis error propagation)", async () => {
@@ -290,8 +311,87 @@ describe("DynamoStore — webauthn takeWebAuthnToken (atomic CAS)", () => {
 
     const store = new DynamoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("s", "pending-T")).rejects.toThrow("DynamoStore.takeWebAuthnToken failed");
+    await expect(store.takeWebAuthnSession("s")).rejects.toThrow("DynamoStore.takeWebAuthnSession failed");
   });
+});
+
+describe("DynamoStore — login result", () => {
+  it("stores the value under its own key with the state ttl", async () => {
+    sendMock.mockResolvedValueOnce({});
+    const store = new DynamoStore(baseConfig);
+
+    await store.setLoginResult("state-1", { username: "dave", uiToken: "ui", npmToken: "npm" });
+
+    const put = sendMock.mock.calls[0][0];
+
+    expect(put.__type).toBe("Put");
+    expect(put.input.Item.sk).toBe("openid-login:login:state-1");
+    expect(JSON.parse(put.input.Item.value)).toEqual({ username: "dave", uiToken: "ui", npmToken: "npm" });
+    expect(put.input.Item.expires).toBeGreaterThan(Math.floor(Date.now() / 1000));
+  });
+
+  it("deletes and returns in one operation", async () => {
+    sendMock.mockResolvedValueOnce({
+      Attributes: {
+        pk: "OIDC",
+        sk: "openid-login:login:state-1",
+        value: '{"username":"dave","uiToken":"ui","npmToken":"npm"}',
+        expires: Math.floor(Date.now() / 1000) + 60,
+      },
+    });
+    const store = new DynamoStore(baseConfig);
+
+    await expect(store.takeLoginResult("state-1")).resolves.toEqual({
+      username: "dave",
+      uiToken: "ui",
+      npmToken: "npm",
+    });
+
+    const del = sendMock.mock.calls[0][0];
+
+    expect(del.__type).toBe("Delete");
+    expect(del.input.ReturnValues).toBe("ALL_OLD");
+
+    // A second request finds nothing: the delete returned no attributes.
+    sendMock.mockResolvedValueOnce({});
+
+    await expect(store.takeLoginResult("state-1")).resolves.toBeUndefined();
+    expect(del.input.Key).toEqual({ pk: "OIDC", sk: "openid-login:login:state-1" });
+  });
+
+  it("does not hand out an expired row the TTL reaper has not removed yet", async () => {
+    sendMock.mockResolvedValueOnce({
+      Attributes: {
+        value: '{"username":"dave","uiToken":"ui","npmToken":"npm"}',
+        expires: Math.floor(Date.now() / 1000) - 5,
+      },
+    });
+    const store = new DynamoStore(baseConfig);
+
+    await expect(store.takeLoginResult("state-1")).resolves.toBeUndefined();
+  });
+
+  it("rethrows a failed delete", async () => {
+    sendMock.mockRejectedValueOnce(Object.assign(new Error("boom"), { name: "InternalServerError" }));
+    const store = new DynamoStore(baseConfig);
+
+    await expect(store.takeLoginResult("state-1")).rejects.toThrow(/takeLoginResult/);
+  });
+
+  it.each(["webAuthn", "loginResult"] as const)(
+    "forwards a non-undefined take context to the row key (%s)",
+    async (kind) => {
+      sendMock.mockResolvedValue({});
+      const store = new DynamoStore(baseConfig);
+      const rowKeySpy = vi.spyOn(store as any, "rowKey");
+      const context = { providerId: "probe" };
+
+      await (store as any).take(kind, "k1", context);
+
+      expect(rowKeySpy).toHaveBeenCalledWith(kind, "k1", context);
+      expect(rowKeySpy.mock.calls.find(([k]) => k === kind)?.[2]).toBe(context);
+    },
+  );
 });
 
 describe("DynamoStore — delete paths", () => {
@@ -308,11 +408,11 @@ describe("DynamoStore — delete paths", () => {
     expect(cmd.input.Key.sk).toBe("openid:state:session-abc");
   });
 
-  it("deleteWebAuthnToken sends DeleteCommand", async () => {
+  it("deleteWebAuthnSession sends DeleteCommand", async () => {
     sendMock.mockResolvedValue({});
     const store = new DynamoStore(baseConfig);
 
-    await store.deleteWebAuthnToken("session-abc");
+    await store.deleteWebAuthnSession("session-abc");
 
     expect(sendMock).toHaveBeenCalledOnce();
     expect(sendMock.mock.calls[0][0].__type).toBe("Delete");
@@ -329,7 +429,20 @@ describe("DynamoStore — error propagation", () => {
 });
 
 describe("DynamoStore — TTL derivation", () => {
-  it("uses BaseStore.DefaultStateTTL when opts.ttl is not provided", async () => {
+  it("rounds a sub-second ttl up instead of expiring its rows on write", async () => {
+    sendMock.mockResolvedValueOnce({});
+    const store = new DynamoStore({ ...baseConfig, ttl: 500 });
+
+    await store.setOpenIDState("k", "nonce", "p");
+
+    const put = sendMock.mock.calls[0][0];
+    const nowSeconds = Math.floor(Date.now() / 1000);
+
+    // One second of life, not zero: the row is readable until the reaper arrives.
+    expect(put.input.Item.expires).toBeGreaterThanOrEqual(nowSeconds + 1);
+  });
+
+  it("uses DEFAULT_STATE_TTL_MS when opts.ttl is not provided", async () => {
     sendMock.mockResolvedValue({});
     const store = new DynamoStore(baseConfig);
 
@@ -337,7 +450,7 @@ describe("DynamoStore — TTL derivation", () => {
 
     const cmd = sendMock.mock.calls[0][0];
     const nowSec = Math.floor(Date.now() / 1000);
-    const expectedSec = nowSec + Math.floor(BaseStore.DefaultStateTTL / 1000);
+    const expectedSec = nowSec + Math.ceil(DEFAULT_STATE_TTL_MS / 1000);
     // Allow ±2s slack for test execution time.
     expect(Math.abs(cmd.input.Item.expires - expectedSec)).toBeLessThanOrEqual(2);
   });

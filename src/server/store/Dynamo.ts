@@ -1,33 +1,33 @@
 import type { DynamoDBDocumentClient } from "@aws-sdk/lib-dynamodb";
 
+import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN, ROW_FIELD } from "./constants";
 import logger from "@/server/logger";
 import { importOptional } from "@/server/utils";
 
-import { BaseStore, type DynamoConfig, type Store } from "./Store";
+import { validateStoredValue } from "./utils";
+
+import {
+  BaseStore,
+  type TakeKind,
+  type DynamoConfig,
+  type Store,
+  type StoredValues,
+  type StoreContext,
+  type StoreKind,
+} from "./Store";
 
 const DEFAULT_PARTITION_KEY = "OIDC";
-
-// DynamoDB item size limit is 400 KB; we cap user-controlled inputs
-// well below that as a defence-in-depth measure against pathological
-// payloads from a malicious client.
-const MAX_KEY_BYTES = 1024;
-const MAX_VALUE_BYTES = 64 * 1024; // 64 KB — far above any realistic
-// OIDC nonce / token / userinfo payload
-// we'd ever see.
-
-function assertSize(label: string, value: string, max: number): void {
-  if (Buffer.byteLength(value, "utf8") > max) {
-    throw new Error(`DynamoStore: ${label} exceeds ${max} byte limit`);
-  }
-}
 
 /**
  * Wraps an AWS SDK error so the Verdaccio plugin layer sees a small,
  * deterministic message — never the raw stack trace, which can be
  * huge and includes internal SDK paths.
  *
- * Only thrown from write paths (put, takeWebAuthnToken conditional
- * delete). Read paths (get) fail closed by returning undefined, and
+ * Only thrown from write paths (put, takeWebAuthn conditional
+ * delete, takeLoginResult). Size checks throw from `validate`,
+ * which the shared domain methods call before any hook; read paths
+ * (get) fail closed by
+ * returning undefined on backend errors, and
  * best-effort deletes (del) intentionally swallow errors since stale
  * rows expire via TTL anyway.
  */
@@ -92,13 +92,14 @@ function classify(err: unknown): "transient" | "permanent" {
  * namespacing is via the `pk` value, defaulting to "OIDC" here):
  *
  *   pk = "OIDC"                      (configurable via `partitionKey`)
- *   sk = "<providerId>:<type>:<key>" (matches BaseStore.get*Key())
+ *   sk = "<providerId>:<type>:<key>" (matches BaseStore.rowKey())
  *
  * Item attributes vary by sk:
  *   state    → { nonce: string,        expires: epoch_seconds }
  *   userinfo → { data: { ... },        expires: epoch_seconds }
  *   groups   → { groups: string[],     expires: epoch_seconds }
  *   webauthn → { token: string,        expires: epoch_seconds }
+ *   login    → { value: string,        expires: epoch_seconds }
  *
  * The table must have its `expires` attribute configured as the
  * TTL attribute name in the AWS DynamoDB console / Pulumi.
@@ -131,8 +132,10 @@ export default class DynamoStore extends BaseStore implements Store {
     this.config = opts;
     this.tableName = opts.tableName;
     this.pk = opts.partitionKey ?? DEFAULT_PARTITION_KEY;
-    this.stateTTLSeconds = Math.floor((typeof opts.ttl === "number" ? opts.ttl : BaseStore.DefaultStateTTL) / 1000);
-    this.dataTTLSeconds = Math.floor(BaseStore.DefaultDataTTL / 1000);
+    // DynamoDB TTL works in seconds, rounded up: `ttl: "500ms"` keeps its row
+    // for a second instead of marking it expired on write.
+    this.stateTTLSeconds = Math.ceil((typeof opts.ttl === "number" ? opts.ttl : DEFAULT_STATE_TTL_MS) / 1000);
+    this.dataTTLSeconds = Math.ceil(DEFAULT_DATA_TTL_MS / 1000);
   }
 
   private async getClient(): Promise<DynamoDBDocumentClient> {
@@ -169,6 +172,15 @@ export default class DynamoStore extends BaseStore implements Store {
     return Math.floor(Date.now() / 1000) + ttlSeconds;
   }
 
+  protected override validate<K extends StoreKind>(
+    kind: K,
+    key: string,
+    value: StoredValues[K] | undefined,
+    _context?: StoreContext,
+  ): void {
+    validateStoredValue("DynamoStore", kind, key, value);
+  }
+
   private async put(sk: string, item: Record<string, unknown>, ttlSeconds: number): Promise<void> {
     try {
       const client = await this.getClient();
@@ -198,9 +210,9 @@ export default class DynamoStore extends BaseStore implements Store {
     }
   }
 
-  /** `isConsistent` is for read-after-write paths (state, webauthn);
-   *  cache-style data (userinfo, groups) tolerates eventual reads at
-   *  half the RCU cost. */
+  /** `isConsistent` is for read-after-write paths (state, webauthn, the
+   *  login result, which is consumed exactly once); cache-style data
+   *  (userinfo, groups) tolerates eventual reads at half the RCU cost. */
   private async get<T = Record<string, unknown>>(sk: string, isConsistent = false): Promise<T | undefined> {
     try {
       const client = await this.getClient();
@@ -245,83 +257,62 @@ export default class DynamoStore extends BaseStore implements Store {
     }
   }
 
-  async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
-    assertSize("openid state key", key, MAX_KEY_BYTES);
-    assertSize("openid state nonce", nonce, MAX_VALUE_BYTES);
-    await this.put(this.getStateKey(key, providerId), { nonce }, this.stateTTLSeconds);
+  protected async read<K extends StoreKind>(
+    kind: K,
+    key: string,
+    context?: StoreContext,
+  ): Promise<StoredValues[K] | undefined> {
+    // `state`, `webAuthn` and `loginResult` are read right after a write on
+    // another connection, so they ask for a strongly consistent read.
+    const consistent = kind !== "userInfo" && kind !== "userGroups";
+    const item = await this.get<Record<string, unknown>>(this.rowKey(kind, key, context), consistent);
+
+    return item?.[ROW_FIELD[kind]] as StoredValues[K] | undefined;
   }
 
-  async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
-    const item = await this.get<{ nonce?: string }>(this.getStateKey(key, providerId), true);
-    return item?.nonce;
+  protected async write<K extends StoreKind>(
+    kind: K,
+    key: string,
+    value: StoredValues[K],
+    context?: StoreContext,
+  ): Promise<void> {
+    // State-bound kinds keep the configured state TTL; cached userinfo keeps the data TTL.
+    const ttl = kind === "userInfo" || kind === "userGroups" ? this.dataTTLSeconds : this.stateTTLSeconds;
+
+    await this.put(this.rowKey(kind, key, context), { [ROW_FIELD[kind]]: value }, ttl);
   }
 
-  async deleteOpenIDState(key: string, providerId: string): Promise<void> {
-    await this.del(this.getStateKey(key, providerId));
+  protected async remove(kind: StoreKind, key: string, context?: StoreContext): Promise<void> {
+    await this.del(this.rowKey(kind, key, context));
   }
 
-  async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
-    if (typeof data !== "object" || data === null) {
-      throw new TypeError("userinfo data must be an object");
+  /** Dispatch an atomic take to the kind's own single-step operation. */
+  protected async take(kind: TakeKind, key: string, context?: StoreContext): Promise<string | undefined> {
+    switch (kind) {
+      case "webAuthn":
+        return this.takeWebAuthnValue(key, context);
+      case "loginResult":
+        return this.takeLoginResultValue(key, context);
     }
-
-    assertSize("user info key", key, MAX_KEY_BYTES);
-    assertSize("user info payload", JSON.stringify(data), MAX_VALUE_BYTES);
-    await this.put(
-      this.getUserInfoKey(key, providerId),
-      { data: data as Record<string, unknown> },
-      this.dataTTLSeconds,
-    );
-  }
-
-  async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | undefined> {
-    const item = await this.get<{ data?: Record<string, unknown> }>(this.getUserInfoKey(key, providerId));
-    return item?.data;
-  }
-
-  async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
-    assertSize("user groups key", key, MAX_KEY_BYTES);
-    assertSize("user groups payload", JSON.stringify(groups), MAX_VALUE_BYTES);
-    if (groups.length === 0) {
-      await this.del(this.getUserGroupsKey(key, providerId));
-      return;
-    }
-    await this.put(this.getUserGroupsKey(key, providerId), { groups }, this.dataTTLSeconds);
-  }
-
-  async getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
-    const item = await this.get<{ groups?: string[] }>(this.getUserGroupsKey(key, providerId));
-    return item?.groups;
-  }
-
-  async setWebAuthnToken(key: string, token: string): Promise<void> {
-    assertSize("webauthn key", key, MAX_KEY_BYTES);
-    assertSize("webauthn token", token, MAX_VALUE_BYTES);
-    await this.put(this.getWebAuthnTokenKey(key), { token }, this.stateTTLSeconds);
-  }
-
-  async getWebAuthnToken(key: string): Promise<string | undefined> {
-    const item = await this.get<{ token?: string }>(this.getWebAuthnTokenKey(key), true);
-    return item?.token;
   }
 
   /**
-   * Atomically read the webauthn token and consume it if ready.
+   * Atomically read the webauthn session and consume it if ready.
    *
-   * Mirrors the Redis Lua semantics: pending tokens (current ===
-   * pendingToken) are returned without delete so polling callers can
-   * keep checking; ready tokens (current !== pendingToken) are
+   * Mirrors the Redis Lua semantics: a pending session is returned without
+   * delete so polling callers can keep checking; a ready session is
    * conditionally deleted — only the caller whose conditional delete
    * succeeds gets the value back. A lost race returns undefined,
    * preventing two callers from both believing they consumed the
    * same ready token.
    */
-  async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | undefined> {
-    const sk = this.getWebAuthnTokenKey(key);
+
+  private async takeWebAuthnValue(key: string, context?: StoreContext): Promise<string | undefined> {
+    const sk = this.rowKey("webAuthn", key, context);
     const item = await this.get<{ token?: string }>(sk, true);
     const current = item?.token;
     if (current === undefined) return undefined;
-    if (current === pendingToken) return current;
+    if (current === PENDING_TOKEN) return current;
 
     try {
       const client = await this.getClient();
@@ -343,15 +334,49 @@ export default class DynamoStore extends BaseStore implements Store {
       const level = classify(err) === "transient" ? "warn" : "error";
       logger[level](
         { error: err?.name, code: err?.code },
-        "DynamoStore.takeWebAuthnToken delete failed: @{error} (@{code})",
+        "DynamoStore.takeWebAuthnSession delete failed: @{error} (@{code})",
       );
-      throw new DynamoStoreError("takeWebAuthnToken", err);
+      throw new DynamoStoreError("takeWebAuthnSession", err);
     }
     return current;
   }
 
-  async deleteWebAuthnToken(key: string): Promise<void> {
-    await this.del(this.getWebAuthnTokenKey(key));
+  /**
+   * Read the login result and consume it in one atomic step.
+   *
+   * `DeleteItem` returns the item it removed, so of two requests presenting the
+   * same code only one is handed the credentials. An expired row is reported as
+   * absent: DynamoDB reaps it on its own schedule.
+   */
+  private async takeLoginResultValue(key: string, context?: StoreContext): Promise<string | undefined> {
+    const sk = this.rowKey("loginResult", key, context);
+
+    try {
+      const client = await this.getClient();
+      const { DeleteCommand } = await import("@aws-sdk/lib-dynamodb");
+
+      const out = await client.send(
+        new DeleteCommand({
+          TableName: this.tableName,
+          Key: { pk: this.pk, sk },
+          ReturnValues: "ALL_OLD",
+        }),
+      );
+
+      const item = out.Attributes as { value?: string; expires?: number } | undefined;
+
+      if (!item) return undefined;
+      if (typeof item.expires === "number" && item.expires * 1000 < Date.now()) return undefined;
+
+      return item.value;
+    } catch (err: any) {
+      const level = classify(err) === "transient" ? "warn" : "error";
+      logger[level](
+        { error: err?.name ?? "unknown", code: err?.code },
+        "DynamoStore.takeLoginResult failed: @{error} (@{code})",
+      );
+      throw new DynamoStoreError("takeLoginResult", err);
+    }
   }
 
   async close(): Promise<void> {

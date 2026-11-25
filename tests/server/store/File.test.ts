@@ -1,10 +1,18 @@
 import type { MockInstance } from "vitest";
 
+import { vi } from "vitest";
+
+import { chmod, mkdir } from "node:fs/promises";
+
 import FileStore from "@/server/store/File";
 import type { FileConfig } from "@/server/store/Store";
 
 vi.mock("node-persist");
 vi.mock("@/server/logger");
+vi.mock("node:fs/promises", () => ({
+  chmod: vi.fn().mockResolvedValue(undefined),
+  mkdir: vi.fn().mockResolvedValue(undefined),
+}));
 
 describe("FileStore constructor", () => {
   it("should not throw when opts is a string", () => {
@@ -56,9 +64,33 @@ describe("FileStore methods", () => {
 
     expect(storage.default.create).toHaveBeenCalledWith({
       ttl: expect.any(Number),
+      forgiveParseErrors: true,
       dir: "/test/dir",
     });
     expect(initMock).toHaveBeenCalled();
+  });
+
+  it("should create the store directory readable by its owner only", async () => {
+    await fileStore.setOpenIDState("key1", "nonce1", "provider1");
+
+    expect(mkdir).toHaveBeenCalledWith("/test/dir", { recursive: true, mode: 0o700 });
+    // A directory an earlier version left at 0755 is tightened as well.
+    expect(chmod).toHaveBeenCalledWith("/test/dir", 0o700);
+  });
+
+  it("should keep a ttl the configuration asks for", async () => {
+    const storage = await import("node-persist");
+    const configured = new FileStore({ dir: "/test/dir", ttl: 5000 });
+
+    await configured.setOpenIDState("key1", "nonce1", "provider1");
+
+    expect(storage.default.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dir: "/test/dir",
+        ttl: 5000,
+        forgiveParseErrors: true,
+      }),
+    );
   });
 
   it("should set and get state", async () => {
@@ -92,19 +124,68 @@ describe("FileStore methods", () => {
     expect(await fileStore.getUserGroups("key1", "provider1")).toEqual(groups);
   });
 
-  it("should take ready webauthn token and delete it", async () => {
+  it("should take ready webauthn session and delete it", async () => {
     dbMock.getItem.mockResolvedValue("issued-token");
 
-    await expect(fileStore.takeWebAuthnToken("session1", "__pending__")).resolves.toBe("issued-token");
+    await expect(fileStore.takeWebAuthnSession("session1")).resolves.toEqual({
+      status: "ready",
+      token: "issued-token",
+    });
 
     expect(dbMock.removeItem).toHaveBeenCalledWith("authn:session1");
   });
 
-  it("should keep pending webauthn token when taking", async () => {
+  it("should store a login result under its own key", async () => {
+    await fileStore.setLoginResult("state-1", { username: "dave", uiToken: "ui", npmToken: "npm" });
+
+    expect(dbMock.setItem).toHaveBeenCalledWith(
+      "openid-login:login:state-1",
+      '{"username":"dave","uiToken":"ui","npmToken":"npm"}',
+    );
+  });
+
+  it("should hand out a login result once", async () => {
+    dbMock.getItem.mockResolvedValueOnce('{"username":"dave","uiToken":"ui","npmToken":"npm"}');
+
+    await expect(fileStore.takeLoginResult("state-1")).resolves.toEqual({
+      username: "dave",
+      uiToken: "ui",
+      npmToken: "npm",
+    });
+    expect(dbMock.removeItem).toHaveBeenCalledWith("openid-login:login:state-1");
+
+    dbMock.getItem.mockResolvedValueOnce(undefined);
+
+    await expect(fileStore.takeLoginResult("state-1")).resolves.toBeUndefined();
+  });
+
+  it("should keep pending webauthn session when taking", async () => {
     dbMock.getItem.mockResolvedValue("__pending__");
 
-    await expect(fileStore.takeWebAuthnToken("session1", "__pending__")).resolves.toBe("__pending__");
+    await expect(fileStore.takeWebAuthnSession("session1")).resolves.toEqual({ status: "pending" });
 
     expect(dbMock.removeItem).not.toHaveBeenCalled();
+  });
+
+  it.each(["webAuthn", "loginResult"] as const)(
+    "forwards a non-undefined take context to the row key (%s)",
+    async (kind) => {
+      const context = { providerId: "probe" };
+      const rowKeySpy = vi.spyOn(fileStore as any, "rowKey");
+
+      dbMock.getItem.mockResolvedValueOnce(null);
+      await (fileStore as any).take(kind, "k1", context);
+
+      expect(rowKeySpy).toHaveBeenCalledWith(kind, "k1", context);
+      expect(rowKeySpy.mock.calls.find(([k]) => k === kind)?.[2]).toBe(context);
+    },
+  );
+
+  it("should report a corrupted login result as a miss", async () => {
+    for (const raw of ["not-json", '{"username":"dave"}', '["dave"]', "null"]) {
+      dbMock.getItem.mockResolvedValueOnce(raw);
+
+      await expect(fileStore.takeLoginResult("state-1")).resolves.toBeUndefined();
+    }
   });
 });

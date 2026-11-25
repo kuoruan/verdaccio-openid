@@ -1,37 +1,38 @@
 import type { Collection, MongoClient } from "mongodb";
 
+import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN, ROW_FIELD } from "./constants";
 import logger from "@/server/logger";
 import { importOptional } from "@/server/utils";
 
-import { BaseStore, type MongoConfig, type Store } from "./Store";
+import { validateStoredValue } from "./utils";
+
+import {
+  BaseStore,
+  type TakeKind,
+  type MongoConfig,
+  type Store,
+  type StoredValues,
+  type StoreContext,
+  type StoreKind,
+} from "./Store";
 
 const DEFAULT_DATABASE = "verdaccio-openid";
 const DEFAULT_COLLECTION = "openid-store";
 const TTL_INDEX_NAME = "expiresAt_ttl";
 
-// MongoDB documents are capped at 16 MB; we cap user-controlled inputs far
-// below that as a defence-in-depth measure against pathological payloads
-// from a malicious client.
-const MAX_KEY_BYTES = 1024;
-const MAX_VALUE_BYTES = 64 * 1024; // 64 KB — far above any realistic
-// OIDC nonce / token / userinfo payload.
-
 /** Captures the database segment of a connection string, if it has one. */
 const URI_DATABASE_REGEX = /^mongodb(?:\+srv)?:\/\/[^/]+\/([^/?]+)/;
-
-function assertSize(label: string, value: string, max: number): void {
-  if (Buffer.byteLength(value, "utf8") > max) {
-    throw new Error(`MongoStore: ${label} exceeds ${max} byte limit`);
-  }
-}
 
 /**
  * Wraps a driver error so the Verdaccio plugin layer sees a small,
  * deterministic message — never the raw error, which may embed the
  * connection string or the document being written.
  *
- * Only thrown from write paths (put, takeWebAuthnToken conditional
- * delete). Read paths fail closed by returning undefined, and
+ * Only thrown from write paths (put, takeWebAuthn conditional
+ * delete, takeLoginResult). Size checks throw from `validate`,
+ * which the shared domain methods call before any hook; read paths
+ * fail closed by returning
+ * undefined on backend errors, and
  * best-effort deletes swallow errors since stale documents expire via
  * the TTL index anyway.
  */
@@ -83,6 +84,7 @@ interface StoreDocument {
   data?: Record<string, unknown>;
   groups?: string[];
   token?: string;
+  value?: string;
   expiresAt: Date;
 }
 
@@ -97,7 +99,7 @@ type DocumentFields = Omit<StoreDocument, "_id" | "expiresAt">;
  *
  * Schema (one collection, one document per key):
  *
- *   _id       = "<providerId>:<type>:<key>"  (matches BaseStore.get*Key())
+ *   _id       = "<providerId>:<type>:<key>"  (matches BaseStore.rowKey())
  *   expiresAt = Date                          (TTL index, expireAfterSeconds: 0)
  *
  * The remaining fields vary by type:
@@ -105,6 +107,7 @@ type DocumentFields = Omit<StoreDocument, "_id" | "expiresAt">;
  *   userinfo → { data: { ... } }
  *   groups   → { groups: string[] }
  *   webauthn → { token: string }
+ *   login    → { value: string }
  *
  * Expiry is enforced on read (`expiresAt > now`). The MongoDB TTL monitor
  * only removes expired documents about once a minute, so the index is
@@ -136,8 +139,8 @@ export default class MongoStore extends BaseStore implements Store {
     this.config = opts;
     this.databaseName = opts.database ?? MongoStore.databaseFromUri(opts.uri) ?? DEFAULT_DATABASE;
     this.collectionName = opts.collection ?? DEFAULT_COLLECTION;
-    this.stateTTL = typeof opts.ttl === "number" ? opts.ttl : BaseStore.DefaultStateTTL;
-    this.dataTTL = BaseStore.DefaultDataTTL;
+    this.stateTTL = typeof opts.ttl === "number" ? opts.ttl : DEFAULT_STATE_TTL_MS;
+    this.dataTTL = DEFAULT_DATA_TTL_MS;
   }
 
   private static databaseFromUri(uri: string): string | undefined {
@@ -207,6 +210,15 @@ export default class MongoStore extends BaseStore implements Store {
     return new Date(Date.now() + ttl);
   }
 
+  protected override validate<K extends StoreKind>(
+    kind: K,
+    key: string,
+    value: StoredValues[K] | undefined,
+    _context?: StoreContext,
+  ): void {
+    validateStoredValue("MongoStore", kind, key, value);
+  }
+
   private async put(_id: string, fields: DocumentFields, ttl: number): Promise<void> {
     try {
       const collection = await this.getCollection();
@@ -249,79 +261,58 @@ export default class MongoStore extends BaseStore implements Store {
     }
   }
 
-  async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
-    assertSize("openid state key", key, MAX_KEY_BYTES);
-    assertSize("openid state nonce", nonce, MAX_VALUE_BYTES);
-    await this.put(this.getStateKey(key, providerId), { nonce }, this.stateTTL);
+  protected async read<K extends StoreKind>(
+    kind: K,
+    key: string,
+    context?: StoreContext,
+  ): Promise<StoredValues[K] | undefined> {
+    const doc = await this.get(this.rowKey(kind, key, context));
+
+    return doc?.[ROW_FIELD[kind]] as StoredValues[K] | undefined;
   }
 
-  async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
-    const doc = await this.get(this.getStateKey(key, providerId));
-    return doc?.nonce;
+  protected async write<K extends StoreKind>(
+    kind: K,
+    key: string,
+    value: StoredValues[K],
+    context?: StoreContext,
+  ): Promise<void> {
+    // State-bound kinds keep the configured state TTL; cached userinfo keeps the data TTL.
+    const ttl = kind === "userInfo" || kind === "userGroups" ? this.dataTTL : this.stateTTL;
+
+    await this.put(this.rowKey(kind, key, context), { [ROW_FIELD[kind]]: value } as DocumentFields, ttl);
   }
 
-  async deleteOpenIDState(key: string, providerId: string): Promise<void> {
-    await this.del(this.getStateKey(key, providerId));
+  protected async remove(kind: StoreKind, key: string, context?: StoreContext): Promise<void> {
+    await this.del(this.rowKey(kind, key, context));
   }
 
-  async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
-    if (typeof data !== "object" || data === null) {
-      throw new TypeError("userinfo data must be an object");
+  /** Dispatch an atomic take to the kind's own single-step operation. */
+  protected async take(kind: TakeKind, key: string, context?: StoreContext): Promise<string | undefined> {
+    switch (kind) {
+      case "webAuthn":
+        return this.takeWebAuthnValue(key, context);
+      case "loginResult":
+        return this.takeLoginResultValue(key, context);
     }
-
-    assertSize("user info key", key, MAX_KEY_BYTES);
-    assertSize("user info payload", JSON.stringify(data), MAX_VALUE_BYTES);
-    await this.put(this.getUserInfoKey(key, providerId), { data: data as Record<string, unknown> }, this.dataTTL);
-  }
-
-  async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | undefined> {
-    const doc = await this.get(this.getUserInfoKey(key, providerId));
-    return doc?.data;
-  }
-
-  async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
-    assertSize("user groups key", key, MAX_KEY_BYTES);
-    assertSize("user groups payload", JSON.stringify(groups), MAX_VALUE_BYTES);
-
-    if (groups.length === 0) {
-      await this.del(this.getUserGroupsKey(key, providerId));
-      return;
-    }
-    await this.put(this.getUserGroupsKey(key, providerId), { groups }, this.dataTTL);
-  }
-
-  async getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
-    const doc = await this.get(this.getUserGroupsKey(key, providerId));
-    return doc?.groups;
-  }
-
-  async setWebAuthnToken(key: string, token: string): Promise<void> {
-    assertSize("webauthn key", key, MAX_KEY_BYTES);
-    assertSize("webauthn token", token, MAX_VALUE_BYTES);
-    await this.put(this.getWebAuthnTokenKey(key), { token }, this.stateTTL);
-  }
-
-  async getWebAuthnToken(key: string): Promise<string | undefined> {
-    const doc = await this.get(this.getWebAuthnTokenKey(key));
-    return doc?.token;
   }
 
   /**
-   * Atomically read the webauthn token and consume it if ready.
+   * Atomically read the webauthn session and consume it if ready.
    *
-   * Mirrors the Redis Lua semantics: a pending token (current ===
-   * pendingToken) is returned without delete so polling callers can keep
-   * checking; a ready token is deleted with the token value in the filter,
+   * Mirrors the Redis Lua semantics: a pending session is returned without
+   * delete so polling callers can keep checking; a ready session is deleted
+   * with the token value in the filter,
    * so only the caller whose delete actually matched gets the value back.
    * A lost race returns undefined, preventing two callers from both
    * believing they consumed the same token.
    */
-  async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | undefined> {
-    const _id = this.getWebAuthnTokenKey(key);
+  private async takeWebAuthnValue(key: string, context?: StoreContext): Promise<string | undefined> {
+    const _id = this.rowKey("webAuthn", key, context);
     const current = (await this.get(_id))?.token;
 
     if (current === undefined) return undefined;
-    if (current === pendingToken) return current;
+    if (current === PENDING_TOKEN) return current;
 
     try {
       const collection = await this.getCollection();
@@ -333,14 +324,35 @@ export default class MongoStore extends BaseStore implements Store {
       const level = classify(err) === "transient" ? "warn" : "error";
       logger[level](
         { error: err?.name ?? "unknown", code: err?.code },
-        "MongoStore.takeWebAuthnToken delete failed: @{error} (@{code})",
+        "MongoStore.takeWebAuthnSession delete failed: @{error} (@{code})",
       );
-      throw new MongoStoreError("takeWebAuthnToken", err);
+      throw new MongoStoreError("takeWebAuthnSession", err);
     }
   }
 
-  async deleteWebAuthnToken(key: string): Promise<void> {
-    await this.del(this.getWebAuthnTokenKey(key));
+  /**
+   * Read the login result and consume it in one atomic step.
+   *
+   * `findOneAndDelete` matches and deletes the same document, so of two
+   * requests presenting the same code only one is handed the credentials.
+   */
+  private async takeLoginResultValue(key: string, context?: StoreContext): Promise<string | undefined> {
+    const _id = this.rowKey("loginResult", key, context);
+
+    try {
+      const collection = await this.getCollection();
+
+      const doc = await collection.findOneAndDelete({ _id, expiresAt: { $gt: new Date() } });
+
+      return doc?.value ?? undefined;
+    } catch (err: any) {
+      const level = classify(err) === "transient" ? "warn" : "error";
+      logger[level](
+        { error: err?.name ?? "unknown", code: err?.code },
+        "MongoStore.takeLoginResult failed: @{error} (@{code})",
+      );
+      throw new MongoStoreError("takeLoginResult", err);
+    }
   }
 
   async close(): Promise<void> {

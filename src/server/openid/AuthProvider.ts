@@ -14,7 +14,7 @@ import {
   type TokenInfo,
 } from "@/server/plugin/AuthProvider";
 import { getClaimsFromIdToken, getFullUrl, hashObject } from "@/server/plugin/utils";
-import type { Store } from "@/server/store/Store";
+import type { OpenIDStateStore, ProviderCache } from "@/server/store/Store";
 
 import { createDiscoveryCooldownError, createDiscoveryError } from "./DiscoveryErrorUtils";
 
@@ -38,7 +38,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
   constructor(
     private readonly config: ConfigHolder,
-    private readonly store: Store,
+    private readonly store: OpenIDStateStore & ProviderCache,
   ) {
     this.providerHost = this.config.providerHost;
     this.scope = this.config.scope;
@@ -272,10 +272,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       key = token.subject ?? hashObject(token);
     }
 
-    let userinfo: Record<string, unknown> | null | undefined;
+    let userinfo: Record<string, unknown> | undefined;
 
     try {
-      userinfo = await this.store.getUserInfo?.(key, this.getId());
+      userinfo = await this.store.getUserInfo(key, this.getId());
     } catch {
       debug("No userinfo cache found for key: %s", key);
     }
@@ -288,7 +288,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       userinfo = await openidClient.fetchUserInfo(configuration, accessToken, openidClient.skipSubjectCheck);
 
       try {
-        await this.store.setUserInfo?.(key, userinfo, this.getId());
+        await this.store.setUserInfo(key, userinfo, this.getId());
       } catch (e: any) {
         logger.warn({ message: e.message }, "Could not set userinfo cache: @{message}");
       }
@@ -303,8 +303,6 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @returns the username and, when the claims carry any, the groups
    */
   async getUserinfo(token: OpenIDToken): Promise<ProviderUser> {
-    let userinfo: Record<string, unknown>;
-
     let username: unknown, groups: unknown, subject: unknown;
 
     const usernameClaim = this.config.usernameClaim;
@@ -315,7 +313,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
        * username and groups can be in the id_token if the scope is openid.
        */
       try {
-        userinfo = this.getUserinfoFromIdToken(token);
+        const userinfo = this.getUserinfoFromIdToken(token);
 
         username = userinfo[usernameClaim];
         subject ??= userinfo.sub;
@@ -332,7 +330,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
        * or we can get them from the userinfo endpoint.
        */
       try {
-        userinfo = await this.getUserinfoFromEndpoint(token);
+        const userinfo = await this.getUserinfoFromEndpoint(token);
 
         username ??= userinfo[usernameClaim];
         subject ??= userinfo.sub;
@@ -376,10 +374,10 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   private async getGroupsWithProviderType(token: OpenIDToken, providerType: ProviderType): Promise<string[]> {
     const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
 
-    let groups: string[] | null | undefined;
+    let groups: string[] | undefined;
 
     try {
-      groups = await this.store.getUserGroups?.(key, this.getId());
+      groups = await this.store.getUserGroups(key, this.getId());
     } catch {
       debug("No user groups cache found for key: %s", key);
     }
@@ -397,7 +395,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     try {
-      await this.store.setUserGroups?.(key, groups, this.getId());
+      await this.store.setUserGroups(key, groups, this.getId());
     } catch (e: any) {
       logger.warn({ message: e.message }, "Could not set user groups cache: @{message}");
     }

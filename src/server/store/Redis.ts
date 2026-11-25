@@ -1,7 +1,29 @@
 import type { Cluster, Redis as RedisClient } from "ioredis";
 
+import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./constants";
 import { importOptional } from "@/server/utils";
-import { BaseStore, type RedisClusterConfig, type RedisConfig, type Store } from "./Store";
+import { safeJsonParse } from "@/utils";
+
+import {
+  BaseStore,
+  type TakeKind,
+  type RedisClusterConfig,
+  type RedisConfig,
+  type Store,
+  type StoreContext,
+  type StoreKind,
+  type StoredValues,
+} from "./Store";
+
+// Read the value and delete it in one step, so a second reader finds nothing.
+const TAKE_LOGIN_RESULT_SCRIPT = `
+local value = redis.call("GET", KEYS[1])
+if not value then
+  return false
+end
+redis.call("DEL", KEYS[1])
+return value
+`;
 
 const TAKE_WEB_AUTHN_TOKEN_SCRIPT = `
 local value = redis.call("GET", KEYS[1])
@@ -14,14 +36,10 @@ end
 return value
 `;
 
-const defaultOptions = {
-  ttl: BaseStore.DefaultStateTTL,
-};
-
 /** Store backed by Redis, so state and caches survive a restart and can be shared. */
 export default class RedisStore extends BaseStore implements Store {
-  private readonly config?: Omit<RedisConfig, "ttl"> | string;
   private readonly ttl: number;
+  private readonly config?: Omit<RedisConfig, "ttl"> | string;
   private redis?: RedisClient | Cluster;
   private redisPromise?: Promise<RedisClient | Cluster>;
 
@@ -31,10 +49,10 @@ export default class RedisStore extends BaseStore implements Store {
     if (!!opts && typeof opts === "object") {
       const { ttl, ...config } = opts;
       this.config = config;
-      this.ttl = ttl ?? defaultOptions.ttl;
+      this.ttl = ttl ?? DEFAULT_STATE_TTL_MS;
     } else {
       this.config = opts;
-      this.ttl = defaultOptions.ttl;
+      this.ttl = DEFAULT_STATE_TTL_MS;
     }
   }
 
@@ -76,113 +94,112 @@ export default class RedisStore extends BaseStore implements Store {
     return this.redisPromise;
   }
 
-  async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
-    const stateKey = this.getStateKey(key, providerId);
+  protected async read<K extends StoreKind>(
+    kind: K,
+    key: string,
+    context?: StoreContext,
+  ): Promise<StoredValues[K] | undefined> {
     const redis = await this.getClient();
 
-    await redis.set(stateKey, nonce, "PX", this.ttl);
+    const rowKey = this.rowKey(kind, key, context);
+
+    switch (kind) {
+      case "state":
+      case "webAuthn":
+      case "loginResult":
+        return ((await redis.get(rowKey)) ?? undefined) as StoredValues[K] | undefined;
+      case "userInfo": {
+        let raw: string | null;
+
+        try {
+          raw = await redis.get(rowKey);
+        } catch (error: any) {
+          // A hash written by an earlier version answers GET with WRONGTYPE. Treat it
+          // as a miss, so the caller refetches and stores it in the current format.
+          if (error?.message?.includes("WRONGTYPE")) {
+            await redis.del(rowKey);
+
+            return undefined;
+          }
+
+          throw error;
+        }
+
+        if (raw === null) return undefined;
+
+        const parsed: unknown = safeJsonParse(raw);
+
+        return (typeof parsed === "object" && parsed !== null ? parsed : undefined) as StoredValues[K] | undefined;
+      }
+      case "userGroups": {
+        const groups = await redis.lrange(rowKey, 0, -1);
+
+        if (groups.length === 0) return undefined;
+
+        return groups as StoredValues[K];
+      }
+    }
   }
 
-  async getOpenIDState(key: string, providerId: string): Promise<string | null> {
-    const stateKey = this.getStateKey(key, providerId);
+  protected async write<K extends StoreKind>(
+    kind: K,
+    key: string,
+    value: StoredValues[K],
+    context?: StoreContext,
+  ): Promise<void> {
     const redis = await this.getClient();
 
-    return redis.get(stateKey);
+    const rowKey = this.rowKey(kind, key, context);
+
+    switch (kind) {
+      case "state":
+      case "webAuthn":
+      case "loginResult":
+        await redis.set(rowKey, value as string, "PX", this.ttl);
+        return;
+      case "userInfo":
+        // JSON keeps the shape of the claims: a hash would stringify arrays and
+        // nested objects, so the groups read back would no longer match.
+        await redis.set(rowKey, JSON.stringify(value), "PX", DEFAULT_DATA_TTL_MS);
+        return;
+      case "userGroups": {
+        const pipeline = redis.multi();
+
+        pipeline.del(rowKey);
+        pipeline.rpush(rowKey, ...(value as string[]));
+        pipeline.pexpire(rowKey, DEFAULT_DATA_TTL_MS);
+
+        await pipeline.exec();
+        return;
+      }
+    }
   }
 
-  async deleteOpenIDState(key: string, providerId: string): Promise<void> {
-    const stateKey = this.getStateKey(key, providerId);
+  protected async remove(kind: StoreKind, key: string, context?: StoreContext): Promise<void> {
     const redis = await this.getClient();
 
-    await redis.del(stateKey);
+    await redis.del(this.rowKey(kind, key, context));
   }
 
-  async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
-    if (typeof data !== "object" || data === null) {
-      throw new TypeError("userinfo data must be an object");
+  protected async take(kind: TakeKind, key: string, context?: StoreContext): Promise<string | undefined> {
+    const redis = await this.getClient();
+
+    let response: unknown;
+    switch (kind) {
+      case "webAuthn":
+        response = await redis.eval(
+          TAKE_WEB_AUTHN_TOKEN_SCRIPT,
+          1,
+          this.rowKey("webAuthn", key, context),
+          PENDING_TOKEN,
+        );
+        break;
+      case "loginResult":
+        response = await redis.eval(TAKE_LOGIN_RESULT_SCRIPT, 1, this.rowKey("loginResult", key, context));
+        break;
     }
 
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-    const redis = await this.getClient();
-
-    const pipeline = redis.multi();
-
-    pipeline.hset(userInfoKey, data as Record<string, unknown>);
-    pipeline.pexpire(userInfoKey, BaseStore.DefaultDataTTL);
-
-    await pipeline.exec();
-  }
-
-  async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | null> {
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-    const redis = await this.getClient();
-
-    const userInfo = await redis.hgetall(userInfoKey);
-
-    if (Object.keys(userInfo).length === 0) return null;
-
-    return userInfo;
-  }
-
-  async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
-    const groupsKey = this.getUserGroupsKey(key, providerId);
-    const redis = await this.getClient();
-
-    const pipeline = redis.multi();
-
-    pipeline.del(groupsKey);
-
-    if (groups.length > 0) {
-      pipeline.rpush(groupsKey, ...groups);
-      pipeline.pexpire(groupsKey, BaseStore.DefaultDataTTL);
-    }
-
-    await pipeline.exec();
-  }
-
-  async getUserGroups(key: string, providerId: string): Promise<string[] | null> {
-    const groupsKey = this.getUserGroupsKey(key, providerId);
-    const redis = await this.getClient();
-
-    const groups = await redis.lrange(groupsKey, 0, -1);
-
-    if (groups.length === 0) return null;
-
-    return groups;
-  }
-
-  async setWebAuthnToken(key: string, token: string): Promise<void> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const redis = await this.getClient();
-
-    await redis.set(tokenKey, token, "PX", this.ttl);
-  }
-
-  async getWebAuthnToken(key: string): Promise<string | null> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const redis = await this.getClient();
-
-    return redis.get(tokenKey);
-  }
-
-  async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | null> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const redis = await this.getClient();
-
-    const response = await redis.eval(TAKE_WEB_AUTHN_TOKEN_SCRIPT, 1, tokenKey, pendingToken);
-
-    if (typeof response !== "string") {
-      return null;
-    }
-
-    return response;
-  }
-
-  async deleteWebAuthnToken(key: string): Promise<void> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const redis = await this.getClient();
-
-    await redis.del(tokenKey);
+    return typeof response === "string" ? response : undefined;
   }
 
   async close(): Promise<void> {

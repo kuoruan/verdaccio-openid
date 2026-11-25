@@ -2,6 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import { createStore } from "@/server/store";
 import { StoreType } from "@/server/store/Store";
+import FileStore from "@/server/store/File";
+import InMemoryStore from "@/server/store/InMemory";
+import MongoStore from "@/server/store/Mongo";
+import RedisStore from "@/server/store/Redis";
 
 function mockConfig(storeType: StoreType, storeConfig: unknown = {}) {
   return {
@@ -15,7 +19,7 @@ describe("createStore", () => {
     const config = mockConfig(StoreType.InMemory);
     const store = createStore(config);
 
-    expect(store).toBeDefined();
+    expect(store).toBeInstanceOf(InMemoryStore);
     expect(config.getStoreConfig).toHaveBeenCalledWith(StoreType.InMemory);
   });
 
@@ -23,7 +27,7 @@ describe("createStore", () => {
     const config = mockConfig("unknown" as StoreType);
     const store = createStore(config);
 
-    expect(store).toBeDefined();
+    expect(store).toBeInstanceOf(InMemoryStore);
     expect(config.getStoreConfig).toHaveBeenCalledWith("unknown");
   });
 
@@ -31,7 +35,7 @@ describe("createStore", () => {
     const config = mockConfig(StoreType.Redis);
     const store = createStore(config);
 
-    expect(store).toBeDefined();
+    expect(store).toBeInstanceOf(RedisStore);
     expect(config.getStoreConfig).toHaveBeenCalledWith(StoreType.Redis);
   });
 
@@ -39,7 +43,7 @@ describe("createStore", () => {
     const config = mockConfig(StoreType.File);
     const store = createStore(config);
 
-    expect(store).toBeDefined();
+    expect(store).toBeInstanceOf(FileStore);
     expect(config.getStoreConfig).toHaveBeenCalledWith(StoreType.File);
   });
 
@@ -47,7 +51,7 @@ describe("createStore", () => {
     const config = mockConfig(StoreType.MongoDB, { uri: "mongodb://localhost:27017" });
     const store = createStore(config);
 
-    expect(store).toBeDefined();
+    expect(store).toBeInstanceOf(MongoStore);
     expect(config.getStoreConfig).toHaveBeenCalledWith(StoreType.MongoDB);
   });
 });

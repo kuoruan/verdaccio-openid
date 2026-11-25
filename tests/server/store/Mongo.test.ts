@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import MongoStore from "@/server/store/Mongo";
-import { BaseStore } from "@/server/store/Store";
+import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS } from "@/server/store/constants";
 
 // Mock the MongoDB driver. Every test resets the collection method
 // implementations per its needs.
@@ -10,6 +10,7 @@ const { collection, db, client, MongoClientCtor } = vi.hoisted(() => {
     createIndex: vi.fn(),
     replaceOne: vi.fn(),
     findOne: vi.fn(),
+    findOneAndDelete: vi.fn(),
     deleteOne: vi.fn(),
   };
 
@@ -48,7 +49,9 @@ function resetMocks() {
   collection.createIndex.mockReset().mockResolvedValue("expiresAt_ttl");
   collection.replaceOne.mockReset().mockResolvedValue({ acknowledged: true, upsertedCount: 1 });
   collection.findOne.mockReset().mockResolvedValue(null);
+  collection.findOneAndDelete.mockReset().mockResolvedValue(null);
   collection.deleteOne.mockReset().mockResolvedValue({ acknowledged: true, deletedCount: 1 });
+  vi.restoreAllMocks();
 }
 
 beforeEach(() => {
@@ -144,8 +147,8 @@ describe("MongoStore — openid state", () => {
     expect(replacement.nonce).toBe("nonce-1");
     expect(replacement).not.toHaveProperty("_id");
     expect(replacement.expiresAt).toBeInstanceOf(Date);
-    expect(replacement.expiresAt.getTime()).toBeGreaterThanOrEqual(before + BaseStore.DefaultStateTTL);
-    expect(replacement.expiresAt.getTime()).toBeLessThanOrEqual(after + BaseStore.DefaultStateTTL);
+    expect(replacement.expiresAt.getTime()).toBeGreaterThanOrEqual(before + DEFAULT_STATE_TTL_MS);
+    expect(replacement.expiresAt.getTime()).toBeLessThanOrEqual(after + DEFAULT_STATE_TTL_MS);
     expect(options).toEqual({ upsert: true });
   });
 
@@ -157,7 +160,7 @@ describe("MongoStore — openid state", () => {
 
     const [, replacement] = collection.replaceOne.mock.calls[0];
     expect(replacement.expiresAt.getTime()).toBeGreaterThanOrEqual(before + 5000);
-    expect(replacement.expiresAt.getTime()).toBeLessThan(before + BaseStore.DefaultStateTTL);
+    expect(replacement.expiresAt.getTime()).toBeLessThan(before + DEFAULT_STATE_TTL_MS);
   });
 
   it("getOpenIDState filters on the key and a non-expired expiresAt", async () => {
@@ -201,7 +204,7 @@ describe("MongoStore — openid state", () => {
 
     const store = new MongoStore(baseConfig);
 
-    const error = await store.setOpenIDState("s", "very-secret-nonce", "p").catch((e: Error) => e);
+    const error = await Promise.resolve(store.setOpenIDState("s", "very-secret-nonce", "p")).catch((e: Error) => e);
 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).name).toBe("MongoStoreError");
@@ -222,8 +225,8 @@ describe("MongoStore — user info and groups", () => {
   it("setUserInfo rejects non-object data", async () => {
     const store = new MongoStore(baseConfig);
 
-    await expect(store.setUserInfo("u", "nope", "p")).rejects.toThrow(TypeError);
-    await expect(store.setUserInfo("u", null, "p")).rejects.toThrow(TypeError);
+    expect(() => store.setUserInfo("u", "nope", "p")).toThrow(TypeError);
+    expect(() => store.setUserInfo("u", null, "p")).toThrow(TypeError);
   });
 
   it("setUserInfo / getUserInfo round-trip under the data TTL", async () => {
@@ -235,7 +238,7 @@ describe("MongoStore — user info and groups", () => {
     const [filter, replacement] = collection.replaceOne.mock.calls[0];
     expect(filter).toEqual({ _id: "p:userinfo:alice" });
     expect(replacement.data).toEqual({ email: "alice@example.com" });
-    expect(replacement.expiresAt.getTime()).toBeGreaterThanOrEqual(before + BaseStore.DefaultDataTTL);
+    expect(replacement.expiresAt.getTime()).toBeGreaterThanOrEqual(before + DEFAULT_DATA_TTL_MS);
 
     collection.findOne.mockResolvedValue({ _id: "p:userinfo:alice", data: { email: "alice@example.com" } });
     await expect(store.getUserInfo("alice", "p")).resolves.toEqual({ email: "alice@example.com" });
@@ -254,6 +257,23 @@ describe("MongoStore — user info and groups", () => {
     expect(collection.replaceOne).toHaveBeenCalledTimes(1);
   });
 
+  it("takeLoginResult reports an oversized key as a miss", async () => {
+    const store = new MongoStore(baseConfig);
+
+    await expect(store.takeLoginResult("k".repeat(2000))).resolves.toBeUndefined();
+    expect(collection.findOneAndDelete).not.toHaveBeenCalled();
+  });
+
+  it("setUserGroups rejects an oversized key without touching the database", async () => {
+    const store = new MongoStore(baseConfig);
+    const validateSpy = vi.spyOn(store as any, "validate");
+
+    expect(() => store.setUserGroups("k".repeat(2000), [], "p")).toThrow(/byte limit/);
+    expect(validateSpy).toHaveBeenCalledWith("userGroups", "k".repeat(2000), [], { providerId: "p" });
+    expect(collection.deleteOne).not.toHaveBeenCalled();
+    expect(collection.replaceOne).not.toHaveBeenCalled();
+  });
+
   it("getUserGroups returns the stored groups", async () => {
     collection.findOne.mockResolvedValue({ _id: "p:groups:alice", groups: ["dev"] });
 
@@ -263,77 +283,91 @@ describe("MongoStore — user info and groups", () => {
   });
 });
 
-describe("MongoStore — webauthn token", () => {
+describe("MongoStore — webauthn session", () => {
   const PENDING = "__pending__";
 
-  it("setWebAuthnToken / getWebAuthnToken use the webauthn key", async () => {
+  it("setWebAuthnSession / getWebAuthnSession use the webauthn key", async () => {
     const store = new MongoStore(baseConfig);
 
-    await store.setWebAuthnToken("session-1", PENDING);
+    await store.setWebAuthnSession("session-1", { status: "pending" });
     const [filter, replacement] = collection.replaceOne.mock.calls[0];
     expect(filter._id).toMatch(/:session-1$/);
     expect(replacement.token).toBe(PENDING);
 
     collection.findOne.mockResolvedValue({ _id: filter._id, token: PENDING });
-    await expect(store.getWebAuthnToken("session-1")).resolves.toBe(PENDING);
+    await expect(store.getWebAuthnSession("session-1")).resolves.toEqual({ status: "pending" });
   });
 
-  it("takeWebAuthnToken returns undefined for an unknown session without deleting", async () => {
+  it("takeWebAuthnSession returns undefined for an unknown session without deleting", async () => {
     const store = new MongoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("nope", PENDING)).resolves.toBeUndefined();
+    await expect(store.takeWebAuthnSession("nope")).resolves.toBeUndefined();
     expect(collection.deleteOne).not.toHaveBeenCalled();
   });
 
-  it("takeWebAuthnToken returns a pending token without deleting it", async () => {
+  it("takeWebAuthnSession returns a pending token without deleting it", async () => {
     collection.findOne.mockResolvedValue({ _id: "x", token: PENDING });
 
     const store = new MongoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("session-1", PENDING)).resolves.toBe(PENDING);
+    await expect(store.takeWebAuthnSession("session-1")).resolves.toEqual({ status: "pending" });
     expect(collection.deleteOne).not.toHaveBeenCalled();
   });
 
-  it("takeWebAuthnToken consumes a ready token with a conditional delete", async () => {
+  it("takeWebAuthnSession consumes a ready token with a conditional delete", async () => {
     collection.findOne.mockResolvedValue({ _id: "x", token: "npm-token" });
 
     const store = new MongoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("session-1", PENDING)).resolves.toBe("npm-token");
+    await expect(store.takeWebAuthnSession("session-1")).resolves.toEqual({ status: "ready", token: "npm-token" });
 
     const [filter] = collection.deleteOne.mock.calls[0];
     expect(filter._id).toMatch(/:session-1$/);
     expect(filter.token).toBe("npm-token");
   });
 
-  it("takeWebAuthnToken returns undefined when it loses the race", async () => {
+  it("takeWebAuthnSession returns undefined when it loses the race", async () => {
     collection.findOne.mockResolvedValue({ _id: "x", token: "npm-token" });
     collection.deleteOne.mockResolvedValue({ acknowledged: true, deletedCount: 0 });
 
     const store = new MongoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("session-1", PENDING)).resolves.toBeUndefined();
+    await expect(store.takeWebAuthnSession("session-1")).resolves.toBeUndefined();
   });
 
-  it("takeWebAuthnToken throws a MongoStoreError when the delete fails", async () => {
+  it("takeWebAuthnSession throws a MongoStoreError when the delete fails", async () => {
     collection.findOne.mockResolvedValue({ _id: "x", token: "npm-token" });
     collection.deleteOne.mockRejectedValue(Object.assign(new Error("down"), { name: "MongoNetworkError" }));
 
     const store = new MongoStore(baseConfig);
 
-    await expect(store.takeWebAuthnToken("session-1", PENDING)).rejects.toThrow(
-      "MongoStore.takeWebAuthnToken failed: MongoNetworkError",
+    await expect(store.takeWebAuthnSession("session-1")).rejects.toThrow(
+      "MongoStore.takeWebAuthnSession failed: MongoNetworkError",
     );
   });
 
-  it("deleteWebAuthnToken deletes by the webauthn key", async () => {
+  it("deleteWebAuthnSession deletes by the webauthn key", async () => {
     const store = new MongoStore(baseConfig);
 
-    await store.deleteWebAuthnToken("session-1");
+    await store.deleteWebAuthnSession("session-1");
 
     const [filter] = collection.deleteOne.mock.calls[0];
     expect(filter._id).toMatch(/:session-1$/);
   });
+
+  it.each(["webAuthn", "loginResult"] as const)(
+    "forwards a non-undefined take context to the row key (%s)",
+    async (kind) => {
+      const store = new MongoStore(baseConfig);
+      const rowKeySpy = vi.spyOn(store as any, "rowKey");
+      const context = { providerId: "probe" };
+
+      await (store as any).take(kind, "k1", context);
+
+      expect(rowKeySpy).toHaveBeenCalledWith(kind, "k1", context);
+      expect(rowKeySpy.mock.calls.find(([k]) => k === kind)?.[2]).toBe(context);
+    },
+  );
 });
 
 describe("MongoStore — close", () => {
@@ -363,5 +397,51 @@ describe("MongoStore — close", () => {
 
     await store.getOpenIDState("k", "p");
     await expect(store.close()).resolves.toBeUndefined();
+  });
+});
+
+describe("MongoStore — login result", () => {
+  it("stores the value under its own key with the state ttl", async () => {
+    const store = new MongoStore(baseConfig);
+
+    await store.setLoginResult("state-1", { username: "dave", uiToken: "ui", npmToken: "npm" });
+
+    const [filter, doc] = collection.replaceOne.mock.calls[0] as [any, any];
+
+    expect(filter).toEqual({ _id: "openid-login:login:state-1" });
+    expect(JSON.parse(doc.value)).toEqual({ username: "dave", uiToken: "ui", npmToken: "npm" });
+    expect(doc.expiresAt).toBeInstanceOf(Date);
+  });
+
+  it("reads and deletes in one operation, so a second request finds nothing", async () => {
+    const store = new MongoStore(baseConfig);
+
+    collection.findOneAndDelete.mockResolvedValueOnce({
+      _id: "openid-login:login:state-1",
+      value: '{"username":"dave","uiToken":"ui","npmToken":"npm"}',
+    });
+
+    await expect(store.takeLoginResult("state-1")).resolves.toEqual({
+      username: "dave",
+      uiToken: "ui",
+      npmToken: "npm",
+    });
+
+    const filter = collection.findOneAndDelete.mock.calls[0][0] as any;
+
+    expect(filter._id).toBe("openid-login:login:state-1");
+    // An expired document is never handed out.
+    expect(filter.expiresAt.$gt).toBeInstanceOf(Date);
+
+    // The next request matches nothing: the document is gone.
+    await expect(store.takeLoginResult("state-1")).resolves.toBeUndefined();
+  });
+
+  it("rethrows when the delete fails", async () => {
+    const store = new MongoStore(baseConfig);
+
+    collection.findOneAndDelete.mockRejectedValueOnce(Object.assign(new Error("boom"), { code: "ECONNRESET" }));
+
+    await expect(store.takeLoginResult("state-1")).rejects.toThrow(/takeLoginResult/);
   });
 });

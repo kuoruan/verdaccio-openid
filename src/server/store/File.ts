@@ -1,7 +1,22 @@
+import { chmod, mkdir } from "node:fs/promises";
+
 import type { LocalStorage } from "node-persist";
 
-import { BaseStore, type FileConfig, type Store } from "./Store";
+import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./constants";
+
 import { importOptional, interopDefault } from "@/server/utils";
+import logger from "@/server/logger";
+import { isUndefOrNull } from "@/utils";
+
+import {
+  BaseStore,
+  type TakeKind,
+  type FileConfig,
+  type Store,
+  type StoredValues,
+  type StoreContext,
+  type StoreKind,
+} from "./Store";
 
 /** Store written to a directory with node-persist, so state and caches survive a restart. */
 export default class FileStore extends BaseStore implements Store {
@@ -26,9 +41,31 @@ export default class FileStore extends BaseStore implements Store {
           ),
         );
 
+        const config = typeof this.config === "string" ? { dir: this.config } : this.config;
+
+        // The directory holds the npm tokens of the users. Confine it to its
+        // owner, so a file node-persist writes with the default mode stays out
+        // of reach of everybody else. An existing directory is tightened too, as
+        // it may have been created by an earlier version.
+        await mkdir(config.dir, { recursive: true, mode: 0o700 }).catch(() => {
+          // node-persist creates it, and reports the failure.
+        });
+
+        // Tighten a directory an earlier version created as 0755 too. A failure
+        // is not fatal to the login, but it leaves the tokens world-readable, so
+        // it must at least be visible in the log.
+        await chmod(config.dir, 0o700).catch((error: any) => {
+          logger.warn(
+            { dir: config.dir, code: error?.code, message: error?.message ?? error },
+            "FileStore: could not restrict the store directory @{dir}: @{code} (@{message})",
+          );
+        });
+
         const db = storage.create({
-          ttl: BaseStore.DefaultStateTTL,
-          ...(typeof this.config === "string" ? { dir: this.config } : this.config),
+          // A truncated file (a crash mid-write) must not take the process down.
+          forgiveParseErrors: true,
+          ...config,
+          ttl: config.ttl ?? DEFAULT_STATE_TTL_MS,
         });
 
         await db.init();
@@ -43,95 +80,69 @@ export default class FileStore extends BaseStore implements Store {
     return this.dbPromise;
   }
 
-  async setOpenIDState(key: string, nonce: string, providerId: string): Promise<void> {
-    const stateKey = this.getStateKey(key, providerId);
+  protected async read<K extends StoreKind>(
+    kind: K,
+    key: string,
+    context?: StoreContext,
+  ): Promise<StoredValues[K] | undefined> {
     const db = await this.getDb();
+    const rowKey = this.rowKey(kind, key, context);
 
-    await db.setItem(stateKey, nonce);
+    return ((await db.getItem(rowKey)) as StoredValues[K] | null) ?? undefined;
   }
 
-  async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
-    const stateKey = this.getStateKey(key, providerId);
+  protected async write<K extends StoreKind>(
+    kind: K,
+    key: string,
+    value: StoredValues[K],
+    context?: StoreContext,
+  ): Promise<void> {
     const db = await this.getDb();
+    const rowKey = this.rowKey(kind, key, context);
 
-    return db.getItem(stateKey);
-  }
-
-  async deleteOpenIDState(key: string, providerId: string): Promise<void> {
-    const stateKey = this.getStateKey(key, providerId);
-    const db = await this.getDb();
-
-    await db.removeItem(stateKey);
-  }
-
-  async setUserInfo(key: string, data: unknown, providerId: string): Promise<void> {
-    if (typeof data !== "object" || data === null) {
-      throw new TypeError("userinfo data must be an object");
-    }
-
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-    const db = await this.getDb();
-
-    await db.setItem(userInfoKey, data, { ttl: BaseStore.DefaultDataTTL });
-  }
-
-  async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown>> {
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-    const db = await this.getDb();
-
-    return db.getItem(userInfoKey);
-  }
-
-  async setUserGroups(key: string, groups: string[], providerId: string): Promise<void> {
-    const groupsKey = this.getUserGroupsKey(key, providerId);
-    const db = await this.getDb();
-
-    if (groups.length === 0) {
-      await db.removeItem(groupsKey);
+    if (kind === "userInfo" || kind === "userGroups") {
+      await db.setItem(rowKey, value, { ttl: DEFAULT_DATA_TTL_MS });
       return;
     }
-    await db.setItem(groupsKey, groups, { ttl: BaseStore.DefaultDataTTL });
+
+    await db.setItem(rowKey, value);
   }
 
-  async getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
-    const groupsKey = this.getUserGroupsKey(key, providerId);
+  protected async remove(kind: StoreKind, key: string, context?: StoreContext): Promise<void> {
     const db = await this.getDb();
+    const rowKey = this.rowKey(kind, key, context);
 
-    return db.getItem(groupsKey);
+    await db.removeItem(rowKey);
   }
 
-  async setWebAuthnToken(key: string, token: string): Promise<void> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
+  /**
+   * Read the raw value of a consumable kind and delete it.
+   *
+   * This is a plain read followed by a delete: node-persist has no lock, so two
+   * requests can both see the value. A pending webauthn row is reported
+   * without delete. Use a backend that consumes in one operation when
+   * duplicate delivery must be prevented (see docs/store-config.md).
+   */
+  protected async take(kind: TakeKind, key: string, context?: StoreContext): Promise<string | undefined> {
+    const rowKey = this.rowKey(kind, key, context);
     const db = await this.getDb();
 
-    await db.setItem(tokenKey, token);
-  }
+    const value = (await db.getItem(rowKey)) as string | null | undefined;
 
-  async getWebAuthnToken(key: string): Promise<string | null | undefined> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const db = await this.getDb();
-
-    return db.getItem(tokenKey);
-  }
-
-  async takeWebAuthnToken(key: string, pendingToken: string): Promise<string | null | undefined> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const db = await this.getDb();
-
-    const token = (await db.getItem(tokenKey)) as string | null | undefined;
-
-    if (token && token !== pendingToken) {
-      await db.removeItem(tokenKey);
+    switch (kind) {
+      case "webAuthn":
+        if (!isUndefOrNull(value) && value !== PENDING_TOKEN) {
+          await db.removeItem(rowKey);
+        }
+        break;
+      case "loginResult":
+        if (!isUndefOrNull(value)) {
+          await db.removeItem(rowKey);
+        }
+        break;
     }
 
-    return token;
-  }
-
-  async deleteWebAuthnToken(key: string): Promise<void> {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-    const db = await this.getDb();
-
-    await db.removeItem(tokenKey);
+    return value ?? undefined;
   }
 
   async close(): Promise<void> {

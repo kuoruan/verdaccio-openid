@@ -1,10 +1,16 @@
 import { TTLCache } from "@isaacs/ttlcache";
 
-import { BaseStore, type InMemoryConfig, type Store } from "./Store";
+import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./constants";
 
-const defaultOptions = {
-  ttl: BaseStore.DefaultStateTTL,
-} satisfies InMemoryConfig;
+import {
+  BaseStore,
+  type TakeKind,
+  type InMemoryConfig,
+  type Store,
+  type StoredValues,
+  type StoreContext,
+  type StoreKind,
+} from "./Store";
 
 /** Store kept in the Verdaccio process: state and caches are lost on restart. */
 export default class InMemoryStore extends BaseStore implements Store {
@@ -14,111 +20,59 @@ export default class InMemoryStore extends BaseStore implements Store {
   constructor(opts: InMemoryConfig = {}) {
     super();
 
-    this.stateCache = new TTLCache({ ...defaultOptions, ...opts });
-    this.dataCache = new TTLCache({ max: 2000, ttl: BaseStore.DefaultDataTTL });
+    // `ttl: undefined` would make every `set` throw, so an unset value must not
+    // reach the cache.
+    this.stateCache = new TTLCache({ ...opts, ttl: opts.ttl ?? DEFAULT_STATE_TTL_MS });
+    this.dataCache = new TTLCache({ max: 2000, ttl: DEFAULT_DATA_TTL_MS });
   }
 
-  setOpenIDState(key: string, nonce: string, providerId: string): void {
-    const stateKey = this.getStateKey(key, providerId);
-
-    this.stateCache.set(stateKey, nonce);
+  protected read<K extends StoreKind>(kind: K, key: string, context?: StoreContext): StoredValues[K] | undefined {
+    // A missing or expired row is already `undefined` from `get`.
+    return this.cacheFor(kind).get(this.rowKey(kind, key, context)) as StoredValues[K] | undefined;
   }
 
-  getOpenIDState(key: string, providerId: string): string | undefined {
-    const stateKey = this.getStateKey(key, providerId);
-
-    if (!this.stateCache.has(stateKey)) {
-      return;
-    }
-
-    return this.stateCache.get(stateKey);
+  protected write<K extends StoreKind>(kind: K, key: string, value: StoredValues[K], context?: StoreContext): void {
+    this.cacheFor(kind).set(this.rowKey(kind, key, context), value);
   }
 
-  deleteOpenIDState(key: string, providerId: string): void {
-    const stateKey = this.getStateKey(key, providerId);
-
-    this.stateCache.delete(stateKey);
+  protected remove(kind: StoreKind, key: string, context?: StoreContext): void {
+    this.cacheFor(kind).delete(this.rowKey(kind, key, context));
   }
 
-  setUserInfo(key: string, data: unknown, providerId: string): void {
-    if (typeof data !== "object" || data === null) {
-      throw new TypeError("userinfo data must be an object");
-    }
+  protected take(kind: TakeKind, key: string, context?: StoreContext): string | undefined {
+    const rowKey = this.rowKey(kind, key, context);
+    const cache = this.cacheFor(kind);
+    const value = cache.get(rowKey);
 
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-
-    this.dataCache.set(userInfoKey, data as Record<string, unknown>);
-  }
-
-  getUserInfo(key: string, providerId: string): Record<string, unknown> | undefined {
-    const userInfoKey = this.getUserInfoKey(key, providerId);
-
-    if (!this.dataCache.has(userInfoKey)) {
-      return;
-    }
-
-    return this.dataCache.get(userInfoKey) as Record<string, unknown>;
-  }
-
-  setUserGroups(key: string, groups: string[], providerId: string): void {
-    const userGroupsKey = this.getUserGroupsKey(key, providerId);
-
-    if (groups.length === 0) {
-      this.dataCache.delete(userGroupsKey);
-      return;
-    }
-    this.dataCache.set(userGroupsKey, groups);
-  }
-
-  getUserGroups(key: string, providerId: string): string[] | undefined {
-    const userGroupsKey = this.getUserGroupsKey(key, providerId);
-
-    if (!this.dataCache.has(userGroupsKey)) {
+    if (value === undefined) {
       return undefined;
     }
 
-    return this.dataCache.get(userGroupsKey) as string[];
-  }
-
-  setWebAuthnToken(key: string, token: string): void {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-
-    this.stateCache.set(tokenKey, token);
-  }
-
-  getWebAuthnToken(key: string): string | undefined {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-
-    if (!this.stateCache.has(tokenKey)) {
-      return undefined;
-    }
-    return this.stateCache.get(tokenKey);
-  }
-
-  takeWebAuthnToken(key: string, pendingToken: string): string | undefined {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-
-    if (!this.stateCache.has(tokenKey)) {
-      return undefined;
+    // Nothing can interleave here: no await between the read and the
+    // delete, so the cache is read and cleared in one turn. A pending
+    // webauthn row is reported without delete.
+    if (!(kind === "webAuthn" && value === PENDING_TOKEN)) {
+      cache.delete(rowKey);
     }
 
-    const token = this.stateCache.get(tokenKey);
-
-    if (token !== pendingToken) {
-      this.stateCache.delete(tokenKey);
-    }
-
-    return token;
-  }
-
-  deleteWebAuthnToken(key: string): void {
-    const tokenKey = this.getWebAuthnTokenKey(key);
-
-    this.stateCache.delete(tokenKey);
+    return value;
   }
 
   close(): void {
     this.stateCache.clear();
     this.dataCache.clear();
+  }
+
+  /** The cache that holds the rows of this kind. */
+  private cacheFor(kind: StoreKind): TTLCache<any, any> {
+    switch (kind) {
+      case "userInfo":
+      case "userGroups":
+        return this.dataCache;
+      case "state":
+      case "webAuthn":
+      case "loginResult":
+        return this.stateCache;
+    }
   }
 }
