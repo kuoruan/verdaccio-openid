@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getNPMToken } = vi.hoisted(() => ({ getNPMToken: vi.fn(() => "test-token") }));
 
-vi.mock("@/client/plugin/credentials", () => ({ getNPMToken }));
+vi.mock("@/client/credentials", () => ({ getNPMToken }));
 
-import { isPasswordAuthCommand, loginHint, tokenCommand, usageVariant } from "@/client/plugin/usage-info";
+import { isPasswordAuthCommand, loginHint, tokenCommand, usageVariant } from "@/client/usage-info";
 
 describe("usageVariant", () => {
   it("keeps the rendered commands for a password session", () => {

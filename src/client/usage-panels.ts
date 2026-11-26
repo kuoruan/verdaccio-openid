@@ -18,8 +18,17 @@ import {
 
 import { isLoggedIn, isOpenIDLoggedIn } from "./credentials";
 import { resetLanguage } from "./i18n";
-import { copyToClipboard } from "./lib";
 import { isPasswordAuthCommand, loginHint, tokenCommand, usageVariant, type UsageVariant } from "./usage-info";
+
+/**
+ * Copy text to the clipboard.
+ *
+ * @param text the text to copy to the clipboard
+ * @returns resolves when the text was copied, rejects when the browser refused
+ */
+function copyToClipboard(text: string): Promise<void> {
+  return navigator.clipboard.writeText(text);
+}
 
 /**
  * Read the session and the plugin options once per render pass.

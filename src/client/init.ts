@@ -23,7 +23,7 @@ import {
   saveCredentials,
 } from "./credentials";
 import { resetLanguage, t } from "./i18n";
-import { getBaseUrl, interruptClick, retry } from "./lib";
+import { getBaseUrl } from "./utils";
 import { injectOpenIDStyles, syncUsage } from "./usage-panels";
 
 /**
@@ -36,6 +36,65 @@ function reloadToPathname() {
   history.replaceState(null, "", location.pathname);
 
   location.reload();
+}
+
+/**
+ * Run an action `times` times via `setTimeout`, each `100 * i` ms apart.
+ *
+ * Calls run unconditionally, but the ones still pending become no-ops as soon
+ * as `isDone` reports there is nothing left to wait for.
+ *
+ * @param action the action to run
+ * @param times number of scheduled calls (default 5)
+ * @param isDone checked after each call, `times` is only an upper bound
+ */
+export function retry(action: () => void, times = 5, isDone?: () => boolean): void {
+  let done = false;
+
+  for (let i = 0; i < times; i++) {
+    setTimeout(() => {
+      if (done) return;
+
+      action();
+      done = isDone?.() ?? false;
+    }, 100 * i);
+  }
+}
+
+/**
+ * Check whether the element matching `selector` is in the mouse event's path.
+ *
+ * @param selector the selector of the element to check for
+ * @param e the mouse event
+ * @returns whether the matched element appears in the event's composed path
+ */
+function hasElementInPath(selector: string, e: MouseEvent): boolean {
+  const path = e.path || e.composedPath?.();
+  // A selector can match several controls (e.g. both logout entries); any of
+  // them in the path means the click belongs to this plugin.
+  return Array.from(document.querySelectorAll(selector)).some((element) => path.includes(element));
+}
+
+/**
+ * Intercept clicks on the element matching `selector` and run `callback` instead.
+ *
+ * Registers a capture-phase listener on `document`, so it runs before the target's
+ * own click handlers and calls `preventDefault`/`stopPropagation` on matching events.
+ *
+ * @param selector the selector of the element whose clicks to intercept
+ * @param callback callback to run instead of the original click
+ */
+function interruptClick(selector: string, callback: () => void): void {
+  const handleClick = (e: MouseEvent) => {
+    if (!hasElementInPath(selector, e)) {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+    callback();
+  };
+  document.addEventListener("click", handleClick, true);
 }
 
 /**

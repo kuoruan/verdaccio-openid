@@ -39,8 +39,7 @@ Changesets should include an English summary followed by a Chinese section marke
 ```text
 src/
 ├── cli/              # CLI tool (npx verdaccio-openid)
-├── client/           # Browser-side JS served by the plugin
-│   └── plugin/       # Login page and UI logic
+├── client/           # Browser-side JS served by the plugin: login page and UI logic
 ├── server/           # Server-side plugin code
 │   ├── config/       # Configuration parsing and validation
 │   ├── flows/        # OAuth flow handlers (Web, CLI, WebAuthn)

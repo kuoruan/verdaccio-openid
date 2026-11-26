@@ -3,7 +3,7 @@
  * panels in "Configuration → Package Managers" and the empty-registry guide.
  */
 import { getNPMToken } from "./credentials";
-import { getBaseUrl } from "./lib";
+import { getBaseUrl } from "./utils";
 import { t } from "./i18n";
 
 /**

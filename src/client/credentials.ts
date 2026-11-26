@@ -5,8 +5,7 @@
  */
 import { LOCAL_STORAGE_KEYS } from "@/client/constants";
 import { AUTH_TOKEN_REGEX } from "@/constants";
-import { isNull } from "@/utils";
-import { parseJwt } from "./lib";
+import { isNull, safeJsonParse } from "@/utils";
 
 /** A user name longer than this is a payload, not a name. */
 const MAX_USERNAME_LENGTH = 256;
@@ -109,6 +108,43 @@ export function isUITokenExpired() {
   const jsTimestamp = payload.exp * 1000 - 30_000;
 
   return Date.now() >= jsTimestamp;
+}
+
+/**
+ * Decode the payload of a JWT without verifying it.
+ *
+ * Taken from https://stackoverflow.com/a/38552302/1935971.
+ *
+ * @param token the JWT
+ * @returns the decoded payload, or null when the token cannot be decoded
+ */
+export function parseJwt(token: string): Record<string, any> | null {
+  try {
+    // JWT has 3 parts separated by ".", the payload is the base64url-encoded part in the middle
+    const parts = token.split(".");
+    if (parts.length < 3) return null;
+
+    const base64Url = parts[1];
+    if (!base64Url) return null;
+
+    // base64url replaced '+' and '/' with '-' and '_', so we undo it here
+    const base64 = base64Url.replaceAll("-", "+").replaceAll("_", "/");
+    const jsonPayload = decodeURIComponent(
+      window
+        .atob(base64)
+        .split("")
+        // atob decoded the base64 string, but multi-byte characters (emojis for example)
+        // are not decoded properly. For example, "🍀" looks like "ð\x9F\x8D\x80". The next
+        // line converts bytes into URI-percent-encoded format, for example "%20" for space.
+        // Lastly, the decodeURIComponent wrapping this can correctly get a UTF-8 string.
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
+    );
+
+    return (safeJsonParse(jsonPayload) as Record<string, any>) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 /**

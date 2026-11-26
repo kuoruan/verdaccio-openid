@@ -45,8 +45,7 @@ changelog 生成中英说明创建 Release。这一步可以重跑：已存在�
 ```
 src/
 ├── cli/              # CLI 工具（npx verdaccio-openid）
-├── client/           # 插件提供的浏览器端 JS
-│   └── plugin/       # 登录页面和 UI 逻辑
+├── client/           # 插件提供的浏览器端 JS：登录页面与 UI 逻辑
 ├── server/           # 服务端插件代码
 │   ├── config/       # 配置解析与验证
 │   ├── flows/        # OAuth 流程处理（Web、CLI、WebAuthn）

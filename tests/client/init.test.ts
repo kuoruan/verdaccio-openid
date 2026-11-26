@@ -11,8 +11,8 @@ const { clearCredentials, isUITokenExpired, saveCredentials } = vi.hoisted(() =>
   saveCredentials: vi.fn(),
 }));
 
-vi.mock("@/client/plugin/credentials", async () => {
-  const actual = await vi.importActual<typeof import("@/client/plugin/credentials")>("@/client/plugin/credentials");
+vi.mock("@/client/credentials", async () => {
+  const actual = await vi.importActual<typeof import("@/client/credentials")>("@/client/credentials");
 
   return {
     ...actual,
@@ -23,7 +23,7 @@ vi.mock("@/client/plugin/credentials", async () => {
   };
 });
 
-import { init } from "@/client/plugin/init";
+import { init, retry } from "@/client/init";
 import { SESSION_EXCHANGE_TIMEOUT_MS } from "@/client/constants";
 
 const HEADER = `<button type="button" data-testid="header--button-login">Sign in</button>`;
@@ -172,5 +172,55 @@ describe("init", () => {
 
     expect(clearCredentials).toHaveBeenCalled();
     expect(location.assign).toHaveBeenCalledWith("https://registry.example.com/");
+  });
+});
+
+describe("retry", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("schedules the action `times` times with a 100ms * i delay", () => {
+    const action = vi.fn();
+    retry(action, 3);
+
+    // Nothing runs synchronously.
+    expect(action).not.toHaveBeenCalled();
+
+    // Delays: 0, 100, 200.
+    vi.advanceTimersByTime(0);
+    expect(action).toHaveBeenCalledTimes(1);
+
+    vi.advanceTimersByTime(100);
+    expect(action).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(100);
+    expect(action).toHaveBeenCalledTimes(3);
+
+    // No further calls beyond `times`.
+    vi.advanceTimersByTime(1000);
+    expect(action).toHaveBeenCalledTimes(3);
+  });
+
+  it("defaults `times` to 5", () => {
+    const action = vi.fn();
+    retry(action);
+
+    vi.advanceTimersByTime(1000);
+    expect(action).toHaveBeenCalledTimes(5);
+  });
+
+  it("stops running the action once `isDone` reports it", () => {
+    const action = vi.fn();
+    const isDone = vi.fn(() => action.mock.calls.length >= 2);
+
+    retry(action, 5, isDone);
+
+    vi.advanceTimersByTime(0);
+    vi.advanceTimersByTime(100);
+    expect(action).toHaveBeenCalledTimes(2);
+
+    vi.advanceTimersByTime(1000);
+    expect(action).toHaveBeenCalledTimes(2);
+    expect(isDone).toHaveBeenCalledTimes(2);
   });
 });

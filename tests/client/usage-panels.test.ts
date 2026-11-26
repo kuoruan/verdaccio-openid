@@ -10,15 +10,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const { getNPMToken } = vi.hoisted(() => ({ getNPMToken: vi.fn(() => "test-token") }));
 
-vi.mock("@/client/plugin/credentials", () => ({
+vi.mock("@/client/credentials", () => ({
   getNPMToken,
   isLoggedIn: vi.fn(),
   isOpenIDLoggedIn: vi.fn(),
 }));
 
-import { isLoggedIn, isOpenIDLoggedIn } from "@/client/plugin/credentials";
+import { isLoggedIn, isOpenIDLoggedIn } from "@/client/credentials";
 import { hiddenMarker } from "@/client/constants";
-import { syncUsage } from "@/client/plugin/usage-panels";
+import { syncUsage } from "@/client/usage-panels";
 
 const row = (command: string, testId?: string) => `
   <div class="css-row" style="display: flex">

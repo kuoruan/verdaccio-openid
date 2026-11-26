@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resetLanguage, supportedLanguages, t } from "@/client/plugin/i18n";
+import { resetLanguage, supportedLanguages, t } from "@/client/i18n";
 import { isUndefined } from "@/utils";
 
 /** What the stubbed browser exposes: a stored language and the configured one. */
