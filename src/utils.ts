@@ -1,6 +1,8 @@
+import type { Config } from "@verdaccio/types";
+
 /**
  * Pure helpers shared by the server, the CLI and the browser: no Express, no
- * Verdaccio, no network.
+ * Verdaccio at runtime, no network.
  */
 
 /** The characters HTML special characters are replaced with. */
@@ -165,6 +167,62 @@ export function isStringArray(value: unknown): value is string[] {
  */
 export function isUndefOrNull(value: unknown): value is null | undefined {
   return value === null || value === undefined;
+}
+
+/** The proxy knobs Verdaccio exposes, plus the environment fallback. */
+export type ProxyConfig = Pick<Config, "http_proxy" | "https_proxy" | "no_proxy">;
+
+/**
+ * Resolve the proxy configuration from explicit values and the environment.
+ *
+ * Each field prefers the explicit value, then the lowercase environment
+ * variable, then the uppercase one — the same order curl and undici use. A
+ * blank value counts as unset and falls through to the next source; this
+ * matches the agent, which treats a falsy value as no proxy. `process` is
+ * read through `globalThis`, so this stays importable in the browser bundle,
+ * where it resolves to no proxy.
+ *
+ * @param explicit the explicit proxy values, if any
+ * @returns the configured values, with unset knobs left out
+ */
+export function resolveProxyConfig(explicit: ProxyConfig = {}): ProxyConfig {
+  const env = (process?.env ?? {}) as Record<string, string | undefined>;
+  const pick = (value: string | undefined, lower: string, upper: string): string | undefined => {
+    for (const candidate of [value, env[lower], env[upper]]) {
+      if (isNonEmptyString(candidate)) return candidate.trim();
+    }
+
+    return undefined;
+  };
+
+  const http_proxy = pick(explicit.http_proxy, "http_proxy", "HTTP_PROXY");
+  const https_proxy = pick(explicit.https_proxy, "https_proxy", "HTTPS_PROXY");
+  const no_proxy = pick(explicit.no_proxy, "no_proxy", "NO_PROXY");
+
+  return {
+    ...(http_proxy ? { http_proxy } : {}),
+    ...(https_proxy ? { https_proxy } : {}),
+    ...(no_proxy ? { no_proxy } : {}),
+  };
+}
+
+/**
+ * Describe a resolved proxy configuration for the log, with credentials hidden.
+ *
+ * This echoes the configuration, not the route the agent picks at request
+ * time; `NODE_DEBUG=undici` shows that.
+ *
+ * @param resolved the output of `resolveProxyConfig`
+ * @returns the values a log line may show, or undefined when no proxy is set
+ */
+export function describeProxyConfig(resolved: ProxyConfig): ProxyConfig | undefined {
+  const shown = {
+    ...(resolved.http_proxy ? { http_proxy: redactUrlCredentials(resolved.http_proxy) } : {}),
+    ...(resolved.https_proxy ? { https_proxy: redactUrlCredentials(resolved.https_proxy) } : {}),
+    ...(resolved.no_proxy ? { no_proxy: resolved.no_proxy } : {}),
+  };
+
+  return Object.keys(shown).length > 0 ? shown : undefined;
 }
 
 /**

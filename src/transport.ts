@@ -1,11 +1,6 @@
 import { EnvHttpProxyAgent } from "undici";
 
-/** The three proxy knobs Verdaccio exposes, plus the environment fallback. */
-export interface ProxyConfig {
-  http_proxy?: string;
-  https_proxy?: string;
-  no_proxy?: string;
-}
+import type { ProxyConfig } from "@/utils";
 
 /**
  * A fetch bound to one proxy configuration, plus a close for its connections.
@@ -18,37 +13,24 @@ export interface ProxiedTransport {
   close: () => Promise<void>;
 }
 
-/** Verdaccio treats an empty proxy value as unset; match that here. */
-function nonEmpty(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-
-  return trimmed ? trimmed : undefined;
-}
-
 /**
  * Create a fetch bound to the given proxy configuration.
  *
- * Each field prefers the explicit value (Verdaccio's config on the server,
- * unset on the CLI), then the lowercase environment variable, then the
- * uppercase one — the same order curl and undici use. An invalid proxy URL
- * fails here, never as a silent direct connection.
+ * An invalid proxy URL fails here, never as a silent direct connection. Pass
+ * `resolveProxyConfig`'s output so the agent and the log see the same values.
  *
- * @param config the explicit proxy values, if any
+ * @param resolved the resolved proxy values, if any
  * @returns a fetch with proxy routing plus a close for its connections
  */
-export function createTransport(config: ProxyConfig = {}): ProxiedTransport {
-  // Only non-empty values are passed so blanks count as unset instead of
-  // failing URL parsing; the environment fallback stays lowercase-first.
+export function createTransport(resolved: ProxyConfig = {}): ProxiedTransport {
   const agent = new EnvHttpProxyAgent({
-    httpProxy: nonEmpty(config.http_proxy),
-    httpsProxy: nonEmpty(config.https_proxy),
-    noProxy: nonEmpty(config.no_proxy),
+    httpProxy: resolved.http_proxy,
+    httpsProxy: resolved.https_proxy,
+    noProxy: resolved.no_proxy,
   });
 
-  // The bridge is this dispatcher-carrying init alone: the global fetch
-  // type has no such member, so the object goes through `unknown` once.
-  // The fetch itself and everything the callers see stay on the global
-  // type — nothing else is asserted, and no `any` is used.
+  // `dispatcher` belongs to undici's RequestInit, not the global fetch type,
+  // so the asserted value stops at this line and callers keep the global type.
   const fetchWithProxy: typeof fetch = (input, init) =>
     fetch(input, { ...init, dispatcher: agent } as unknown as RequestInit);
 

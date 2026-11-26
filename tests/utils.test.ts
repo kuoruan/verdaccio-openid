@@ -1,6 +1,7 @@
-import { expectTypeOf } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, expectTypeOf } from "vitest";
 
 import {
+  describeProxyConfig,
   escapeHtml,
   isNonEmptyString,
   isNull,
@@ -9,6 +10,7 @@ import {
   isUndefOrNull,
   isUndefined,
   redactUrlCredentials,
+  resolveProxyConfig,
   safeJsonParse,
   safeJsonStringify,
   safeUrl,
@@ -80,6 +82,62 @@ describe("redactUrlCredentials", () => {
   it("hides a value that cannot be parsed but looks like it holds credentials", () => {
     expect(redactUrlCredentials("user:s3cret@proxy")).toBe("***");
     expect(redactUrlCredentials("proxy.example.com:3128")).toBe("proxy.example.com:3128");
+  });
+});
+
+describe("resolveProxyConfig", () => {
+  const ENV_KEYS = ["http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"] as const;
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) vi.stubEnv(key, "");
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("prefers the explicit value over the environment", () => {
+    vi.stubEnv("https_proxy", "http://from-env:8080");
+
+    expect(resolveProxyConfig({ https_proxy: "http://from-config:8080" })).toEqual({
+      https_proxy: "http://from-config:8080",
+    });
+  });
+
+  it("prefers the lowercase variable over the uppercase one", () => {
+    vi.stubEnv("http_proxy", "http://lower:8080");
+    vi.stubEnv("HTTP_PROXY", "http://upper:8080");
+
+    expect(resolveProxyConfig()).toEqual({ http_proxy: "http://lower:8080" });
+  });
+
+  it("treats a blank value as unset, so the next source applies", () => {
+    // A blank value counts as unset and falls through, matching the agent,
+    // which treats a falsy value as no proxy for that source.
+    vi.stubEnv("http_proxy", "");
+    vi.stubEnv("HTTP_PROXY", "http://upper:8080");
+
+    expect(resolveProxyConfig()).toEqual({ http_proxy: "http://upper:8080" });
+  });
+
+  it("trims whitespace and drops blanks", () => {
+    expect(resolveProxyConfig({ http_proxy: "  http://p:8080  ", no_proxy: "   " })).toEqual({
+      http_proxy: "http://p:8080",
+    });
+  });
+
+  it("returns empty when nothing is configured", () => {
+    expect(resolveProxyConfig()).toEqual({});
+  });
+});
+
+describe("describeProxyConfig", () => {
+  it("hides credentials and reports undefined when empty", () => {
+    expect(describeProxyConfig({ https_proxy: "http://user:s3cret@proxy:8080", no_proxy: "localhost" })).toEqual({
+      https_proxy: "http://user:***@proxy:8080/",
+      no_proxy: "localhost",
+    });
+    expect(describeProxyConfig({})).toBeUndefined();
   });
 });
 

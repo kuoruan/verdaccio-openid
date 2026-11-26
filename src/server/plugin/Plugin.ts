@@ -17,6 +17,7 @@ import { OpenIDConnectAuthProvider } from "@/server/openid";
 import { createStore } from "@/server/store";
 import type { Store } from "@/server/store/Store";
 import { createTransport, type ProxiedTransport } from "@/transport";
+import { describeProxyConfig, resolveProxyConfig } from "@/utils";
 
 import { AuthCore, type VerifiedUser } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
@@ -60,11 +61,17 @@ export class Plugin
 
     const parsedConfig = new ParsedPluginConfig(config, verdaccioConfig);
 
-    const transport = createTransport({
+    const resolved = resolveProxyConfig({
       http_proxy: verdaccioConfig.http_proxy,
       https_proxy: verdaccioConfig.https_proxy,
       no_proxy: verdaccioConfig.no_proxy,
     });
+    const transport = createTransport(resolved);
+
+    const proxies = describeProxyConfig(resolved);
+    if (proxies) {
+      logger.info({ proxies }, "outbound requests use proxies: @{proxies}");
+    }
 
     let store: Store;
     try {

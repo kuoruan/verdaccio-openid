@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "@/transport";
+import { resolveProxyConfig } from "@/utils";
 
 const constructorArgs: unknown[][] = [];
 
@@ -39,22 +40,13 @@ describe("createTransport", () => {
     await transport.close();
   });
 
-  it("prefers the explicit value over the environment", () => {
+  it("forwards the resolved values to the agent", () => {
     clearProxyEnv();
     vi.stubEnv("https_proxy", "http://from-env:8080");
 
-    createTransport({ https_proxy: "http://from-config:8080" });
+    createTransport(resolveProxyConfig({ https_proxy: "http://from-config:8080" }));
 
     expect(constructorArgs.at(-1)?.[0]).toMatchObject({ httpsProxy: "http://from-config:8080" });
-  });
-
-  it("treats a blank explicit value as unset so the environment applies", () => {
-    clearProxyEnv();
-    vi.stubEnv("https_proxy", "http://from-env:8080");
-
-    createTransport({ https_proxy: "   " });
-
-    expect(constructorArgs.at(-1)?.[0]).toMatchObject({ httpsProxy: undefined });
   });
 
   it("fails on an invalid proxy URL instead of connecting directly", () => {

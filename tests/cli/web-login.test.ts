@@ -91,6 +91,7 @@ beforeAll(() => {
 afterEach(() => {
   server.resetHandlers();
   openBrowserBound.ms = 20;
+  vi.unstubAllEnvs();
 });
 
 afterAll(() => {
@@ -109,6 +110,11 @@ describe("webLogin", () => {
     logger.error.mockClear();
     openMock.mockReset();
     openMock.mockResolvedValue(undefined as any);
+    // The proxy log follows the ambient environment; clear it so a developer
+    // machine with a proxy set runs the same assertions as CI.
+    for (const key of ["http_proxy", "https_proxy", "no_proxy", "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"]) {
+      vi.stubEnv(key, "");
+    }
   });
 
   it("completes through the npm web protocol and returns the token", async () => {
@@ -327,7 +333,26 @@ describe("webLogin", () => {
 
     const logger = vi.mocked(mockLogger);
     expect(logger.info).toHaveBeenCalledWith(authorizeUrl);
+    // Without a proxy in the environment nothing proxy-related is logged.
+    expect(logger.info).not.toHaveBeenCalledWith("login uses proxies:", expect.anything());
     expect(logger.info.mock.invocationCallOrder[0]).toBeLessThan(openMock.mock.invocationCallOrder[0]);
+  }, 15_000);
+
+  it("logs the proxy configuration when the environment sets one", async () => {
+    // `no_proxy` lists hosts to bypass, so stubbing it leaves the request on
+    // its normal path while the log branch is the one under test.
+    vi.stubEnv("no_proxy", "localhost");
+    server.use(
+      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
+      http.get(donePath, () => HttpResponse.json({ token: "npm-token" })),
+    );
+
+    await expect(login({ timeoutMs: 60_000 })).resolves.toBe("npm-token");
+
+    expect(vi.mocked(mockLogger).info).toHaveBeenCalledWith(
+      "login uses proxies:",
+      JSON.stringify({ no_proxy: "localhost" }),
+    );
   }, 15_000);
 
   it("falls back to the URL and keeps polling when the launcher hangs past its own bound", async () => {

@@ -10,7 +10,7 @@ import {
 import { AUTH_TOKEN_REGEX, npmLoginPath } from "@/constants";
 import { abortAfter, sleep, startDelay } from "@/timers";
 import { createTransport } from "@/transport";
-import { isNull, isObject } from "@/utils";
+import { isNull, isObject, describeProxyConfig, resolveProxyConfig } from "@/utils";
 
 import logger from "./logger";
 
@@ -39,7 +39,14 @@ export interface WebLoginOptions {
 export async function webLogin(registry: string, options: WebLoginOptions = {}): Promise<string> {
   const { timeoutMs = CLI_TIMEOUT_MS } = options;
 
-  const transport = createTransport();
+  const resolved = resolveProxyConfig();
+  const transport = createTransport(resolved);
+
+  const proxies = describeProxyConfig(resolved);
+  if (proxies) {
+    logger.info("login uses proxies:", JSON.stringify(proxies));
+  }
+
   const { signal, cancel } = abortAfter(timeoutMs);
 
   try {
