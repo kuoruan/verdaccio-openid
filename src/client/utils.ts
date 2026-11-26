@@ -1,3 +1,5 @@
+import { stripTrailingSlashes } from "@/utils";
+
 /**
  * Normalize a URL prefix so it both starts and ends with "/".
  *
@@ -33,5 +35,5 @@ export function getBaseUrl(shouldStripTrailingSlash = false): string {
     baseUrl = `${location.protocol}//${location.host}${wrapPrefix(urlPrefix)}`;
   }
 
-  return shouldStripTrailingSlash ? baseUrl.replace(/\/+$/, "") : baseUrl;
+  return shouldStripTrailingSlash ? stripTrailingSlashes(baseUrl) : baseUrl;
 }

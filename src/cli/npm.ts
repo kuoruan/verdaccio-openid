@@ -6,7 +6,7 @@ import minimist from "minimist";
 import colors from "picocolors";
 
 import logger from "./logger";
-import { isNonEmptyString, isUndefined, safeJsonParse } from "@/utils";
+import { isNonEmptyString, isUndefined, safeJsonParse, stripTrailingSlashes } from "@/utils";
 
 /** Registries the CLI refuses to authenticate against. */
 export const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com", "registry.npm.taobao.org"];
@@ -55,10 +55,6 @@ function getNpmConfig(): Record<string, unknown> {
   return npmConfig;
 }
 
-function removeTrailingSlash(input: string): string {
-  return input.trim().replace(/\/+$/, "");
-}
-
 /**
  * Resolve the registry from `--registry`, then from the npm config, then the public one.
  *
@@ -79,7 +75,7 @@ export function getRegistryUrl(): string {
     return PUBLIC_REGISTRIES[0];
   }
 
-  return removeTrailingSlash(registry);
+  return stripTrailingSlashes(registry.trim());
 }
 
 /** The npm config file the token is written to, as npm reports it. */

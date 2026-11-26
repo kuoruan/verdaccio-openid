@@ -119,6 +119,16 @@ export function isNull(value: unknown): value is null {
 }
 
 /**
+ * Strip the trailing slashes from a value.
+ *
+ * @param value the value to trim
+ * @returns the value without trailing slashes
+ */
+export function stripTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/, "");
+}
+
+/**
  * Check whether a value is a non-null object, including arrays.
  *
  * @template T the object type to preserve when narrowing

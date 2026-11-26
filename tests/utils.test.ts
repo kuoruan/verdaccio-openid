@@ -14,6 +14,7 @@ import {
   safeJsonParse,
   safeJsonStringify,
   safeUrl,
+  stripTrailingSlashes,
 } from "@/utils";
 import { STORE_VALUE_LABELS } from "@/server/store/constants";
 
@@ -188,6 +189,19 @@ describe("safeJsonStringify", () => {
   it("round-trips through safeJsonParse", () => {
     const value = { username: "u", uiToken: "ui", npmToken: "npm" };
     expect(safeJsonParse(safeJsonStringify(value) as string)).toEqual(value);
+  });
+});
+
+describe("stripTrailingSlashes", () => {
+  it("removes every trailing slash", () => {
+    expect(stripTrailingSlashes("https://registry.example.com/")).toBe("https://registry.example.com");
+    expect(stripTrailingSlashes("https://registry.example.com///")).toBe("https://registry.example.com");
+  });
+
+  it("leaves a value without a trailing slash untouched", () => {
+    expect(stripTrailingSlashes("/prefix")).toBe("/prefix");
+    expect(stripTrailingSlashes("/a/b")).toBe("/a/b");
+    expect(stripTrailingSlashes("")).toBe("");
   });
 });
 

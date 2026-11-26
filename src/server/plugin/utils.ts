@@ -2,6 +2,7 @@
  * Helpers for the plugin layer: the ones that read Verdaccio types or an
  * Express request.
  */
+import { stripTrailingSlashes } from "@/utils";
 import type { AllowAccess, PackageList } from "@verdaccio/types";
 import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
@@ -100,7 +101,7 @@ export function getFullUrl(urlPrefix: string, req: Request): URL {
   // Normalize the prefix (strip trailing slashes) to avoid two edge cases:
   // 1. `/prefix/` does not match `reqPath = "/prefix"` (trailing slash mismatch)
   // 2. `/prefix` incorrectly matches `reqPath = "/prefix-other"` (substring match)
-  const cleanPrefix = urlPrefix.replace(/\/+$/, "");
+  const cleanPrefix = stripTrailingSlashes(urlPrefix);
 
   const hasPrefix = !!(cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/")));
 

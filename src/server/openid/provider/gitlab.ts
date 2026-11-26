@@ -1,6 +1,6 @@
 import type { OpenIDToken } from "@/server/plugin/AuthProvider";
 import { sleep } from "@/timers";
-import { isNonEmptyString, isObject } from "@/utils";
+import { isNonEmptyString, isObject, stripTrailingSlashes } from "@/utils";
 
 const GITLAB_GROUPS_TIMEOUT_MS = 300_000; // one deadline shared by the whole page walk
 const GITLAB_GROUPS_PER_PAGE = 100;
@@ -131,7 +131,7 @@ export async function getGitlabGroups(
   customFetch: typeof fetch = fetch,
 ): Promise<string[]> {
   const accessToken = typeof token === "string" ? token : token.accessToken;
-  const base = new URL(`${providerHost.replace(/\/+$/, "")}/api/v4/groups`);
+  const base = new URL(`${stripTrailingSlashes(providerHost)}/api/v4/groups`);
   // One deadline for the whole walk instead of one per page.
   const signal = AbortSignal.timeout(GITLAB_GROUPS_TIMEOUT_MS);
   const groups: string[] = [];
