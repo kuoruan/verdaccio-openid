@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import DynamoStore from "@/server/store/Dynamo";
 import { DEFAULT_STATE_TTL_MS } from "@/server/store/constants";
@@ -44,6 +44,9 @@ const baseConfig = { tableName: "test-table", region: "us-east-1" };
 beforeEach(() => {
   sendMock.mockReset();
   destroyMock.mockReset();
+});
+
+afterEach(() => {
   vi.restoreAllMocks();
 });
 

@@ -14,6 +14,7 @@ describe("getEnvironmentValue", () => {
   });
 
   it("should return undefined when env var is undefined", () => {
+    delete process.env.NON_EXISTENT;
     expect(getEnvironmentValue("NON_EXISTENT")).toBeUndefined();
   });
 

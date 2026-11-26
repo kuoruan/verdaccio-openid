@@ -5,6 +5,7 @@ export default {
   resolve: {
     alias: {
       "@": fileURLToPath(new URL("src", import.meta.url)),
+      "@root": fileURLToPath(new URL(".", import.meta.url)),
     },
   },
   test: {

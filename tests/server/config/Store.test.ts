@@ -1,175 +1,118 @@
+import { describe, expect, it } from "vitest";
+
 import { FileConfigSchema, InMemoryConfigSchema, MongoConfigSchema, RedisConfigSchema } from "@/server/config/Store";
 
 describe("InMemoryConfigSchema", () => {
-  it("should validate valid config", () => {
-    const validConfigs = [
-      { ttl: "1h" },
-      { ttl: "1d" },
-      { ttl: 3_600_000 }, // 1 hour in ms
-      { max: 1000 },
-      { ttl: "2h", max: 500 },
-      {}, // empty config is valid too
-    ];
-
-    for (const config of validConfigs) {
-      expect(InMemoryConfigSchema.isValidSync(config)).toBeTruthy();
-    }
+  it.each([
+    { ttl: "1h" },
+    { ttl: "1d" },
+    { ttl: 3_600_000 },
+    { max: 1000 },
+    { ttl: "2h", max: 500 },
+    {},
+    ...["1s", "5m", "500ms", 1001].map((ttl) => ({ ttl })),
+  ])("accepts %o", (config) => {
+    expect(InMemoryConfigSchema.isValidSync(config)).toBe(true);
   });
 
-  it("should reject invalid ttl values", () => {
-    const invalidConfigs = [
-      { ttl: "" },
-      { ttl: 500 }, // less than 1 second
-      { ttl: "5x" }, // not a duration
-      { ttl: "0s" }, // not positive
-      { ttl: Number.POSITIVE_INFINITY }, // infinite
-      { ttl: Number.NaN }, // not a number
-      { ttl: true },
-      { ttl: {} },
-      { ttl: [] },
-    ];
-
-    for (const config of invalidConfigs) {
-      expect(InMemoryConfigSchema.isValidSync(config)).toBeFalsy();
-    }
-  });
-
-  it("should accept the durations getTTLValue converts", () => {
-    for (const ttl of ["1s", "5m", "1h", "500ms", 1001]) {
-      expect(InMemoryConfigSchema.isValidSync({ ttl })).toBeTruthy();
-    }
-  });
-
-  it("should reject invalid max values", () => {
-    const invalidConfigs = [{ max: 0 }, { max: -1 }, { max: true }, { max: {} }];
-
-    for (const config of invalidConfigs) {
-      expect(InMemoryConfigSchema.isValidSync(config)).toBeFalsy();
-    }
+  it.each([
+    { ttl: "" },
+    { ttl: 500 },
+    { ttl: "5x" },
+    { ttl: "0s" },
+    { ttl: Number.POSITIVE_INFINITY },
+    { ttl: Number.NaN },
+    { ttl: true },
+    { ttl: {} },
+    { ttl: [] },
+    { max: 0 },
+    { max: -1 },
+    { max: true },
+    { max: {} },
+  ])("rejects %o", (config) => {
+    expect(InMemoryConfigSchema.isValidSync(config)).toBe(false);
   });
 });
 
 describe("RedisConfigSchema", () => {
-  it("should validate valid config", () => {
-    const validConfigs = [
-      { username: "user", password: "pass" },
-      { port: 6379 },
-      { nodes: ["localhost:6379"] },
-      { nodes: [6379] },
-      { nodes: [{ host: "localhost", port: 6379 }] },
-      { ttl: "1h" },
-      { ttl: 3_600_000 },
-      {}, // empty config is valid too
-    ];
-
-    for (const config of validConfigs) {
-      expect(RedisConfigSchema.isValidSync(config)).toBeTruthy();
-    }
+  it.each([
+    { username: "user", password: "pass" },
+    { port: 6379 },
+    { nodes: ["localhost:6379"] },
+    { nodes: [6379] },
+    { nodes: [{ host: "localhost", port: 6379 }] },
+    { ttl: "1h" },
+    { ttl: 3_600_000 },
+    {},
+  ])("accepts %o", (config) => {
+    expect(RedisConfigSchema.isValidSync(config)).toBe(true);
   });
 
-  it("should reject invalid port values", () => {
-    const invalidConfigs = [{ port: 0 }, { port: -1 }, { port: 65_536 }, { port: true }];
-
-    for (const config of invalidConfigs) {
-      expect(RedisConfigSchema.isValidSync(config)).toBeFalsy();
-    }
-  });
-
-  it("should reject invalid nodes values", () => {
-    const invalidConfigs = [{ nodes: [null] }, { nodes: [true] }];
-
-    for (const config of invalidConfigs) {
-      expect(RedisConfigSchema.isValidSync(config)).toBeFalsy();
-    }
-  });
-
-  it("should reject invalid ttl values", () => {
-    const invalidConfigs = [{ ttl: "" }, { ttl: 500 }, { ttl: true }, { ttl: {} }, { ttl: [] }];
-
-    for (const config of invalidConfigs) {
-      expect(RedisConfigSchema.isValidSync(config)).toBeFalsy();
-    }
+  it.each([
+    { port: 0 },
+    { port: -1 },
+    { port: 65_536 },
+    { port: true },
+    { nodes: [null] },
+    { nodes: [true] },
+    { ttl: "" },
+    { ttl: 500 },
+    { ttl: true },
+    { ttl: {} },
+    { ttl: [] },
+  ])("rejects %o", (config) => {
+    expect(RedisConfigSchema.isValidSync(config)).toBe(false);
   });
 });
 
 describe("FileConfigSchema", () => {
-  it("should validate valid config", () => {
-    const validConfigs = [
-      { dir: "/tmp/cache" },
-      { dir: "./cache", ttl: "1h" },
-      { dir: "/data", ttl: 3_600_000 },
-      { dir: "cache", expiredInterval: 1000 },
-      { dir: "/cache", ttl: "2h", expiredInterval: 5000 },
-    ];
-
-    for (const config of validConfigs) {
-      expect(FileConfigSchema.isValidSync(config)).toBeTruthy();
-    }
+  it.each([
+    { dir: "/tmp/cache" },
+    { dir: "./cache", ttl: "1h" },
+    { dir: "/data", ttl: 3_600_000 },
+    { dir: "cache", expiredInterval: 1000 },
+    { dir: "/cache", ttl: "2h", expiredInterval: 5000 },
+  ])("accepts %o", (config) => {
+    expect(FileConfigSchema.isValidSync(config)).toBe(true);
   });
 
-  it("should reject configs without dir", () => {
-    const invalidConfigs = [{}, { ttl: "1h" }, { expiredInterval: 1000 }];
-
-    for (const config of invalidConfigs) {
-      expect(FileConfigSchema.isValidSync(config)).toBeFalsy();
-    }
-  });
-
-  it("should reject invalid ttl values", () => {
-    const invalidConfigs = [
-      { dir: "cache", ttl: "" },
-      { dir: "cache", ttl: 500 },
-      { dir: "cache", ttl: true },
-      { dir: "cache", ttl: {} },
-      { dir: "cache", ttl: [] },
-    ];
-
-    for (const config of invalidConfigs) {
-      expect(FileConfigSchema.isValidSync(config)).toBeFalsy();
-    }
-  });
-
-  it("should reject invalid expiredInterval values", () => {
-    const invalidConfigs = [
-      { dir: "cache", expiredInterval: 0 },
-      { dir: "cache", expiredInterval: -1 },
-      { dir: "cache", expiredInterval: true },
-      { dir: "cache", expiredInterval: "1h" },
-    ];
-
-    for (const config of invalidConfigs) {
-      expect(FileConfigSchema.isValidSync(config)).toBeFalsy();
-    }
+  it.each([
+    {},
+    { ttl: "1h" },
+    { expiredInterval: 1000 },
+    { dir: "cache", ttl: "" },
+    { dir: "cache", ttl: 500 },
+    { dir: "cache", ttl: true },
+    { dir: "cache", ttl: {} },
+    { dir: "cache", ttl: [] },
+    { dir: "cache", expiredInterval: 0 },
+    { dir: "cache", expiredInterval: -1 },
+    { dir: "cache", expiredInterval: true },
+    { dir: "cache", expiredInterval: "1h" },
+  ])("rejects %o", (config) => {
+    expect(FileConfigSchema.isValidSync(config)).toBe(false);
   });
 });
 
 describe("MongoConfigSchema", () => {
-  it("should validate valid config", () => {
-    const validConfigs = [
-      { uri: "mongodb://localhost:27017" },
-      { uri: "mongodb+srv://user:pw@cluster.example.com/registry", ttl: "1m" },
-      { uri: "mongodb://localhost:27017", database: "auth", collection: "oidc" },
-      { uri: "MONGO_URI" }, // environment variable name, resolved by the config holder
-      { uri: "mongodb://localhost:27017", ttl: 3_600_000 },
-      {}, // uri may come from VERDACCIO_OPENID_STORE_CONFIG_URI
-    ];
-
-    for (const config of validConfigs) {
-      expect(MongoConfigSchema.isValidSync(config)).toBeTruthy();
-    }
+  it.each([
+    { uri: "mongodb://localhost:27017" },
+    { uri: "mongodb+srv://user:pw@cluster.example.com/registry", ttl: "1m" },
+    { uri: "mongodb://localhost:27017", database: "auth", collection: "oidc" },
+    { uri: "MONGO_URI" },
+    { uri: "mongodb://localhost:27017", ttl: 3_600_000 },
+    {},
+  ])("accepts %o", (config) => {
+    expect(MongoConfigSchema.isValidSync(config)).toBe(true);
   });
 
-  it("should reject invalid ttl values", () => {
-    const invalidConfigs = [
-      { uri: "mongodb://localhost:27017", ttl: "" },
-      { uri: "mongodb://localhost:27017", ttl: 500 },
-      { uri: "mongodb://localhost:27017", ttl: true },
-      { uri: "mongodb://localhost:27017", ttl: {} },
-      { uri: "mongodb://localhost:27017", ttl: [] },
-    ];
-
-    for (const config of invalidConfigs) {
-      expect(MongoConfigSchema.isValidSync(config)).toBeFalsy();
-    }
+  it.each([
+    { uri: "mongodb://localhost:27017", ttl: "" },
+    { uri: "mongodb://localhost:27017", ttl: 500 },
+    { uri: "mongodb://localhost:27017", ttl: true },
+    { uri: "mongodb://localhost:27017", ttl: {} },
+    { uri: "mongodb://localhost:27017", ttl: [] },
+  ])("rejects %o", (config) => {
+    expect(MongoConfigSchema.isValidSync(config)).toBe(false);
   });
 });

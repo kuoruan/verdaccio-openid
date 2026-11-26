@@ -1,6 +1,18 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import DynamoStore from "@/server/store/Dynamo";
 import InMemoryStore from "@/server/store/InMemory";
+import MongoStore from "@/server/store/Mongo";
+
+class RejectingStore extends InMemoryStore {
+  protected override validate(): void {
+    throw new Error("too big");
+  }
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /**
  * Evidence for the shared validation entry in BaseStore: every public
@@ -32,11 +44,6 @@ describe("BaseStore shared validation entry", () => {
   });
 
   it("reports oversized keys as a miss on reads without touching the backend", async () => {
-    class RejectingStore extends InMemoryStore {
-      protected override validate(): void {
-        throw new Error("too big");
-      }
-    }
     const store = new RejectingStore();
     const readSpy = vi.spyOn(store as any, "read");
     const removeSpy = vi.spyOn(store as any, "remove");
@@ -53,11 +60,6 @@ describe("BaseStore shared validation entry", () => {
   });
 
   it("rejects ordinary write validation failures without touching the backend", async () => {
-    class RejectingStore extends InMemoryStore {
-      protected override validate(): void {
-        throw new Error("too big");
-      }
-    }
     const store = new RejectingStore();
     const writeSpy = vi.spyOn(store as any, "write");
 
@@ -80,11 +82,6 @@ describe("BaseStore shared validation entry", () => {
   });
 
   it("lets webAuthn take validation errors throw", async () => {
-    class RejectingStore extends InMemoryStore {
-      protected override validate(): void {
-        throw new Error("too big");
-      }
-    }
     const store = new RejectingStore();
     const takeSpy = vi.spyOn(store as any, "take");
     const removeSpy = vi.spyOn(store as any, "remove");
@@ -161,9 +158,7 @@ describe("remove cache partitions", () => {
   });
 
   it("drops every kind through a single delete call on Dynamo and Mongo backends", async () => {
-    for (const mod of ["@/server/store/Dynamo", "@/server/store/Mongo"] as const) {
-      const { default: Backend } = (await import(mod)) as any;
-      const store = new Backend(mod.includes("Dynamo") ? { tableName: "t", region: "r" } : { uri: "mongodb://x" });
+    for (const store of [new DynamoStore({ tableName: "t", region: "r" }), new MongoStore({ uri: "mongodb://x" })]) {
       const delSpy = vi.spyOn(store as any, "del").mockResolvedValue(undefined);
       for (const kind of ["state", "userInfo", "userGroups", "webAuthn", "loginResult"] as const) {
         delSpy.mockClear();

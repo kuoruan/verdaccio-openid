@@ -1,20 +1,7 @@
 import { messageCliUpgrade } from "@/server/constants";
 import { CliFlow } from "@/server/flows/CliFlow";
 
-function fakeRes() {
-  return {
-    statusCode: 200,
-    body: undefined as unknown,
-    status(code: number) {
-      this.statusCode = code;
-      return this;
-    },
-    send(body: unknown) {
-      this.body = body;
-      return this;
-    },
-  };
-}
+import { fakeResponse } from "@root/tests/helpers/express";
 
 function fakeReq(query: Record<string, unknown>) {
   return { query, headers: { host: "registry.example.com" }, protocol: "https" } as any;
@@ -24,7 +11,7 @@ describe("CliFlow", () => {
   const flow = new CliFlow();
 
   it("answers the old authorize route with the versions it needs", async () => {
-    const res = fakeRes();
+    const res = fakeResponse();
 
     await flow.upgrade(fakeReq({ port: "18239", state: "abc" }), res as any, (() => {}) as any);
 
@@ -33,7 +20,7 @@ describe("CliFlow", () => {
   });
 
   it("answers the old callback route with the versions it needs", async () => {
-    const res = fakeRes();
+    const res = fakeResponse();
 
     await flow.upgrade(fakeReq({ state: "P-abc~18239", code: "c" }), res as any, (() => {}) as any);
 

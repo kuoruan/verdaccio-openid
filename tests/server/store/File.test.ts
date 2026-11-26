@@ -7,7 +7,9 @@ import { chmod, mkdir } from "node:fs/promises";
 import FileStore from "@/server/store/File";
 import type { FileConfig } from "@/server/store/Store";
 
-vi.mock("node-persist");
+const { createStorage } = vi.hoisted(() => ({ createStorage: vi.fn() }));
+
+vi.mock("node-persist", () => ({ default: { create: createStorage } }));
 vi.mock("@/server/logger");
 vi.mock("node:fs/promises", () => ({
   chmod: vi.fn().mockResolvedValue(undefined),
@@ -38,9 +40,9 @@ describe("FileStore methods", () => {
   };
   let initMock: MockInstance;
 
-  beforeEach(async () => {
-    // Dynamically import node-persist to get the mocked module
-    const storage = await import("node-persist");
+  beforeEach(() => {
+    vi.clearAllMocks();
+    createStorage.mockReset();
 
     dbMock = {
       setItem: vi.fn(),
@@ -49,7 +51,7 @@ describe("FileStore methods", () => {
     };
     initMock = vi.fn().mockResolvedValue(true);
 
-    (storage.default.create as unknown as MockInstance).mockReturnValue({
+    createStorage.mockReturnValue({
       init: initMock,
       ...dbMock,
     });
@@ -57,12 +59,14 @@ describe("FileStore methods", () => {
     fileStore = new FileStore("/test/dir");
   });
 
-  it("should initialize lazily on first operation", async () => {
-    const storage = await import("node-persist");
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
+  it("should initialize lazily on first operation", async () => {
     await fileStore.setOpenIDState("key1", "nonce1", "provider1");
 
-    expect(storage.default.create).toHaveBeenCalledWith({
+    expect(createStorage).toHaveBeenCalledWith({
       ttl: expect.any(Number),
       forgiveParseErrors: true,
       dir: "/test/dir",
@@ -79,12 +83,11 @@ describe("FileStore methods", () => {
   });
 
   it("should keep a ttl the configuration asks for", async () => {
-    const storage = await import("node-persist");
     const configured = new FileStore({ dir: "/test/dir", ttl: 5000 });
 
     await configured.setOpenIDState("key1", "nonce1", "provider1");
 
-    expect(storage.default.create).toHaveBeenCalledWith(
+    expect(createStorage).toHaveBeenCalledWith(
       expect.objectContaining({
         dir: "/test/dir",
         ttl: 5000,
@@ -181,11 +184,12 @@ describe("FileStore methods", () => {
     },
   );
 
-  it("should report a corrupted login result as a miss", async () => {
-    for (const raw of ["not-json", '{"username":"dave"}', '["dave"]', "null"]) {
+  it.each(["not-json", '{"username":"dave"}', '["dave"]', "null"])(
+    "should report a corrupted login result as a miss: %s",
+    async (raw) => {
       dbMock.getItem.mockResolvedValueOnce(raw);
 
       await expect(fileStore.takeLoginResult("state-1")).resolves.toBeUndefined();
-    }
-  });
+    },
+  );
 });

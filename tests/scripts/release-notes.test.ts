@@ -15,7 +15,7 @@ import {
   requireSections,
   sectionUnder,
   withChineseBlock,
-} from "../../scripts/release-notes.mjs";
+} from "@root/scripts/release-notes.mjs";
 
 const ENGLISH_CHANGELOG = `# verdaccio-openid
 

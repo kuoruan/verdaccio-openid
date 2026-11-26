@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import MongoStore from "@/server/store/Mongo";
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS } from "@/server/store/constants";
@@ -51,11 +51,14 @@ function resetMocks() {
   collection.findOne.mockReset().mockResolvedValue(null);
   collection.findOneAndDelete.mockReset().mockResolvedValue(null);
   collection.deleteOne.mockReset().mockResolvedValue({ acknowledged: true, deletedCount: 1 });
-  vi.restoreAllMocks();
 }
 
 beforeEach(() => {
   resetMocks();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("MongoStore — required config", () => {

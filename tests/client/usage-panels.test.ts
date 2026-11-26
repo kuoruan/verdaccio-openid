@@ -8,6 +8,10 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { hiddenMarker } from "@/client/constants";
+import { isLoggedIn, isOpenIDLoggedIn } from "@/client/credentials";
+import { syncUsage } from "@/client/usage-panels";
+
 const { getNPMToken } = vi.hoisted(() => ({ getNPMToken: vi.fn(() => "test-token") }));
 
 vi.mock("@/client/credentials", () => ({
@@ -15,10 +19,6 @@ vi.mock("@/client/credentials", () => ({
   isLoggedIn: vi.fn(),
   isOpenIDLoggedIn: vi.fn(),
 }));
-
-import { isLoggedIn, isOpenIDLoggedIn } from "@/client/credentials";
-import { hiddenMarker } from "@/client/constants";
-import { syncUsage } from "@/client/usage-panels";
 
 const row = (command: string, testId?: string) => `
   <div class="css-row" style="display: flex">
@@ -89,6 +89,9 @@ describe("syncUsage", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    window.localStorage.clear();
+    document.body.replaceChildren();
   });
 
   it("removes password commands and adds a plain hint when only OIDC can log in", () => {
@@ -216,7 +219,7 @@ describe("syncUsage", () => {
     getNPMToken.mockReturnValue("npm-token");
     const writeText = vi.fn(() => Promise.resolve());
 
-    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    vi.stubGlobal("navigator", { clipboard: { writeText } });
     syncUsage();
     commandRows()[0].querySelector("button")!.click();
 

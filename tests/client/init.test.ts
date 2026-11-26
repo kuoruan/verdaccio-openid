@@ -5,26 +5,25 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SESSION_EXCHANGE_TIMEOUT_MS } from "@/client/constants";
+import { init, retry } from "@/client/init";
+
 const { clearCredentials, isUITokenExpired, saveCredentials } = vi.hoisted(() => ({
   clearCredentials: vi.fn(),
   isUITokenExpired: vi.fn(() => false),
   saveCredentials: vi.fn(),
 }));
 
-vi.mock("@/client/credentials", async () => {
-  const actual = await vi.importActual<typeof import("@/client/credentials")>("@/client/credentials");
+vi.mock(import("@/client/credentials"), async (importOriginal) => {
+  const actual = await importOriginal();
 
   return {
     ...actual,
     clearCredentials,
     isUITokenExpired,
     saveCredentials,
-    isValidCredentials: actual.isValidCredentials,
   };
 });
-
-import { init, retry } from "@/client/init";
-import { SESSION_EXCHANGE_TIMEOUT_MS } from "@/client/constants";
 
 const HEADER = `<button type="button" data-testid="header--button-login">Sign in</button>`;
 
@@ -50,6 +49,9 @@ function respondWith(body: unknown, ok = true, status = ok ? 200 : 401): void {
 describe("init", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.spyOn(document, "addEventListener");
+    vi.spyOn(window, "addEventListener");
     isUITokenExpired.mockReturnValue(false);
     document.body.innerHTML = HEADER;
     window.__VERDACCIO_BASENAME_UI_OPTIONS = { base: "https://registry.example.com/" } as never;
@@ -62,6 +64,15 @@ describe("init", () => {
   });
 
   afterEach(() => {
+    for (const [type, listener, options] of vi.mocked(document.addEventListener).mock.calls) {
+      if (type === "click" && listener) document.removeEventListener(type, listener, options);
+    }
+    for (const [type, listener, options] of vi.mocked(window.addEventListener).mock.calls) {
+      if (type === "popstate" && listener) window.removeEventListener(type, listener, options);
+    }
+    vi.restoreAllMocks();
+    vi.clearAllTimers();
+    vi.useRealTimers();
     vi.unstubAllGlobals();
   });
 
@@ -138,15 +149,9 @@ describe("init", () => {
         }),
     );
 
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    try {
-      const pending = init();
-
-      await vi.advanceTimersByTimeAsync(SESSION_EXCHANGE_TIMEOUT_MS);
-      await pending;
-    } finally {
-      vi.useRealTimers();
-    }
+    const pending = init();
+    await vi.advanceTimersByTimeAsync(SESSION_EXCHANGE_TIMEOUT_MS);
+    await pending;
 
     expect(saveCredentials).not.toHaveBeenCalled();
 

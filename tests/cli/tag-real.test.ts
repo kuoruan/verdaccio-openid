@@ -1,21 +1,20 @@
 /**
- * 真实 tag 兼容夹具：新版 webLogin → 发布版 WebAuthFlow.login/done。
+ * Exercise the current webLogin against released WebAuthFlow login/done handlers.
  *
- * login/done 的方法体来自 tag 源码（`git show <tag>:src/server/flows/WebAuthFlow.ts`，
- * 转译后直接 import，零改动）；只有依赖 seam 用测试替身：
- * `@/constants` 路径常量、`openid-client` 随机数、`@/server/plugin/utils` 的
- * `getBaseUrl`、logger/debug、页面构建。store 用 Map 替身（tag 的 InMemory 语义：
- * set/get/delete；v0.14.0 的 done 是 get+delete，v0.20.0 是 take 语义——这些都在
- * handler 方法体里，不在替身里）。
+ * The handlers come from `git show <tag>:src/server/flows/WebAuthFlow.ts` and
+ * are transpiled without changing their bodies. Imports are replaced by shims
+ * for paths, OpenID randomness, URL construction, logging and status pages.
+ * The Map-backed store exposes the operations used by both released versions.
  *
- * - v0.14.0（协议引入版本）：缺失 → 403；pending → 202 `Retry-After: 3` +
- *   `{status:"pending",message:"token not ready yet"}`；就绪 → 200 `{token}`。
- * - v0.20.0（上一发布版本）：缺失 → 401；pending → 202 `Retry-After: 3` + `{}`；
- *   就绪 → 200 `{token}` 并消费；`sessionId` 须过 43 字符校验，否则 400。
- * - worktree：当前 `WebAuthFlow` 的 login/done 直接挂载。
+ * - v0.14.0: missing returns 403; pending returns 202 with `Retry-After: 3`
+ *   and `{status:"pending",message:"token not ready yet"}`; ready returns a token.
+ * - v0.20.0: missing returns 401; pending returns 202 with the same header and
+ *   `{}`; ready returns and consumes a token. Session IDs must have 43 characters.
+ * - worktree: the current login/done handlers are mounted directly.
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
@@ -75,7 +74,7 @@ export const generators = { random: () => \`test-session-\${String((n += 1)).pad
 
 const tmpDirs: string[] = [];
 
-/** 取 tag 源码、替换依赖为 shim、tsc 转译，返回 WebAuthFlow 类。方法体零改动。 */
+/** Transpile the tagged flow with shimmed imports, leaving its handlers intact. */
 async function loadTagFlow(tag: string): Promise<any> {
   const raw: string = execFileSync("git", ["show", `${tag}:src/server/flows/WebAuthFlow.ts`], {
     cwd: REPO,
@@ -108,14 +107,10 @@ async function loadTagFlow(tag: string): Promise<any> {
 
   writeFileSync(join(dir, "entry.mts"), entry);
 
-  // 让转译能解析 express/@verdaccio/core 等类型：链到仓库的 node_modules。
-  try {
-    mkdirSync(join(dir, "node_modules"), { recursive: true });
-    execFileSync("ln", ["-sfn", join(REPO, "node_modules", "express"), join(dir, "node_modules", "express")]);
-    execFileSync("ln", ["-sfn", join(REPO, "node_modules", "@verdaccio"), join(dir, "node_modules", "@verdaccio")]);
-    execFileSync("ln", ["-sfn", join(REPO, "node_modules", "@types"), join(dir, "node_modules", "@types")]);
-  } catch {
-    // 链接失败时如实让 tsc 报错，不降级。
+  // Resolve the tagged flow's external types from the project's dependencies.
+  mkdirSync(join(dir, "node_modules"));
+  for (const name of ["express", "@verdaccio", "@types"]) {
+    symlinkSync(join(REPO, "node_modules", name), join(dir, "node_modules", name), "dir");
   }
 
   try {
@@ -144,7 +139,7 @@ async function loadTagFlow(tag: string): Promise<any> {
     if (index >= 0) tmpDirs.splice(index, 1);
     rmSync(dir, { recursive: true, force: true });
 
-    throw new Error(`tag ${tag} 转译失败（tag 缺失时如实失败，不降级）:\n${out}`);
+    throw new Error(`Failed to transpile tag ${tag}:\n${out}`);
   }
 
   for (const name of Object.keys(SHIMS)) {
@@ -153,7 +148,7 @@ async function loadTagFlow(tag: string): Promise<any> {
 
   const mod = await import(join(dir, "dist", "entry.mjs"));
 
-  if (!mod.WebAuthFlow) throw new Error(`tag ${tag} 没有导出 WebAuthFlow`);
+  if (!mod.WebAuthFlow) throw new Error(`Tag ${tag} does not export WebAuthFlow`);
 
   return mod.WebAuthFlow;
 }
@@ -167,7 +162,7 @@ function mapStore() {
       data.set(k, v);
     },
     async getWebAuthnToken(k: string) {
-      return data.has(k) ? data.get(k) : undefined;
+      return data.get(k);
     },
     async takeWebAuthnToken(k: string, pending: string) {
       if (!data.has(k)) return undefined;
@@ -196,12 +191,38 @@ describe("compat: webLogin against released login/done", () => {
     }
   });
 
+  async function runWebLogin(makeFlow: (store: ReturnType<typeof mapStore>) => Pick<WorktreeFlow, "login" | "done">) {
+    const store = mapStore();
+    const flow = makeFlow(store);
+    const app = express();
+    app.use(express.json());
+    app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
+    let polls = 0;
+    app.get("/prefix/-/v1/done", (req, _res, next) => {
+      polls += 1;
+      if (polls === 2) store.data.set(String(req.query.sessionId), "npm-token-xyz");
+      next();
+    });
+    app.get("/prefix/-/v1/done", (req, res, next) => flow.done(req, res, next));
+    const server = await new Promise<Server>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+
+    try {
+      const token = await webLogin(`${base}/prefix`, { timeoutMs: 15_000 });
+      expect(token).toBe("npm-token-xyz");
+      expect(polls).toBeGreaterThanOrEqual(2);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  }
+
   /**
-   * 跑完一次“202 → 浏览器完成 → 200”，再对**同一事务**的 doneUrl 重读：
-   * 必须失败（v0.14.0 是 403，v0.20.0 是 401）。
+   * Check pending, completion and one-time consumption of the same transaction.
    */
   async function runAgainst(
-    makeFlow: (store: any) => any,
+    makeFlow: (store: ReturnType<typeof mapStore>) => Pick<WorktreeFlow, "login" | "done">,
     expected: { pendingBody: unknown; consumedStatus: number; pendingSessions: number },
   ) {
     const store = mapStore();
@@ -211,13 +232,13 @@ describe("compat: webLogin against released login/done", () => {
     app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
     app.get("/prefix/-/v1/done", (req, res, next) => flow.done(req, res, next));
 
-    const server = await new Promise<any>((resolve) => {
+    const server = await new Promise<Server>((resolve) => {
       const s = app.listen(0, "127.0.0.1", () => resolve(s));
     });
     const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     try {
-      // webLogin 只负责 202→200；这里再手工走一遍同一事务，断言每一步形状。
+      // Inspect every response in a separate transaction.
       const start = await globalThis.fetch(`${base}/prefix/-/v1/login`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -241,14 +262,14 @@ describe("compat: webLogin against released login/done", () => {
       expect(store.data.get(sessionId)).toBe("__pending__");
       expect(store.data.size).toBe(expected.pendingSessions);
 
-      // “浏览器”完成登录：直接写入 ready token，等价于 authorize+callback 成功。
+      // Simulate a successful browser authorization and callback.
       store.data.set(sessionId, "npm-token-xyz");
 
       const done2 = await globalThis.fetch(done);
       expect(done2.status).toBe(200);
       expect(await done2.json()).toEqual({ token: "npm-token-xyz" });
 
-      // 同一事务第二次领取必须失败：一句话证明一次性消费。
+      // The token must not be handed out twice.
       const done3 = await globalThis.fetch(done);
       expect(done3.status).toBe(expected.consumedStatus);
     } finally {
@@ -256,78 +277,28 @@ describe("compat: webLogin against released login/done", () => {
     }
   }
 
-  it("v0.14.0: 202 pending体 → 200 token → 同一事务再读 403", async () => {
-    const store = mapStore();
-    const flow = new Tag014({ urlPrefix: "/prefix" }, {}, {}, store);
-    const app = express();
-    app.use(express.json());
-    app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
-    // “浏览器”在第二次 poll 前完成登录：直接写入 ready token，等价于
-    // authorize+callback 成功。计数留在服务端，webLogin 只走真实 fetch。
-    let polls = 0;
-    app.get("/prefix/-/v1/done", (req, _res, next) => {
-      polls += 1;
-      if (polls === 2) store.data.set(String(req.query.sessionId), "npm-token-xyz");
-      next();
+  it("v0.14.0: pending, token, then 403 for the consumed transaction", async () => {
+    const makeFlow = (store: ReturnType<typeof mapStore>) => new Tag014({ urlPrefix: "/prefix" }, {}, {}, store);
+    await runWebLogin(makeFlow);
+    await runAgainst(makeFlow, {
+      pendingBody: { status: "pending", message: "token not ready yet" },
+      consumedStatus: 403,
+      pendingSessions: 1,
     });
-    app.get("/prefix/-/v1/done", (req, res, next) => flow.done(req, res, next));
-    const server = await new Promise<any>((resolve) => {
-      const s = app.listen(0, "127.0.0.1", () => resolve(s));
-    });
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-
-    try {
-      // 新版 webLogin 全程真实 HTTP：202 等待 → 浏览器完成 → 200 拿到 token。
-      const token = await webLogin(`${base}/prefix`, { timeoutMs: 15_000 });
-      expect(token).toBe("npm-token-xyz");
-      expect(polls).toBeGreaterThanOrEqual(2);
-
-      // 手工断言同一事务的每一步形状（202 体、Retry-After、一次性消费）。
-      await runAgainst((s) => new Tag014({ urlPrefix: "/prefix" }, {}, {}, s), {
-        pendingBody: { status: "pending", message: "token not ready yet" },
-        consumedStatus: 403,
-        pendingSessions: 1,
-      });
-    } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
   }, 30_000);
 
-  it("v0.20.0: 202 {} → 200 token → 同一事务再读 401", async () => {
-    // 新版 webLogin 全程真实 HTTP。
-    const store = mapStore();
-    const flow = new Tag020({ urlPrefix: "/prefix" }, {}, {}, store);
-    const app = express();
-    app.use(express.json());
-    app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
-    let polls020 = 0;
-    app.get("/prefix/-/v1/done", (req, _res, next) => {
-      polls020 += 1;
-      if (polls020 === 2) store.data.set(String(req.query.sessionId), "npm-token-xyz");
-      next();
-    });
-    app.get("/prefix/-/v1/done", (req, res, next) => flow.done(req, res, next));
-    const server = await new Promise<any>((resolve) => {
-      const s = app.listen(0, "127.0.0.1", () => resolve(s));
-    });
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-
-    try {
-      const token = await webLogin(`${base}/prefix`, { timeoutMs: 15_000 });
-      expect(token).toBe("npm-token-xyz");
-    } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
-
-    await runAgainst((s) => new Tag020({ urlPrefix: "/prefix" }, {}, {}, s), {
+  it("v0.20.0: pending, token, then 401 for the consumed transaction", async () => {
+    const makeFlow = (store: ReturnType<typeof mapStore>) => new Tag020({ urlPrefix: "/prefix" }, {}, {}, store);
+    await runWebLogin(makeFlow);
+    await runAgainst(makeFlow, {
       pendingBody: {},
       consumedStatus: 401,
       pendingSessions: 1,
     });
   }, 30_000);
 
-  it("worktree: 202 {} → 200 token → 同一事务再读 401", async () => {
-    const makeFlow = (store: any) =>
+  it("worktree: pending, token, then 401 for the consumed transaction", async () => {
+    const makeFlow = (store: ReturnType<typeof mapStore>) =>
       new WorktreeFlow(
         { urlPrefix: "/prefix" } as any,
         {} as any,
@@ -353,30 +324,7 @@ describe("compat: webLogin against released login/done", () => {
         } as any,
       );
 
-    const store = mapStore();
-    const flow = makeFlow(store);
-    const app = express();
-    app.use(express.json());
-    app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
-    let pollsWorktree = 0;
-    app.get("/prefix/-/v1/done", (req, _res, next) => {
-      pollsWorktree += 1;
-      if (pollsWorktree === 2) store.data.set(String(req.query.sessionId), "npm-token-xyz");
-      next();
-    });
-    app.get("/prefix/-/v1/done", (req, res, next) => flow.done(req, res, next));
-    const server = await new Promise<any>((resolve) => {
-      const s = app.listen(0, "127.0.0.1", () => resolve(s));
-    });
-    const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-
-    try {
-      const token = await webLogin(`${base}/prefix`, { timeoutMs: 15_000 });
-      expect(token).toBe("npm-token-xyz");
-    } finally {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-    }
-
+    await runWebLogin(makeFlow);
     await runAgainst(makeFlow, { pendingBody: {}, consumedStatus: 401, pendingSessions: 1 });
   }, 30_000);
 });

@@ -1,10 +1,8 @@
-import { setTimeout as delay } from "node:timers/promises";
-
 import { Groups } from "@gitbeaker/rest";
 import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
 import { authorizationCodeGrant, discovery, fetchUserInfo } from "openid-client";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import logger from "@/server/logger";
@@ -102,13 +100,12 @@ describe("OpenIDConnectAuthProvider", () => {
   let mockConfig: ConfigHolder;
   let mockStore: OpenIDStateStore & ProviderCache;
   let provider: OpenIDConnectAuthProvider;
-  let processExitSpy: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     // Mock process.exit to prevent actual exit in tests
-    processExitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       return undefined as never;
     });
 
@@ -157,11 +154,23 @@ describe("OpenIDConnectAuthProvider", () => {
     };
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  async function waitForConfiguration() {
+    await vi.waitFor(
+      () => {
+        expect(logger.info).toHaveBeenCalledWith("OpenID Connect configuration discovery completed successfully");
+      },
+      { interval: 1 },
+    );
+  }
+
   describe("getId", () => {
     it("should return 'openid'", async () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      // Wait for discovery to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForConfiguration();
 
       expect(provider.getId()).toBe("openid");
     });
@@ -170,8 +179,7 @@ describe("OpenIDConnectAuthProvider", () => {
   describe("getLoginUrl", () => {
     beforeEach(async () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      // Wait for discovery to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForConfiguration();
     });
 
     it("should generate login URL with state and nonce", async () => {
@@ -214,9 +222,7 @@ describe("OpenIDConnectAuthProvider", () => {
 
       const loginUrlPromise = provider.getLoginUrl("https://registry.example.com/callback");
 
-      await delay(0);
-
-      expect(discovery).toHaveBeenCalledTimes(1);
+      await vi.waitFor(() => expect(discovery).toHaveBeenCalledTimes(1), { interval: 1 });
 
       resolveDiscovery({
         serverMetadata: () => ({
@@ -239,8 +245,7 @@ describe("OpenIDConnectAuthProvider", () => {
   describe("getToken", () => {
     beforeEach(async () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      // Wait for discovery to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForConfiguration();
     });
 
     it("should exchange authorization code for tokens", async () => {
@@ -390,7 +395,6 @@ describe("OpenIDConnectAuthProvider", () => {
     it("should not require id_token when scope does not include openid", async () => {
       mockConfig.scope = "profile email";
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      await new Promise((resolve) => setTimeout(resolve, 100));
 
       vi.mocked(authorizationCodeGrant).mockResolvedValueOnce({
         access_token: "mock-access-token",
@@ -539,8 +543,7 @@ describe("OpenIDConnectAuthProvider", () => {
   describe("getUserinfo", () => {
     beforeEach(async () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      // Wait for discovery to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForConfiguration();
     });
 
     it("should get userinfo from id_token", async () => {
@@ -655,8 +658,7 @@ describe("OpenIDConnectAuthProvider", () => {
     beforeEach(async () => {
       mockConfig.providerType = ProviderType.Gitlab;
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      // Wait for discovery to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForConfiguration();
     });
 
     it("should fetch gitlab groups when providerType is Gitlab", async () => {
@@ -715,8 +717,7 @@ describe("OpenIDConnectAuthProvider", () => {
   describe("getGitlabGroups", () => {
     beforeEach(async () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
-      // Wait for discovery to complete
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await waitForConfiguration();
     });
 
     it("should fetch groups from Gitlab API", async () => {
@@ -758,12 +759,9 @@ describe("OpenIDConnectAuthProvider", () => {
 
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
 
-      // Wait for discovery to fail and error to be logged
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      expect(logger.error).toHaveBeenCalled();
+      await vi.waitFor(() => expect(logger.error).toHaveBeenCalled(), { interval: 1 });
       // Configuration discovery fails but process should not exit
-      expect(processExitSpy).not.toHaveBeenCalled();
+      expect(process.exit).not.toHaveBeenCalled();
     });
 
     it("should fail fast during retry cooldown and retry after it expires", async () => {
@@ -791,7 +789,7 @@ describe("OpenIDConnectAuthProvider", () => {
 
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
 
-      await delay(0);
+      await vi.waitFor(() => expect(logger.error).toHaveBeenCalled(), { interval: 1 });
 
       await expect(provider.getLoginUrl("https://registry.example.com/callback")).rejects.toThrow(
         "OpenID configuration discovery is cooling down after a recent failure. Retry after 5s. Last error: Could not discover OpenID configuration: Discovery failed",

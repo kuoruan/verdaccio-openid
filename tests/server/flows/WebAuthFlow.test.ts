@@ -1,11 +1,17 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { LOGIN_COOKIE_NAMES, SESSION_ID_LENGTH } from "@/server/constants";
 import { isValidSessionId, WebAuthFlow } from "@/server/flows/WebAuthFlow";
 
-import { cookiesOf, fakeResponse } from "../../helpers/express";
+import { cookiesOf, fakeResponse } from "@root/tests/helpers/express";
 import { getOpenIDClient } from "@/server/openid/client";
 import logger from "@/server/logger";
 
 describe("WebAuthFlow", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it("Should generate right sessionId", async () => {
     const openidClient = await getOpenIDClient();
     const sessionId = openidClient.randomState();
@@ -232,8 +238,6 @@ describe("WebAuthFlow", () => {
     await vi.waitFor(() =>
       expect(report).toHaveBeenCalledWith({ message: "delete failed" }, "failed to drop the login session: @{message}"),
     );
-
-    report.mockRestore();
   });
 
   it("keeps the 401 response when dropping a rejected session throws synchronously", async () => {
@@ -272,8 +276,6 @@ describe("WebAuthFlow", () => {
         "failed to drop the login session: @{message}",
       ),
     );
-
-    report.mockRestore();
   });
 
   it("keeps the 500 response when a callback drops the session and the delete rejects", async () => {
@@ -298,8 +300,6 @@ describe("WebAuthFlow", () => {
     await vi.waitFor(() =>
       expect(report).toHaveBeenCalledWith({ message: "delete failed" }, "failed to drop the login session: @{message}"),
     );
-
-    report.mockRestore();
   });
 
   it("answers the login request with same-origin transaction URLs and stores a pending session", async () => {

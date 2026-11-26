@@ -1,25 +1,21 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { importOptional, interopDefault } from "@/server/utils";
 
 describe("importOptional", () => {
   it("should return the module namespace on successful import", async () => {
-    vi.doMock("@/server/store/Redis", () => ({
+    const module = {
       default: class MockRedisStore {},
       Cluster: class MockCluster {},
-    }));
+    };
 
-    const { importOptional } = await import("@/server/utils");
-    const result = (await importOptional(import("@/server/store/Redis"), "should not throw")) as any;
-    expect(result).toBeDefined();
-    expect(result.default).toBeDefined();
-    expect(result.Cluster).toBeDefined();
+    await expect(importOptional(Promise.resolve(module), "should not throw")).resolves.toBe(module);
   });
 
   it("should throw a friendly error on ERR_MODULE_NOT_FOUND", async () => {
     await expect(
       // @ts-expect-error module does not exist
-      importOptional(import("./this-does-not-exist"), 'Package "foo" is required. Install it: pnpm add foo'),
+      importOptional(import("@root/tests/this-does-not-exist"), 'Package "foo" is required. Install it: pnpm add foo'),
     ).rejects.toThrow('Package "foo" is required. Install it: pnpm add foo');
   });
 });

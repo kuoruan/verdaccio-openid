@@ -4,6 +4,11 @@ import { isAESLegacy, verifyJWTPayload } from "@verdaccio/auth";
 import { createRemoteUser } from "@verdaccio/config";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import type { ConfigHolder } from "@/server/config/Config";
+import { base64Encode } from "@/server/crypto";
+import { AuthCore } from "@/server/plugin/AuthCore";
+import type { AuthProvider, OpenIDToken } from "@/server/plugin/AuthProvider";
+
 // Mock @verdaccio/auth
 const mockAuthInstance = {
   secret: "auth-secret",
@@ -28,26 +33,6 @@ vi.mock("@verdaccio/config", () => ({
 vi.mock("@/server/debugger", () => ({
   debug: vi.fn(),
 }));
-
-// Mock constants
-vi.mock("@/server/constants", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/server/constants")>();
-
-  return {
-    ...actual,
-    ERRORS: {
-      INVALID_TOKEN: "Invalid token format",
-      TOKEN_ENCRYPTION_FAILED_NPM: "Internal server error, failed to encrypt npm token",
-      TOKEN_ENCRYPTION_FAILED: "Internal server error, failed to encrypt token",
-      AUTH_NOT_INITIALIZED: "Unexpected error, auth is not initialized",
-    },
-  };
-});
-
-import type { ConfigHolder } from "@/server/config/Config";
-import { AuthCore } from "@/server/plugin/AuthCore";
-import type { AuthProvider, OpenIDToken } from "@/server/plugin/AuthProvider";
-import { base64Encode } from "@/server/crypto";
 
 function createMockConfig(overrides: Partial<ConfigHolder> = {}): ConfigHolder {
   return {
@@ -93,7 +78,7 @@ function signableCore(
 
 describe("AuthCore", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
 
     // Unless a case says otherwise, the registry issues legacy tokens.
     vi.mocked(isAESLegacy).mockReturnValue(true);

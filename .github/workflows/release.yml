@@ -44,7 +44,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v3
@@ -86,6 +86,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Set up pnpm and Node.js
         uses: pnpm/setup@v3

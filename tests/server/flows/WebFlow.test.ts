@@ -4,7 +4,7 @@ import InMemoryStore from "@/server/store/InMemory";
 import { WebFlow } from "@/server/flows/WebFlow";
 import { isUndefined } from "@/utils";
 
-import { cookiesOf, fakeResponse } from "../../helpers/express";
+import { cookiesOf, fakeResponse } from "@root/tests/helpers/express";
 
 const STATE = "state-123";
 

@@ -47,11 +47,9 @@ describe("Plugin permission methods", () => {
   }
 
   let mockCore: MockCore;
-  let processExitSpy: ReturnType<typeof vi.spyOn>;
-
   beforeEach(() => {
     // Mock process.exit to prevent actual exit in tests
-    processExitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
+    vi.spyOn(process, "exit").mockImplementation(() => {
       return undefined as never;
     });
 
@@ -97,9 +95,7 @@ describe("Plugin permission methods", () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
-    processExitSpy?.mockRestore();
-
+    vi.restoreAllMocks();
     // Clean up signal handlers after each test to prevent MaxListenersExceededWarning
     plugin.unregisterSignalHandlers();
   });
@@ -379,8 +375,6 @@ describe("Plugin permission methods", () => {
       expect(processOnSpy).toHaveBeenCalledWith("SIGQUIT", expect.any(Function));
       expect(processOnSpy).toHaveBeenCalledWith("SIGTERM", expect.any(Function));
       expect(processOnSpy).toHaveBeenCalledWith("SIGHUP", expect.any(Function));
-
-      processOnSpy.mockRestore();
     });
 
     it("should unregister signal handlers via unregisterSignalHandlers method", () => {
@@ -394,12 +388,9 @@ describe("Plugin permission methods", () => {
       expect(processRemoveSpy).toHaveBeenCalledWith("SIGQUIT", expect.any(Function));
       expect(processRemoveSpy).toHaveBeenCalledWith("SIGTERM", expect.any(Function));
       expect(processRemoveSpy).toHaveBeenCalledWith("SIGHUP", expect.any(Function));
-
-      processRemoveSpy.mockRestore();
     });
 
     it("should unregister existing handlers before registering new ones", () => {
-      const processOnSpy = vi.spyOn(process, "once");
       const processRemoveSpy = vi.spyOn(process, "removeListener");
 
       // Call registerSignalHandlers twice
@@ -408,9 +399,6 @@ describe("Plugin permission methods", () => {
 
       // Verify that unregister was called before the second registration
       expect(processRemoveSpy).toHaveBeenCalled();
-
-      processOnSpy.mockRestore();
-      processRemoveSpy.mockRestore();
     });
   });
   describe("authenticate", () => {

@@ -44,15 +44,16 @@ describe("buildStatusPage", () => {
     expect(html).toContain('href="/"');
   });
 
-  it("should reject a backUrl that is not a link", () => {
-    for (const backUrl of ["javascript:alert(1)", "data:text/html,x", "jav&#x61;script:1", "//evil.example.com"]) {
+  it.each(["javascript:alert(1)", "data:text/html,x", "jav&#x61;script:1", "//evil.example.com"])(
+    "should reject a backUrl that is not a link: %s",
+    (backUrl) => {
       const html = buildStatusPage("<p>Test</p>", { backUrl });
 
       expect(html).toContain('href="/"');
       expect(html).not.toContain("evil.example.com");
       expect(html).not.toContain("javascript:");
-    }
-  });
+    },
+  );
 
   it("should keep a relative backUrl and escape it", () => {
     const html = buildStatusPage("<p>Test</p>", { backUrl: '/-/web/detail?a="b"&c=<d>' });

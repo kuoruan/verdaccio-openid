@@ -20,6 +20,10 @@ const mockVerdaccioConfig = {
   self_path: "/test/path",
 } as Config;
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("ParsedPluginConfig", () => {
   it("should return secret from verdaccio config", () => {
     const config = new ParsedPluginConfig(mockConfig, mockVerdaccioConfig);
@@ -190,8 +194,6 @@ describe("ParsedPluginConfig", () => {
     );
 
     expect(config.clientId).toBe("env-value");
-
-    vi.unstubAllEnvs();
   });
 });
 
@@ -203,13 +205,13 @@ describe("Invalid ParsedPluginConfig", () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.restoreAllMocks();
   });
 
   it("should throw error if provider host is not specified", () => {
     const config = new ParsedPluginConfig({} as any, mockVerdaccioConfig);
 
-    expect(() => config.providerHost).toThrowError("process.exit called");
+    expect(() => config.providerHost).toThrow("process.exit called");
   });
 
   it("should throw error if client id is not specified", () => {
@@ -221,7 +223,7 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => config.clientId).toThrowError("process.exit called");
+    expect(() => config.clientId).toThrow("process.exit called");
   });
 
   it("should throw error if client secret is not specified", () => {
@@ -233,7 +235,7 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => config.clientSecret).toThrowError("process.exit called");
+    expect(() => config.clientSecret).toThrow("process.exit called");
   });
 
   it("should throw error if provider type is invalid", () => {
@@ -245,79 +247,20 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => config.providerType).toThrowError("process.exit called");
+    expect(() => config.providerType).toThrow("process.exit called");
   });
 
-  it("should throw error if configuration uri is invalid", () => {
-    const config = new ParsedPluginConfig(
-      {
-        ...mockConfig,
-        "configuration-uri": "invalid-uri",
-      },
-      mockVerdaccioConfig,
-    );
+  it.each([
+    ["configuration-uri", "configurationUri"],
+    ["issuer", "issuer"],
+    ["authorization-endpoint", "authorizationEndpoint"],
+    ["token-endpoint", "tokenEndpoint"],
+    ["userinfo-endpoint", "userinfoEndpoint"],
+    ["jwks-uri", "jwksUri"],
+  ] as const)("should reject an invalid %s", (key, property) => {
+    const config = new ParsedPluginConfig({ ...mockConfig, [key]: "invalid-uri" }, mockVerdaccioConfig);
 
-    expect(() => config.configurationUri).toThrowError("process.exit called");
-  });
-
-  it("should throw error if issuer is invalid", () => {
-    const config = new ParsedPluginConfig(
-      {
-        ...mockConfig,
-        issuer: "invalid-uri",
-      },
-      mockVerdaccioConfig,
-    );
-
-    expect(() => config.issuer).toThrowError("process.exit called");
-  });
-
-  it("should throw error if authorization endpoint is invalid", () => {
-    const config = new ParsedPluginConfig(
-      {
-        ...mockConfig,
-        "authorization-endpoint": "invalid-uri",
-      },
-      mockVerdaccioConfig,
-    );
-
-    expect(() => config.authorizationEndpoint).toThrowError("process.exit called");
-  });
-
-  it("should throw error if token endpoint is invalid", () => {
-    const config = new ParsedPluginConfig(
-      {
-        ...mockConfig,
-        "token-endpoint": "invalid-uri",
-      },
-      mockVerdaccioConfig,
-    );
-
-    expect(() => config.tokenEndpoint).toThrowError("process.exit called");
-  });
-
-  it("should throw error if userinfo endpoint is invalid", () => {
-    const config = new ParsedPluginConfig(
-      {
-        ...mockConfig,
-        "userinfo-endpoint": "invalid-uri",
-      },
-      mockVerdaccioConfig,
-    );
-
-    expect(() => config.userinfoEndpoint).toThrowError("process.exit called");
-  });
-
-  it("should throw error if jwks uri is invalid", () => {
-    const config = new ParsedPluginConfig(
-      {
-        ...mockConfig,
-        "jwks-uri": "invalid-uri",
-      },
-      mockVerdaccioConfig,
-    );
-
-    expect(() => config.jwksUri).toThrowError("process.exit called");
+    expect(() => config[property]).toThrow("process.exit called");
   });
 
   it("should throw error if store type is invalid", () => {
@@ -329,7 +272,7 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => config.storeType).toThrowError("process.exit called");
+    expect(() => config.storeType).toThrow("process.exit called");
   });
 
   it("should throw error if store config is invalid", () => {
@@ -342,7 +285,7 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => configInMemory.getStoreConfig(StoreType.InMemory)).toThrowError("process.exit called");
+    expect(() => configInMemory.getStoreConfig(StoreType.InMemory)).toThrow("process.exit called");
 
     const configRedis = new ParsedPluginConfig(
       {
@@ -353,7 +296,7 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => configRedis.getStoreConfig(StoreType.Redis)).toThrowError("process.exit called");
+    expect(() => configRedis.getStoreConfig(StoreType.Redis)).toThrow("process.exit called");
   });
 
   it("should throw error if authorized groups is invalid", () => {
@@ -365,6 +308,6 @@ describe("Invalid ParsedPluginConfig", () => {
       mockVerdaccioConfig,
     );
 
-    expect(() => config.authorizedGroups).toThrowError("process.exit called");
+    expect(() => config.authorizedGroups).toThrow("process.exit called");
   });
 });

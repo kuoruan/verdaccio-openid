@@ -1,3 +1,4 @@
+import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
 
 import { ERRORS, LOGIN_COOKIE_NAMES } from "@/server/constants";
@@ -12,9 +13,7 @@ import {
   isNowBefore,
 } from "@/server/plugin/utils";
 
-import { getPublicUrl } from "@verdaccio/url";
-
-import { cookiesOf, fakeResponse } from "../helpers/express";
+import { cookiesOf, fakeResponse } from "@root/tests/helpers/express";
 
 vi.mock("@verdaccio/url", () => ({
   getPublicUrl: vi.fn().mockReturnValue("http://localhost/"),
@@ -222,8 +221,7 @@ describe("getBaseUrl", () => {
 });
 
 describe("getFullUrl", () => {
-  it("should preserve url_prefix when req.url does not include it (reverse proxy scenario)", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should preserve url_prefix when req.url does not include it (reverse proxy scenario)", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {
@@ -235,8 +233,7 @@ describe("getFullUrl", () => {
     expect(url.toString()).toBe("https://registry.example.com/prefix/-/oauth/callback/authn?code=abc&state=xyz");
   });
 
-  it("should not duplicate url_prefix when req.url already includes it", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should not duplicate url_prefix when req.url already includes it", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {
@@ -248,8 +245,7 @@ describe("getFullUrl", () => {
     expect(url.toString()).toBe("https://registry.example.com/prefix/-/oauth/callback/authn?code=abc&state=xyz");
   });
 
-  it("should work correctly when url_prefix is empty", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should work correctly when url_prefix is empty", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/");
 
     const req = {
@@ -261,8 +257,7 @@ describe("getFullUrl", () => {
     expect(url.toString()).toBe("https://registry.example.com/-/oauth/callback/authn?code=abc&state=xyz");
   });
 
-  it("should return a URL object with correct parts", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should return a URL object with correct parts", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {
@@ -277,8 +272,7 @@ describe("getFullUrl", () => {
     expect(url.searchParams.get("state")).toBe("xyz");
   });
 
-  it("should handle url_prefix with trailing slash when req.url lacks it", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should handle url_prefix with trailing slash when req.url lacks it", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {
@@ -290,8 +284,7 @@ describe("getFullUrl", () => {
     expect(url.toString()).toBe("https://registry.example.com/prefix");
   });
 
-  it("should not treat substring path as matching the url_prefix", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should not treat substring path as matching the url_prefix", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {
@@ -303,8 +296,7 @@ describe("getFullUrl", () => {
     expect(url.toString()).toBe("https://registry.example.com/prefix/prefix-other/callback?code=abc");
   });
 
-  it("should match url_prefix without trailing slash against req.url with trailing slash", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should match url_prefix without trailing slash against req.url with trailing slash", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {
@@ -316,8 +308,7 @@ describe("getFullUrl", () => {
     expect(url.toString()).toBe("https://registry.example.com/prefix/");
   });
 
-  it("should normalize url_prefix with multiple trailing slashes", async () => {
-    const { getPublicUrl } = await import("@verdaccio/url");
+  it("should normalize url_prefix with multiple trailing slashes", () => {
     vi.mocked(getPublicUrl).mockReturnValueOnce("https://registry.example.com/prefix/");
 
     const req = {

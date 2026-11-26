@@ -3,12 +3,7 @@ import { HttpResponse, http } from "msw";
 import { setupServer } from "msw/node";
 import open from "open";
 
-import {
-  CLI_OPEN_BROWSER_TIMEOUT_MS,
-  CLI_TIMEOUT_MS,
-  CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS,
-  CLI_WEB_LOGIN_POLL_INTERVAL_MS,
-} from "@/cli/constants";
+import { CLI_TIMEOUT_MS, CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS, CLI_WEB_LOGIN_POLL_INTERVAL_MS } from "@/cli/constants";
 import { webLogin } from "@/cli/web-login";
 import mockLogger from "@/cli/logger";
 
@@ -17,6 +12,22 @@ vi.mock("open", () => ({ default: vi.fn() }));
 vi.mock("@/cli/logger", () => ({
   default: { info: vi.fn(), success: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
+
+// Keep real HTTP tests fast while allowing the browser deadline to be adjusted.
+const { openBrowserBound } = vi.hoisted(() => ({ openBrowserBound: { ms: 20 } }));
+
+vi.mock("@/cli/constants", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/cli/constants")>();
+
+  return {
+    ...actual,
+    CLI_WEB_LOGIN_POLL_INTERVAL_MS: 10,
+    CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS: 40,
+    get CLI_OPEN_BROWSER_TIMEOUT_MS() {
+      return openBrowserBound.ms;
+    },
+  };
+});
 
 const registry = "https://registry.example.com/prefix";
 const loginPath = "https://registry.example.com/prefix/-/v1/login";
@@ -79,6 +90,7 @@ beforeAll(() => {
 
 afterEach(() => {
   server.resetHandlers();
+  openBrowserBound.ms = 20;
 });
 
 afterAll(() => {
@@ -210,86 +222,44 @@ describe("webLogin", () => {
     await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/outside the registry/);
   });
 
-  it("clamps a Retry-After above the maximum poll interval", async () => {
-    let polls = 0;
-    server.use(
-      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
-      http.get(donePath, () => {
-        polls += 1;
-        if (polls === 1) return new HttpResponse(null, { status: 202, headers: { "retry-after": "99999" } });
-        return HttpResponse.json({ token: "npm-token" });
-      }),
-    );
+  it.each([
+    ["clamps an excessive Retry-After", "99999", CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS],
+    ["uses the default for an unusable Retry-After", "0", CLI_WEB_LOGIN_POLL_INTERVAL_MS],
+  ])("%s", async (_label, retryAfter, interval) => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(Response.json(transactionUrls()))
+      .mockResolvedValueOnce(new Response(null, { status: 202, headers: { "retry-after": retryAfter } }))
+      .mockResolvedValueOnce(Response.json({ token: "npm-token" }));
+    vi.stubGlobal("fetch", fetchMock);
 
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
-      // The first poll is a real request, so wait for the interceptor to see it
-      // rather than for a timer: fake timers cannot be told when I/O is done.
-      const firstPoll = new Promise<void>((resolve) =>
-        server.events.on("request:start", () => resolve(), { once: true }),
-      );
-      const pending = login({ timeoutMs: 600_000 });
+      const pending = login({ timeoutMs: 60_000 });
+      const result = expect(pending).resolves.toBe("npm-token");
 
       await vi.advanceTimersByTimeAsync(CLI_WEB_LOGIN_POLL_INTERVAL_MS);
-      await firstPoll;
-      expect(polls).toBe(1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
 
-      // The clamped wait is the maximum interval, not the 99999 the server asked for.
-      await vi.advanceTimersByTimeAsync(CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS - 1);
-      expect(polls).toBe(1);
+      await vi.advanceTimersByTimeAsync(interval - 1);
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
       await vi.advanceTimersByTimeAsync(1);
-      await expect(pending).resolves.toBe("npm-token");
-      expect(polls).toBe(2);
+      await result;
+      expect(fetchMock).toHaveBeenCalledTimes(3);
     } finally {
+      vi.unstubAllGlobals();
       vi.useRealTimers();
     }
-  }, 15_000);
+  });
 
-  it("falls back to the default interval for an unusable Retry-After", async () => {
-    let polls = 0;
-    server.use(
-      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
-      http.get(donePath, () => {
-        polls += 1;
-        if (polls === 1) return new HttpResponse(null, { status: 202, headers: { "retry-after": "0" } });
-        return HttpResponse.json({ token: "npm-token" });
-      }),
-    );
+  it.each([
+    ["https://user:pass@registry.example.com/prefix/-/web/login", /credentials/],
+    ["ftp://registry.example.com/prefix/-/web/login", /protocol/],
+  ])("refuses the transaction URL %s", async (loginUrl, expected) => {
+    server.use(http.post(loginPath, () => HttpResponse.json({ loginUrl, doneUrl: transactionUrls().doneUrl })));
 
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    try {
-      const firstPoll = new Promise<void>((resolve) =>
-        server.events.on("request:start", () => resolve(), { once: true }),
-      );
-      const pending = login({ timeoutMs: 600_000 });
-
-      await vi.advanceTimersByTimeAsync(CLI_WEB_LOGIN_POLL_INTERVAL_MS);
-      await firstPoll;
-      expect(polls).toBe(1);
-
-      // An unusable Retry-After falls back to the default interval, not to `0`.
-      await vi.advanceTimersByTimeAsync(CLI_WEB_LOGIN_POLL_INTERVAL_MS - 1);
-      expect(polls).toBe(1);
-      await vi.advanceTimersByTimeAsync(1);
-      await expect(pending).resolves.toBe("npm-token");
-      expect(polls).toBe(2);
-    } finally {
-      vi.useRealTimers();
-    }
-  }, 15_000);
-
-  it("refuses a transaction URL with credentials or a bad protocol", async () => {
-    const cases = [
-      ["https://user:pass@registry.example.com/prefix/-/web/login", /credentials/],
-      ["ftp://registry.example.com/prefix/-/web/login", /protocol/],
-    ] as const;
-
-    for (const [loginUrl, expected] of cases) {
-      server.resetHandlers();
-      server.use(http.post(loginPath, () => HttpResponse.json({ loginUrl, doneUrl: transactionUrls().doneUrl })));
-
-      await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(expected);
-    }
+    await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(expected);
   });
 
   it("treats 401 while polling as a rejected login", async () => {
@@ -301,29 +271,23 @@ describe("webLogin", () => {
     await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/rejected/);
   });
 
-  it("fails on an unexpected poll status", async () => {
-    for (const status of [302, 500]) {
-      server.resetHandlers();
-      server.use(
-        http.post(loginPath, () => HttpResponse.json(transactionUrls())),
-        http.get(donePath, () => new HttpResponse(null, { status })),
-      );
+  it.each([302, 500])("fails on unexpected poll status %i", async (status) => {
+    server.use(
+      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
+      http.get(donePath, () => new HttpResponse(null, { status })),
+    );
 
-      await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/polling failed/);
-    }
+    await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/polling failed/);
   });
 
-  it("fails on a 200 with an unusable payload", async () => {
-    for (const body of [{}, { token: "" }, { token: "bad token!" }]) {
-      server.resetHandlers();
-      server.use(
-        http.post(loginPath, () => HttpResponse.json(transactionUrls())),
-        http.get(donePath, () => HttpResponse.json(body)),
-      );
+  it.each([{}, { token: "" }, { token: "bad token!" }])("fails on an unusable 200 payload %j", async (body) => {
+    server.use(
+      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
+      http.get(donePath, () => HttpResponse.json(body)),
+    );
 
-      await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/unexpected response/);
-    }
-  }, 20_000);
+    await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/unexpected response/);
+  });
 
   it("fails when the start request is not a 200 with two URLs", async () => {
     server.use(http.post(loginPath, () => new HttpResponse(null, { status: 404 })));
@@ -378,20 +342,13 @@ describe("webLogin", () => {
     );
     openMock.mockReturnValue(new Promise(() => {}) as any);
 
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-    try {
-      const pending = login({ timeoutMs: 60_000 });
-      await vi.advanceTimersByTimeAsync(CLI_OPEN_BROWSER_TIMEOUT_MS);
-      await vi.advanceTimersByTimeAsync(CLI_WEB_LOGIN_POLL_INTERVAL_MS * 4);
-      await expect(pending).resolves.toBe("npm-token");
-    } finally {
-      vi.useRealTimers();
-    }
+    await expect(login({ timeoutMs: 60_000 })).resolves.toBe("npm-token");
+    expect(polls).toBe(2);
 
     const logger = vi.mocked(mockLogger);
     expect(logger.error).toHaveBeenCalledWith("Failed to open browser window.");
     expect(logger.info).toHaveBeenCalledWith(authorizeUrl);
-  }, 15_000);
+  });
 
   it("falls back to a manual URL when opening the browser fails, then keeps polling", async () => {
     let polls = 0;
@@ -436,6 +393,8 @@ describe("webLogin", () => {
   it("times out when opening the browser hangs", async () => {
     server.use(http.post(loginPath, () => HttpResponse.json(transactionUrls())));
     openMock.mockReturnValue(new Promise(() => {}) as any);
+    // The launcher outlives the whole login, so it is the deadline that ends it.
+    openBrowserBound.ms = 60_000;
 
     // No poll can start: opening the browser itself exceeded the deadline.
     await expect(login({ timeoutMs: 1_000 })).rejects.toThrow(/timed out/);
@@ -516,7 +475,7 @@ describe("webLogin", () => {
         () => (settled = true),
       );
 
-      // Drive the 2s first wait so the poll is actually in flight, counting
+      // Drive the first wait so the poll is actually in flight, counting
       // every millisecond of fake time that has elapsed.
       let elapsed = 0;
       for (let i = 0; i < 100 && !pollStarted; i += 1) {

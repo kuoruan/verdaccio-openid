@@ -26,6 +26,11 @@ function stubEnvironment({ stored, uiLanguage }: Environment): void {
   vi.stubGlobal("window", uiLanguage ? { __VERDACCIO_BASENAME_UI_OPTIONS: { language: uiLanguage } } : {});
 }
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+  resetLanguage();
+});
+
 describe("supportedLanguages", () => {
   it("covers the languages the Verdaccio UI lets you pick", () => {
     expect(supportedLanguages.toSorted()).toEqual([
@@ -47,40 +52,28 @@ describe("supportedLanguages", () => {
     ]);
   });
 
-  it("translates the login dialog divider", () => {
-    stubEnvironment({});
-    expect(t("loginDialogDivider")).toBe("or");
-
-    for (const [language, divider] of [
-      ["de-DE", "oder"],
-      ["es-ES", "o"],
-      ["fr-FR", "ou"],
-      ["ko-KR", "또는"],
-      ["zh-CN", "或"],
-      ["zh-TW", "或"],
-    ]) {
-      stubEnvironment({ stored: JSON.stringify(language) });
-      expect(t("loginDialogDivider")).toBe(divider);
-    }
+  it.each([
+    [undefined, "or"],
+    ["de-DE", "oder"],
+    ["es-ES", "o"],
+    ["fr-FR", "ou"],
+    ["ko-KR", "또는"],
+    ["zh-CN", "或"],
+    ["zh-TW", "或"],
+  ])("translates the login dialog divider for %s", (language, divider) => {
+    stubEnvironment({ stored: JSON.stringify(language) });
+    expect(t("loginDialogDivider")).toBe(divider);
   });
 
-  it("translates every supported language", () => {
-    for (const language of supportedLanguages.filter((code) => code !== "en-US")) {
-      stubEnvironment({ stored: JSON.stringify(language) });
+  it.each(supportedLanguages.filter((code) => code !== "en-US"))("translates the login hint for %s", (language) => {
+    stubEnvironment({ stored: JSON.stringify(language) });
 
-      expect(t("usageLoginHint")).not.toBe(english.hint);
-      expect(t("usageLoginHint")).toContain("OpenID Connect");
-
-      vi.unstubAllGlobals();
-    }
+    expect(t("usageLoginHint")).not.toBe(english.hint);
+    expect(t("usageLoginHint")).toContain("OpenID Connect");
   });
 });
 
 describe("t", () => {
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
   it("falls back to English without any language source", () => {
     stubEnvironment({});
 
@@ -127,14 +120,10 @@ describe("t", () => {
     expect(t("usageLoginHint")).toBe(english.hint);
   });
 
-  it("ignores a stored value that is not a string", () => {
-    for (const value of ["123", "{}", "null", "true"]) {
-      stubEnvironment({ stored: value });
+  it.each(["123", "{}", "null", "true"])("ignores a stored value that is not a string: %s", (value) => {
+    stubEnvironment({ stored: value });
 
-      expect(t("usageLoginHint")).toBe(english.hint);
-
-      vi.unstubAllGlobals();
-    }
+    expect(t("usageLoginHint")).toBe(english.hint);
   });
 
   it("resolves the language once per render pass", () => {

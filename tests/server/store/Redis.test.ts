@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import RedisStore from "@/server/store/Redis";
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS } from "@/server/store/constants";
@@ -47,14 +47,17 @@ vi.mock("ioredis", () => ({
 describe("RedisStore", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    redisClient.exists.mockReset().mockResolvedValue(0);
+    redisClient.get.mockReset().mockResolvedValue(null);
+    redisClient.hgetall.mockReset().mockResolvedValue({});
+    redisClient.lrange.mockReset().mockResolvedValue([]);
+    redisClient.eval.mockReset().mockResolvedValue(false);
+    redisClient.quit.mockReset().mockResolvedValue("OK");
+    pipeline.exec.mockReset().mockResolvedValue([]);
+  });
 
-    redisClient.exists.mockResolvedValue(0);
-    redisClient.get.mockResolvedValue(null);
-    redisClient.hgetall.mockResolvedValue({});
-    redisClient.lrange.mockResolvedValue([]);
-    redisClient.eval.mockResolvedValue(false);
-    redisClient.quit.mockResolvedValue("OK");
-    pipeline.exec.mockResolvedValue([]);
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("should initialize redis client with default options", async () => {
@@ -302,14 +305,11 @@ describe("RedisStore", () => {
     await expect(store.takeLoginResult("state-1")).resolves.toBeUndefined();
   });
 
-  it("should report a corrupted login result as a miss", async () => {
+  it.each(["not-json", '{"username":"dave"}'])("should report a corrupted login result as a miss: %s", async (raw) => {
     const store = new RedisStore();
+    redisClient.eval.mockResolvedValueOnce(raw);
 
-    for (const raw of ["not-json", '{"username":"dave"}']) {
-      redisClient.eval.mockResolvedValueOnce(raw);
-
-      await expect(store.takeLoginResult("state-1")).resolves.toBeUndefined();
-    }
+    await expect(store.takeLoginResult("state-1")).resolves.toBeUndefined();
   });
 
   it("should disconnect when quit fails", async () => {

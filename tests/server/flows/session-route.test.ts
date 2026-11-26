@@ -93,7 +93,7 @@ describe("POST /-/oauth/session", () => {
         }).then(async (response) => ({
           status: response.status,
           setCookie: response.headers.getSetCookie()[0] ?? "",
-          body: await response.json().catch(() => undefined),
+          body: await response.json(),
         }));
 
       // A code without its cookie is refused.
@@ -110,7 +110,9 @@ describe("POST /-/oauth/session", () => {
       // The code is spent.
       await expect(session(setCookie.split(";")[0])).resolves.toMatchObject({ status: 401 });
     } finally {
-      server.close();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
     }
   }, 15_000);
 });

@@ -1,37 +1,17 @@
+import { describe, expect, it } from "vitest";
+
 import { getAuthorizePath, getCallbackPath } from "@/paths";
 
-describe("getAuthorizePath", () => {
-  it("should return base authorize path when no id is provided", () => {
-    expect(getAuthorizePath()).toBe("/-/oauth/authorize");
-  });
-
-  it("should append id to authorize path", () => {
-    expect(getAuthorizePath("cli")).toBe("/-/oauth/authorize/cli");
-  });
-
-  it("should append custom id to authorize path", () => {
-    expect(getAuthorizePath("authn")).toBe("/-/oauth/authorize/authn");
-  });
-
-  it("should treat empty string id as no id (falsy)", () => {
-    expect(getAuthorizePath("")).toBe("/-/oauth/authorize");
-  });
-});
-
-describe("getCallbackPath", () => {
-  it("should return base callback path when no id is provided", () => {
-    expect(getCallbackPath()).toBe("/-/oauth/callback");
-  });
-
-  it("should append id to callback path", () => {
-    expect(getCallbackPath("cli")).toBe("/-/oauth/callback/cli");
-  });
-
-  it("should append custom id to callback path", () => {
-    expect(getCallbackPath("authn")).toBe("/-/oauth/callback/authn");
-  });
-
-  it("should treat empty string id as no id (falsy)", () => {
-    expect(getCallbackPath("")).toBe("/-/oauth/callback");
+describe.each([
+  { name: "authorize", getPath: getAuthorizePath, base: "/-/oauth/authorize" },
+  { name: "callback", getPath: getCallbackPath, base: "/-/oauth/callback" },
+])("$name path", ({ getPath, base }) => {
+  it.each([
+    [undefined, base],
+    ["", base],
+    ["cli", `${base}/cli`],
+    ["authn", `${base}/authn`],
+  ])("builds the path for %s", (id, expected) => {
+    expect(getPath(id)).toBe(expected);
   });
 });
