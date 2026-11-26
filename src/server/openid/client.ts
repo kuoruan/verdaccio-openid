@@ -13,4 +13,4 @@ export async function getOpenIDClient(): Promise<typeof OpenIDClient> {
   return (openidClientPromise ??= import("openid-client"));
 }
 
-export type * as OpenIDClient from "openid-client";
+export type { OpenIDClient };
