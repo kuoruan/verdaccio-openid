@@ -1,21 +1,31 @@
 import { execFileSync } from "node:child_process";
-import process from "node:process";
 import { URL } from "node:url";
 
-import minimist from "minimist";
 import colors from "picocolors";
 
 import logger from "./logger";
 import { isNonEmptyString, isUndefined, safeJsonParse, stripTrailingSlashes } from "@/utils";
 
 /** Registries the CLI refuses to authenticate against. */
-export const PUBLIC_REGISTRIES = ["registry.npmjs.org", "registry.npmmirror.com", "registry.npm.taobao.org"];
+const PUBLIC_REGISTRIES = [
+  "registry.npmjs.org",
+  "registry.npmmirror.com",
+  "registry.npm.taobao.org",
+  "registry.yarnpkg.com",
+  "npm.pkg.github.com",
+];
+
+/**
+ * Check whether the registry is a known public registry or mirror.
+ *
+ * @param registry the registry URL as a URL object
+ * @returns `true` if the registry is a known public registry or mirror, `false` otherwise
+ **/
+export function isPublicRegistry(registry: URL): boolean {
+  return PUBLIC_REGISTRIES.includes(registry.hostname.replace(/\.$/, ""));
+}
 
 let npmConfig: Record<string, unknown> | undefined;
-
-function parseCliArgs() {
-  return minimist(process.argv.slice(2));
-}
 
 /**
  * Run a command and return its stdout.
@@ -56,23 +66,14 @@ function getNpmConfig(): Record<string, unknown> {
 }
 
 /**
- * Resolve the registry from `--registry`, then from the npm config, then the public one.
+ * Return the registry configured in npm, falling back to the public registry.
  *
  * @returns the registry URL without a trailing slash
  */
-export function getRegistryUrl(): string {
-  const cliArgs = parseCliArgs();
-  const cliRegistry = cliArgs.registry;
-
-  if (!isUndefined(cliRegistry) && !isNonEmptyString(cliRegistry)) {
-    throw new Error("--registry expects a URL");
-  }
-
-  const configured = cliRegistry ?? getNpmConfig().registry;
-  const registry = typeof configured === "string" ? configured : "";
-
-  if (!registry) {
-    return PUBLIC_REGISTRIES[0];
+export function getNpmRegistry(): string {
+  const registry = getNpmConfig().registry;
+  if (!isNonEmptyString(registry)) {
+    return `https://${PUBLIC_REGISTRIES[0]}`;
   }
 
   return stripTrailingSlashes(registry.trim());
@@ -88,8 +89,7 @@ export function getNpmConfigFile(): string {
  *
  * @param token the npm token issued by the plugin
  */
-export function saveNpmToken(token: string) {
-  const registry = getRegistryUrl();
+export function saveNpmToken(token: string, registry: string) {
   const url = new URL(registry);
 
   let baseUrl = `${url.host}${url.pathname}`;

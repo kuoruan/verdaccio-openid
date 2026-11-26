@@ -10,6 +10,8 @@ If you already configured the registry with `npm config set registry`, you can s
 
 This opens a browser window for OIDC login. When login succeeds, the npm token is saved to your `.npmrc` automatically.
 
+Use `--no-proxy` to make CLI login requests directly, ignoring proxy environment variables; this does not change the browser's proxy settings. Use `--unsafe-urls` only with a trusted registry: it disables the protocol, credentials, origin, and path checks on the returned `loginUrl` and `doneUrl`. A malicious registry could pass a URL of any scheme to the system opener or make the CLI poll another origin for a token. It does not disable TLS certificate verification.
+
 ## How it works
 
 1. The CLI asks the registry for a web login (`POST /-/v1/login`) and opens the returned `loginUrl` in your browser.

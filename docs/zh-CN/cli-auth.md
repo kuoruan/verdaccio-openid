@@ -10,6 +10,8 @@ npx verdaccio-openid@latest --registry http://your-registry.com
 
 执行后会打开浏览器窗口进行 OIDC 登录，成功后自动将 npm token 保存到 `.npmrc`。
 
+使用 `--no-proxy` 可让 CLI 登录请求忽略代理环境变量并直接连接；该选项不改变浏览器的代理设置。仅在信任 registry 时使用 `--unsafe-urls`：该选项会跳过对返回的 `loginUrl` 与 `doneUrl` 的协议、凭据、origin 与路径检查。恶意 registry 可能把任意协议的 URL 交给系统打开，或让 CLI 轮询其他 origin 获取 token。该选项不会关闭 TLS 证书验证。
+
 ## 工作原理
 
 1. CLI 向 registry 请求 Web 登录（`POST /-/v1/login`），在浏览器中打开返回的 `loginUrl`。

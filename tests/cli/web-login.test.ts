@@ -180,6 +180,34 @@ describe("webLogin", () => {
     expect(redirectTargetHit).toBe(false);
   });
 
+  it("does not use or log an environment proxy when useProxy is disabled", async () => {
+    vi.stubEnv("https_proxy", "http://127.0.0.1:1");
+    server.use(
+      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
+      http.get(donePath, () => HttpResponse.json({ token: "npm-token" })),
+    );
+    await expect(login({ useProxy: false, timeoutMs: 60_000 })).resolves.toBe("npm-token");
+    expect(vi.mocked(mockLogger).info).not.toHaveBeenCalledWith("login uses proxies:", expect.anything());
+  }, 15_000);
+
+  it("allows cross-origin transaction URLs only with the unsafe option", async () => {
+    server.use(
+      http.post(loginPath, () =>
+        HttpResponse.json({ loginUrl: "https://other.example/login", doneUrl: "https://other.example/done" }),
+      ),
+      http.get("https://other.example/done", () => HttpResponse.json({ token: "npm-token" })),
+    );
+    await expect(login({ validateUrls: false, timeoutMs: 60_000 })).resolves.toBe("npm-token");
+    expect(openMock).toHaveBeenCalledWith("https://other.example/login");
+    expect(vi.mocked(mockLogger).warn).toHaveBeenCalledWith(expect.stringContaining("Unsafe URL"));
+  }, 15_000);
+
+  it("still rejects malformed transaction URLs in unsafe mode", async () => {
+    server.use(http.post(loginPath, () => HttpResponse.json({ loginUrl: "http://[", doneUrl: "/done" })));
+    await expect(login({ validateUrls: false })).rejects.toThrow("invalid URL");
+    expect(openMock).not.toHaveBeenCalled();
+  });
+
   it("refuses a loginUrl on another origin", async () => {
     server.use(
       http.post(loginPath, () =>

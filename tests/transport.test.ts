@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createTransport } from "@/transport";
 import { resolveProxyConfig } from "@/utils";
@@ -38,6 +39,38 @@ describe("createTransport", () => {
 
     expect(typeof transport.fetch).toBe("function");
     await transport.close();
+  });
+
+  it("bypasses environment proxies only for direct transport", async () => {
+    let proxyHits = 0;
+    const target = createServer((_req, res) => res.end("direct"));
+    const proxy = createServer();
+    proxy.on("connect", (_req, socket) => {
+      proxyHits++;
+      socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n");
+    });
+    await Promise.all([
+      new Promise<void>((r) => target.listen(0, "127.0.0.1", r)),
+      new Promise<void>((r) => proxy.listen(0, "127.0.0.1", r)),
+    ]);
+    const targetPort = (target.address() as { port: number }).port;
+    const proxyPort = (proxy.address() as { port: number }).port;
+    clearProxyEnv();
+    vi.stubEnv("http_proxy", `http://127.0.0.1:${proxyPort}`);
+    const proxied = createTransport(resolveProxyConfig());
+    const direct = createTransport(false);
+    try {
+      await expect(proxied.fetch(`http://127.0.0.1:${targetPort}`)).rejects.toThrow();
+      expect(proxyHits).toBe(1);
+      expect(await (await direct.fetch(`http://127.0.0.1:${targetPort}`)).text()).toBe("direct");
+      expect(proxyHits).toBe(1);
+    } finally {
+      await Promise.all([proxied.close(), direct.close()]);
+      await Promise.all([
+        new Promise<void>((r) => target.close(() => r())),
+        new Promise<void>((r) => proxy.close(() => r())),
+      ]);
+    }
   });
 
   it("forwards the resolved values to the agent", () => {

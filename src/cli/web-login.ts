@@ -17,41 +17,53 @@ import logger from "./logger";
 export interface WebLoginOptions {
   /**
    * Total time for the whole login before giving up. Defaults to `CLI_TIMEOUT_MS`.
-   * Opening the browser has its own shorter bound; a launcher that hangs does
-   * not consume this, the login keeps polling instead.
+   * Opening the browser has a shorter bound, within the overall deadline;
+   * if the launcher hangs, the login keeps polling.
    */
   timeoutMs?: number;
+  /**
+   * Whether to honor the proxy settings. Defaults to `true`; `false` connects
+   * directly and never reads them.
+   */
+  useProxy?: boolean;
+  /**
+   * Defaults to `true`. Set to `false` to skip security checks on `loginUrl`
+   * and `doneUrl`; both URLs must still be parseable.
+   */
+  validateUrls?: boolean;
 }
 
 /**
  * Log in through npm's own web protocol, so the CLI never receives a token
  * over an unauthenticated local callback server.
  *
- * The registry is trusted (the user configures it). Never follow `loginUrl` or
- * `doneUrl` outside it: they answer with the credential. Both have to be
- * `http(s)` URLs on the registry origin, inside its deployment prefix, without
- * embedded credentials, and neither request follows redirects.
+ * The CLI obtains the token by polling `doneUrl`, so by default both transaction URLs
+ * must use HTTP(S), stay on the registry origin within its path prefix, and
+ * carry no credentials. `validateUrls: false` drops these checks. CLI login
+ * requests do not follow redirects.
  *
  * @param registry the registry URL the user configured, without a trailing slash
  * @param options login options; see `WebLoginOptions`
  * @returns the npm token the server hands out
  */
 export async function webLogin(registry: string, options: WebLoginOptions = {}): Promise<string> {
-  const { timeoutMs = CLI_TIMEOUT_MS } = options;
+  const { timeoutMs = CLI_TIMEOUT_MS, validateUrls, useProxy } = options;
+  const shouldValidateUrls = validateUrls !== false;
 
-  const resolved = resolveProxyConfig();
-  const transport = createTransport(resolved);
+  const transport = createLoginTransport(useProxy !== false);
 
-  const proxies = describeProxyConfig(resolved);
-  if (proxies) {
-    logger.info("login uses proxies:", JSON.stringify(proxies));
+  if (!shouldValidateUrls) {
+    logger.warn("Unsafe URL checks disabled: login and token URLs are not restricted to the registry.");
   }
 
   const { signal, cancel } = abortAfter(timeoutMs);
 
   try {
-    const registryUrl = new URL(registry);
-    const { login, done } = await startLogin(registry, registryUrl, transport.fetch, signal);
+    const { login, done } = await startLogin(registry, {
+      customFetch: transport.fetch,
+      signal,
+      validateUrls: shouldValidateUrls,
+    });
     await openLoginPage(login, signal);
 
     return await pollLogin(done, transport.fetch, signal);
@@ -79,20 +91,51 @@ export async function webLogin(registry: string, options: WebLoginOptions = {}):
 }
 
 /**
- * Start the login: POST the login request, then resolve both transaction URLs.
+ * Create the transport for this login.
+ *
+ * With proxies disabled, connect directly and never read the proxy settings.
+ * Otherwise resolve them once, then use that result for the agent and for the
+ * proxy log line, whose credentials are hidden.
+ *
+ * @param useProxy whether to honor the proxy settings
+ * @returns the transport for this login, which the caller closes
+ */
+function createLoginTransport(useProxy: boolean) {
+  if (!useProxy) return createTransport(false);
+
+  const config = resolveProxyConfig();
+  const transport = createTransport(config);
+  const proxies = describeProxyConfig(config);
+  if (proxies) {
+    logger.info("login uses proxies:", JSON.stringify(proxies));
+  }
+  return transport;
+}
+
+/** Options for starting an npm Web login. */
+interface StartLoginOptions {
+  /** Fetch through the transport owned by this login. */
+  customFetch: typeof fetch;
+  /** Aborted when the overall login deadline expires. */
+  signal: AbortSignal;
+  /** When false, skip URL security checks; both URLs must still be parseable. */
+  validateUrls: boolean;
+}
+
+/**
+ * Send the login request without following redirects, then resolve both
+ * transaction URLs and, when validation is enabled, check them against the
+ * registry.
  *
  * @param registry the registry URL the user configured
- * @param registryUrl the parsed registry URL
- * @param customFetch the fetch to send the start request with
- * @param signal aborts the request when the login times out
+ * @param options the request transport, timeout signal, and URL validation setting
  * @returns the normalized login and done URLs
  */
 async function startLogin(
   registry: string,
-  registryUrl: URL,
-  customFetch: typeof fetch,
-  signal: AbortSignal,
+  { customFetch, signal, validateUrls }: StartLoginOptions,
 ): Promise<{ login: URL; done: URL }> {
+  const registryUrl = new URL(registry);
   const start = await customFetch(registry + npmLoginPath, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -114,10 +157,15 @@ async function startLogin(
     throw new Error("login request returned an unexpected response");
   }
 
-  return {
-    login: checkTransactionUrl(loginUrl, registryUrl),
-    done: checkTransactionUrl(doneUrl, registryUrl),
-  };
+  const login = resolveUrl(loginUrl, registryUrl);
+  const done = resolveUrl(doneUrl, registryUrl);
+
+  if (validateUrls) {
+    validateUrl(login, registryUrl);
+    validateUrl(done, registryUrl);
+  }
+
+  return { login, done };
 }
 
 /**
@@ -233,22 +281,22 @@ async function readJsonObject(response: Response, unexpected: string): Promise<R
 }
 
 /**
- * Accept a transaction URL only when it stays inside the registry: same
- * origin, `http(s)`, no embedded credentials, and under its path prefix.
+ * Resolve a transaction URL against the registry.
  *
  * @param raw the URL the server returned
  * @param registryUrl the parsed registry URL
  * @returns the parsed and normalized URL
  */
-function checkTransactionUrl(raw: string, registryUrl: URL): URL {
-  let parsed: URL;
-
+function resolveUrl(raw: string, registryUrl: URL): URL {
   try {
-    parsed = new URL(raw, registryUrl.href);
+    return new URL(raw, registryUrl.href);
   } catch {
     throw new Error("login request returned an invalid URL");
   }
+}
 
+/** Require HTTP(S), the registry origin and path prefix, and no credentials. */
+function validateUrl(parsed: URL, registryUrl: URL): void {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     throw new Error("login request returned a URL with an unexpected protocol");
   }
@@ -266,8 +314,6 @@ function checkTransactionUrl(raw: string, registryUrl: URL): URL {
   if (!parsed.pathname.startsWith(prefix) && parsed.pathname !== registryUrl.pathname) {
     throw new Error("login request returned a URL outside the registry");
   }
-
-  return parsed;
 }
 
 /**

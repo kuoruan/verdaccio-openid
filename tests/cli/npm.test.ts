@@ -27,56 +27,89 @@ describe("cli npm utils", () => {
     const { saveNpmToken } = await import("@/cli/npm");
 
     const token = 'bad";echo injected;"';
-    saveNpmToken(token);
-
-    expect(execFileSync).toHaveBeenCalledWith("npm", ["config", "list", "--json"], { encoding: "utf8" });
+    saveNpmToken(token, "https://registry.example.com");
     expect(execFileSync).toHaveBeenCalledWith("npm", ["config", "set", "//registry.example.com/:_authToken", token], {
       encoding: "utf8",
     });
   });
 
-  /**
-   * Run a body with a given process.argv and restore the original afterwards.
-   *
-   * @param args the CLI arguments to expose
-   * @param body the assertions to run
-   */
-  async function withArgv(args: string[], body: () => Promise<void>): Promise<void> {
-    const original = process.argv;
-
-    process.argv = ["node", "cli", ...args];
-
-    try {
-      await body();
-    } finally {
-      process.argv = original;
-    }
-  }
-
-  it("prefers --registry over the npm config", async () => {
-    await withArgv(["--registry", "https://cli.example.com/"], async () => {
-      const { getRegistryUrl } = await import("@/cli/npm");
-
-      expect(getRegistryUrl()).toBe("https://cli.example.com");
-    });
+  it("reads the registry from npm config", async () => {
+    const { getNpmRegistry } = await import("@/cli/npm");
+    expect(getNpmRegistry()).toBe("https://registry.example.com");
   });
 
-  it("falls back to the public registry when neither source has one", async () => {
+  it("prefers --registry over the npm config", async () => {
+    const { validateRegistry } = await import("@/cli/usage");
+    expect(validateRegistry("https://cli.example.com/")).toBe("https://cli.example.com");
+    expect(execFileSync).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the public registry when npm config has none", async () => {
     vi.mocked(execFileSync).mockImplementation(() => JSON.stringify({}));
+    const { getNpmRegistry } = await import("@/cli/npm");
+    expect(getNpmRegistry()).toBe("https://registry.npmjs.org");
+  });
 
-    await withArgv([], async () => {
-      const { getRegistryUrl } = await import("@/cli/npm");
-
-      expect(getRegistryUrl()).toBe("registry.npmjs.org");
+  it("rejects the public fallback when npm config has no registry", async () => {
+    vi.mocked(execFileSync).mockImplementation(() => JSON.stringify({}));
+    const { validateRegistry } = await import("@/cli/usage");
+    const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit");
     });
+    try {
+      expect(() => validateRegistry()).toThrow("exit");
+    } finally {
+      exit.mockRestore();
+    }
+  });
+
+  it("falls back to the public registry for whitespace-only npm configuration", async () => {
+    vi.mocked(execFileSync).mockImplementation(() => JSON.stringify({ registry: "   " }));
+    const { getNpmRegistry } = await import("@/cli/npm");
+    expect(getNpmRegistry()).toBe("https://registry.npmjs.org");
+  });
+
+  it("matches public registries by hostname", async () => {
+    const { validateRegistry } = await import("@/cli/usage");
+    expect(validateRegistry("https://private.example/registry.npmjs.org")).toBe(
+      "https://private.example/registry.npmjs.org",
+    );
+    expect(validateRegistry("https://registry.npmjs.org.example.com")).toBe("https://registry.npmjs.org.example.com");
+    const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit");
+    });
+    try {
+      expect(() => validateRegistry("https://REGISTRY.NPMJS.ORG:443")).toThrow("exit");
+      expect(() => validateRegistry("https://registry.yarnpkg.com")).toThrow("exit");
+      expect(() => validateRegistry("https://npm.pkg.github.com")).toThrow("exit");
+    } finally {
+      exit.mockRestore();
+    }
+  });
+
+  it("rejects invalid and non-HTTP registry URLs", async () => {
+    const { validateRegistry } = await import("@/cli/usage");
+    const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit");
+    });
+    try {
+      expect(() => validateRegistry("not a URL")).toThrow("exit");
+      expect(() => validateRegistry("localhost:4873")).toThrow("exit");
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   it("rejects a --registry that is not a URL string", async () => {
-    await withArgv(["--registry", "12345"], async () => {
-      const { getRegistryUrl } = await import("@/cli/npm");
-
-      expect(() => getRegistryUrl()).toThrow(/expects a URL/);
+    const { validateRegistry } = await import("@/cli/usage");
+    const exit = vi.spyOn(process, "exit").mockImplementation(() => {
+      throw new Error("exit");
     });
+    try {
+      expect(() => validateRegistry(12345)).toThrow("exit");
+    } finally {
+      exit.mockRestore();
+    }
   });
 
   it("never lets the token surface when npm refuses to write it", async () => {
@@ -91,7 +124,7 @@ describe("cli npm utils", () => {
 
     const { saveNpmToken } = await import("@/cli/npm");
 
-    expect(() => saveNpmToken("SECRET_TOKEN")).toThrow(
+    expect(() => saveNpmToken("SECRET_TOKEN", "https://registry.example.com")).toThrow(
       /^command failed: npm config set \/\/registry\.example\.com\/:_authToken "<token>"$/,
     );
   });
