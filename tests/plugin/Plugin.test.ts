@@ -3,10 +3,16 @@ import process from "node:process";
 import { errorUtils } from "@verdaccio/core";
 import type { AuthPackageAllow, RemoteUser } from "@verdaccio/types";
 
+import { createTransport } from "@/transport";
 import { Plugin } from "@/server/plugin/Plugin";
 
 // Mock dependencies
-vi.mock("@/server/proxy-agent");
+vi.mock("@/transport", () => ({
+  createTransport: vi.fn(() => ({
+    fetch: vi.fn(),
+    close: vi.fn(() => Promise.resolve()),
+  })),
+}));
 vi.mock("@/server/store");
 vi.mock("@/server/openid/client");
 
@@ -399,6 +405,73 @@ describe("Plugin permission methods", () => {
 
       // Verify that unregister was called before the second registration
       expect(processRemoveSpy).toHaveBeenCalled();
+    });
+
+    it("closes the transport even when the store close fails", async () => {
+      const transport = { fetch: vi.fn(), close: vi.fn(() => Promise.resolve()) };
+      vi.mocked(createTransport).mockReturnValueOnce(transport as any);
+
+      const failing = new Plugin({ "provider-host": "https://example.com", "client-id": "t", "client-secret": "s" }, {
+        config: { secret: "s", packages: {} },
+        logger: undefined,
+      } as any);
+      (failing as any).store = { close: vi.fn(() => Promise.reject(new Error("boom"))) };
+      failing.unregisterSignalHandlers();
+
+      const onSpy = vi.spyOn(process, "once");
+      failing.registerSignalHandlers();
+      const handler = onSpy.mock.calls.find(([signal]) => signal === "SIGTERM")?.[1] as () => Promise<void>;
+      await handler();
+
+      expect(transport.close).toHaveBeenCalled();
+      failing.unregisterSignalHandlers();
+    });
+
+    it("starts the transport close even when the store close hangs", async () => {
+      const transport = { fetch: vi.fn(), close: vi.fn(() => Promise.resolve()) };
+      vi.mocked(createTransport).mockReturnValueOnce(transport as any);
+
+      const hanging = new Plugin({ "provider-host": "https://example.com", "client-id": "t", "client-secret": "s" }, {
+        config: { secret: "s", packages: {} },
+        logger: undefined,
+      } as any);
+      let releaseStore!: () => void;
+      (hanging as any).store = { close: vi.fn(() => new Promise<void>((resolve) => (releaseStore = resolve))) };
+      hanging.unregisterSignalHandlers();
+
+      const onSpy = vi.spyOn(process, "once");
+      hanging.registerSignalHandlers();
+      const handler = onSpy.mock.calls.find(([signal]) => signal === "SIGTERM")?.[1] as () => Promise<void>;
+      const closing = handler();
+      // The transport close must have started before the store is released.
+      await vi.waitFor(() => expect(transport.close).toHaveBeenCalled());
+      releaseStore();
+      await closing;
+      hanging.unregisterSignalHandlers();
+    });
+
+    it("closes the transport even when the store close throws synchronously", async () => {
+      const transport = { fetch: vi.fn(), close: vi.fn(() => Promise.resolve()) };
+      vi.mocked(createTransport).mockReturnValueOnce(transport as any);
+
+      const throwing = new Plugin({ "provider-host": "https://example.com", "client-id": "t", "client-secret": "s" }, {
+        config: { secret: "s", packages: {} },
+        logger: undefined,
+      } as any);
+      (throwing as any).store = {
+        close: vi.fn(() => {
+          throw new Error("sync boom");
+        }),
+      };
+      throwing.unregisterSignalHandlers();
+
+      const onSpy = vi.spyOn(process, "once");
+      throwing.registerSignalHandlers();
+      const handler = onSpy.mock.calls.find(([signal]) => signal === "SIGTERM")?.[1] as () => Promise<void>;
+      await handler();
+
+      expect(transport.close).toHaveBeenCalled();
+      throwing.unregisterSignalHandlers();
     });
   });
   describe("authenticate", () => {

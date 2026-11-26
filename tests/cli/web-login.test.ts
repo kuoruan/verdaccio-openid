@@ -226,7 +226,7 @@ describe("webLogin", () => {
     ["clamps an excessive Retry-After", "99999", CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS],
     ["uses the default for an unusable Retry-After", "0", CLI_WEB_LOGIN_POLL_INTERVAL_MS],
   ])("%s", async (_label, retryAfter, interval) => {
-    vi.useFakeTimers();
+    vi.useFakeTimers({ fakeNodeBuiltins: true });
     const fetchMock = vi
       .fn<typeof fetch>()
       .mockResolvedValueOnce(Response.json(transactionUrls()))
@@ -462,7 +462,7 @@ describe("webLogin", () => {
 
     // Only the login's own timers are faked: MSW and the fetch internals keep
     // their real scheduling, and the boundary of the default deadline is exact.
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], fakeNodeBuiltins: true });
 
     try {
       let settled = false;

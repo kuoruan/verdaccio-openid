@@ -1,19 +1,22 @@
-import { Groups } from "@gitbeaker/rest";
 import { getPublicUrl } from "@verdaccio/url";
 import type { Request } from "express";
-import { authorizationCodeGrant, discovery, fetchUserInfo } from "openid-client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { HttpResponse, http } from "msw";
+import { setupServer } from "msw/node";
+import { authorizationCodeGrant, customFetch, discovery, fetchUserInfo } from "openid-client";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { hashObject } from "@/server/crypto";
 import logger from "@/server/logger";
 import { ERRORS } from "@/server/constants";
 import { OpenIDConnectAuthProvider } from "@/server/openid/AuthProvider";
+import { getGitlabGroups as fetchGitlabGroups } from "@/server/openid/provider/gitlab";
 import { ProviderType, type TokenInfo } from "@/server/plugin/AuthProvider";
 import type { OpenIDStateStore, ProviderCache } from "@/server/store/Store";
 
 // Mock openid-client module
 vi.mock("openid-client", () => ({
+  customFetch: Symbol.for("openid-client:customFetch"),
   randomState: vi.fn(() => "mock-state-12345"),
   randomNonce: vi.fn(() => "mock-nonce-67890"),
   buildAuthorizationUrl: vi.fn((_config, params) => {
@@ -58,25 +61,53 @@ vi.mock("openid-client", () => ({
   }),
 }));
 
-// Mock @gitbeaker/rest
-const { groupsAll } = vi.hoisted(() => ({
-  groupsAll: vi.fn(() => [
-    { name: "gitlab-group1", path: "gitlab-group1", full_path: "gitlab-group1" },
-    { name: "gitlab-group2", path: "gitlab-group2", full_path: "team/gitlab-group2" },
-    // A nested group may be named like any group; only its full path tells them apart.
-    { name: "gitlab-group3", path: "gitlab-group3", full_path: "someone-else/gitlab-group3" },
-  ]),
-}));
+const groupsPath = "https://provider.example.com/api/v4/groups";
+const groupPage1 = [
+  { name: "gitlab-group1", path: "gitlab-group1", full_path: "gitlab-group1" },
+  { name: "gitlab-group2", path: "gitlab-group2", full_path: "team/gitlab-group2" },
+];
+const groupPage2 = [
+  // A nested group may be named like any group; only its full path tells them apart.
+  { name: "gitlab-group3", path: "gitlab-group3", full_path: "someone-else/gitlab-group3" },
+];
+const seenGroups: { url: string; token: string | null }[] = [];
 
-vi.mock("@gitbeaker/rest", () => ({
-  Groups: vi.fn(function (options) {
-    return {
-      host: options.host,
-      oauthToken: options.oauthToken,
-      all: groupsAll,
-    };
+/** Record the request and check the contract the GitLab call must keep. */
+function checkGroupsRequest(request: { url: string; headers: Headers }, expectedToken?: string): URL {
+  const url = new URL(request.url);
+  seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+  expect(url.searchParams.get("all_available")).toBe("false");
+  expect(url.searchParams.get("per_page")).toBe("100");
+  const authorization = request.headers.get("authorization");
+  if (expectedToken === undefined) expect(authorization).toMatch(/^Bearer /);
+  else expect(authorization).toBe(`Bearer ${expectedToken}`);
+  return url;
+}
+
+function linkTo(page: number): string {
+  return `<${groupsPath}?all_available=false&per_page=100&page=${String(page)}>; rel="next"`;
+}
+
+const server = setupServer(
+  http.get(groupsPath, ({ request }) => {
+    const url = checkGroupsRequest(request);
+    if (url.searchParams.get("page") === "2") return HttpResponse.json(groupPage2);
+    return HttpResponse.json(groupPage1, { headers: { link: linkTo(2) } });
   }),
-}));
+);
+
+beforeAll(() => {
+  // A request without a handler must fail the test, not reach the network.
+  server.listen({ onUnhandledFrame: "error" });
+});
+
+afterEach(() => {
+  server.resetHandlers();
+});
+
+afterAll(() => {
+  server.close();
+});
 
 // Mock logger
 vi.mock("@/server/logger", () => ({
@@ -734,9 +765,18 @@ describe("OpenIDConnectAuthProvider", () => {
     beforeEach(async () => {
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
       await waitForConfiguration();
+      seenGroups.length = 0;
+      // Pin the exact token here; other suites reuse this server with their own tokens.
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          const url = checkGroupsRequest(request, "gitlab-access-token");
+          if (url.searchParams.get("page") === "2") return HttpResponse.json(groupPage2);
+          return HttpResponse.json(groupPage1, { headers: { link: linkTo(2) } });
+        }),
+      );
     });
 
-    it("should fetch groups from Gitlab API", async () => {
+    it("follows the Link header and returns the full path of each group", async () => {
       const tokenInfo: TokenInfo = {
         subject: "user123",
         accessToken: "gitlab-access-token",
@@ -744,26 +784,395 @@ describe("OpenIDConnectAuthProvider", () => {
         expiresAt: 1_700_000_000,
       };
 
-      const groups = await provider.getGitlabGroups(tokenInfo);
-
-      expect(groups).toEqual(["gitlab-group1", "team/gitlab-group2", "someone-else/gitlab-group3"]);
-      expect(groupsAll).toHaveBeenCalledWith({ allAvailable: false });
-      expect(Groups).toHaveBeenCalledWith({
-        host: "https://provider.example.com",
-        oauthToken: "gitlab-access-token",
-      });
+      await expect(fetchGitlabGroups("https://provider.example.com", tokenInfo)).resolves.toEqual([
+        "gitlab-group1",
+        "team/gitlab-group2",
+        "someone-else/gitlab-group3",
+      ]);
+      expect(seenGroups.map((s) => s.url)).toEqual([
+        `${groupsPath}?all_available=false&per_page=100&page=1`,
+        `${groupsPath}?all_available=false&per_page=100&page=2`,
+      ]);
     });
 
     it("should handle string token", async () => {
-      const token = "gitlab-access-token-string";
+      const token = "gitlab-access-token";
 
-      const groups = await provider.getGitlabGroups(token);
+      await expect(fetchGitlabGroups("https://provider.example.com", token)).resolves.toEqual([
+        "gitlab-group1",
+        "team/gitlab-group2",
+        "someone-else/gitlab-group3",
+      ]);
+    });
 
-      expect(groups).toEqual(["gitlab-group1", "team/gitlab-group2", "someone-else/gitlab-group3"]);
-      expect(Groups).toHaveBeenCalledWith({
-        host: "https://provider.example.com",
-        oauthToken: token,
+    it("rejects a bogus next link", async () => {
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+          return HttpResponse.json(groupPage1, { headers: { link: `<:::>; rel="next"` } });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).rejects.toThrow(
+        /unexpected response/,
+      );
+      expect(mockStore.setUserGroups).not.toHaveBeenCalled();
+    });
+
+    it("rejects a next link that does not move forward", async () => {
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+          return HttpResponse.json(groupPage1, { headers: { link: linkTo(1) } });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).rejects.toThrow(
+        /unexpected response/,
+      );
+      // Only the first page was requested; the self-referencing link was not followed.
+      expect(seenGroups).toHaveLength(1);
+      expect(mockStore.setUserGroups).not.toHaveBeenCalled();
+    });
+
+    it("rejects entries without a full path", async () => {
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+          return HttpResponse.json([{ full_path: "team/a" }, { name: "no-path" }]);
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).rejects.toThrow(
+        /unexpected response/,
+      );
+      expect(mockStore.setUserGroups).not.toHaveBeenCalled();
+    });
+
+    it("rejects a non-array response", async () => {
+      server.use(http.get(groupsPath, () => HttpResponse.json({})));
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).rejects.toThrow(
+        /unexpected response/,
+      );
+    });
+
+    it("retries a rate-limited first page", async () => {
+      let calls = 0;
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          calls += 1;
+          if (calls === 1) return new HttpResponse(null, { status: 429 });
+          const url = checkGroupsRequest(request, "gitlab-access-token");
+          if (url.searchParams.get("page") === "2") return HttpResponse.json(groupPage2);
+          return HttpResponse.json(groupPage1, { headers: { link: linkTo(2) } });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).resolves.toEqual([
+        "gitlab-group1",
+        "team/gitlab-group2",
+        "someone-else/gitlab-group3",
+      ]);
+    });
+
+    it("rejects when the second page fails", async () => {
+      let calls = 0;
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          calls += 1;
+          seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+          if (calls > 1) return new HttpResponse(null, { status: 500 });
+          return HttpResponse.json(groupPage1, { headers: { link: linkTo(2) } });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).rejects.toThrow(
+        /status 500/,
+      );
+      expect(mockStore.setUserGroups).not.toHaveBeenCalled();
+    });
+
+    it("rejects a cross-origin next link without following it", async () => {
+      server.use(
+        http.get(groupsPath, () =>
+          HttpResponse.json(groupPage1, {
+            headers: { link: `<https://evil.example.com/api/v4/groups?page=2>; rel="next"` },
+          }),
+        ),
+      );
+      const fetched: string[] = [];
+      const recordingFetch = (async (input: any, init?: any) => {
+        fetched.push(String(input instanceof URL ? input.href : input));
+        return fetch(input, init);
+      }) as typeof fetch;
+
+      await expect(
+        fetchGitlabGroups("https://provider.example.com", "gitlab-access-token", recordingFetch),
+      ).rejects.toThrow(/unexpected response/);
+      // Only the first page was requested; the cross-origin link was not followed.
+      expect(fetched).toHaveLength(1);
+      expect(fetched[0]).toContain("page=1");
+    });
+
+    it("rejects a next link with an empty page without following it", async () => {
+      server.use(
+        http.get(groupsPath, () =>
+          HttpResponse.json(groupPage1, {
+            headers: { link: `<https://provider.example.com/api/v4/groups?page=>; rel="next"` },
+          }),
+        ),
+      );
+      const fetched: string[] = [];
+      const recordingFetch = (async (input: any, init?: any) => {
+        fetched.push(String(input instanceof URL ? input.href : input));
+        return fetch(input, init);
+      }) as typeof fetch;
+
+      await expect(
+        fetchGitlabGroups("https://provider.example.com", "gitlab-access-token", recordingFetch),
+      ).rejects.toThrow(/unexpected response/);
+      // Only the first page was requested; the empty-page link was not followed.
+      expect(fetched).toHaveLength(1);
+      expect(fetched[0]).toContain("page=1");
+    });
+
+    it("rejects a next link with an empty target without ending the walk", async () => {
+      server.use(
+        http.get(groupsPath, () =>
+          HttpResponse.json(groupPage1, {
+            headers: { link: `<>; rel="next"` },
+          }),
+        ),
+      );
+      const fetched: string[] = [];
+      const recordingFetch = (async (input: any, init?: any) => {
+        fetched.push(String(input instanceof URL ? input.href : input));
+        return fetch(input, init);
+      }) as typeof fetch;
+
+      await expect(
+        fetchGitlabGroups("https://provider.example.com", "gitlab-access-token", recordingFetch),
+      ).rejects.toThrow(/unexpected response/);
+      // A present-but-empty next link is unusable, not a normal end.
+      expect(fetched).toHaveLength(1);
+    });
+
+    it("follows an unquoted next relation", async () => {
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          const url = checkGroupsRequest(request, "gitlab-access-token");
+          if (url.searchParams.get("page") === "2") return HttpResponse.json(groupPage2);
+          return HttpResponse.json(groupPage1, {
+            headers: { link: `<https://provider.example.com/api/v4/groups?page=2>; rel=next` },
+          });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).resolves.toEqual([
+        "gitlab-group1",
+        "team/gitlab-group2",
+        "someone-else/gitlab-group3",
+      ]);
+    });
+
+    it("ends normally when rel=next only appears inside the target URL", async () => {
+      server.use(
+        http.get(groupsPath, () =>
+          HttpResponse.json(groupPage1, {
+            headers: {
+              link: `<https://provider.example.com/api/v4/groups?page=2;rel=next;x=1>; rel="last"`,
+            },
+          }),
+        ),
+      );
+      const fetched: string[] = [];
+      const recordingFetch = (async (input: any, init?: any) => {
+        fetched.push(String(input instanceof URL ? input.href : input));
+        return fetch(input, init);
+      }) as typeof fetch;
+
+      // No next relation exists, so the first page is the whole result.
+      await expect(
+        fetchGitlabGroups("https://provider.example.com", "gitlab-access-token", recordingFetch),
+      ).resolves.toEqual(["gitlab-group1", "team/gitlab-group2"]);
+      expect(fetched).toHaveLength(1);
+    });
+
+    it("retries a 502 then continues the walk", async () => {
+      let calls = 0;
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          calls += 1;
+          if (calls === 1) return new HttpResponse(null, { status: 502 });
+          const url = checkGroupsRequest(request, "gitlab-access-token");
+          if (url.searchParams.get("page") === "2") return HttpResponse.json(groupPage2);
+          return HttpResponse.json(groupPage1, { headers: { link: linkTo(2) } });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).resolves.toEqual([
+        "gitlab-group1",
+        "team/gitlab-group2",
+        "someone-else/gitlab-group3",
+      ]);
+      // The first page was tried twice, then page 2 followed.
+      expect(calls).toBe(3);
+    });
+
+    it("throws after the page retries are exhausted", { timeout: 20_000 }, async () => {
+      let calls = 0;
+      server.use(
+        http.get(groupsPath, () => {
+          calls += 1;
+          return new HttpResponse(null, { status: 502 });
+        }),
+      );
+
+      await expect(fetchGitlabGroups("https://provider.example.com", "gitlab-access-token")).rejects.toThrow(
+        /status 502/,
+      );
+      // 1 initial + 3 retries with 1s/2s/4s backoffs.
+      expect(calls).toBe(4);
+    });
+
+    it("rejects a next link on another path without following it", async () => {
+      server.use(
+        http.get(groupsPath, () =>
+          HttpResponse.json(groupPage1, {
+            headers: { link: `<https://provider.example.com/api/v4/projects?page=2>; rel="next"` },
+          }),
+        ),
+      );
+      const fetched: string[] = [];
+      const recordingFetch = (async (input: any, init?: any) => {
+        fetched.push(String(input instanceof URL ? input.href : input));
+        return fetch(input, init);
+      }) as typeof fetch;
+
+      await expect(
+        fetchGitlabGroups("https://provider.example.com", "gitlab-access-token", recordingFetch),
+      ).rejects.toThrow(/unexpected response/);
+      // Only the first page was requested; the off-path link was not followed.
+      expect(fetched).toHaveLength(1);
+      expect(fetched[0]).toContain("page=1");
+    });
+
+    it("routes through the injected fetch when a transport is given", async () => {
+      const seen: string[] = [];
+      const customFetch = (async (input: any, init?: any) => {
+        seen.push(String(input instanceof URL ? input.href : input));
+        return fetch(input, init);
+      }) as typeof fetch;
+
+      mockConfig.providerType = ProviderType.Gitlab;
+      mockConfig.usernameClaim = "name";
+      const transported = new OpenIDConnectAuthProvider(mockConfig, mockStore, {
+        fetch: customFetch,
+        close: () => Promise.resolve(),
       });
+      await waitForConfiguration();
+
+      const tokenInfo: TokenInfo = {
+        subject: "user123",
+        accessToken: "gitlab-access-token",
+        idToken: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expiresAt: 1_700_000_000,
+      };
+
+      await expect(transported.getUserinfo(tokenInfo)).resolves.toMatchObject({
+        groups: ["gitlab-group1", "team/gitlab-group2", "someone-else/gitlab-group3"],
+      });
+      expect(seen).toHaveLength(2);
+    });
+
+    it("does not follow a redirect from the groups endpoint", async () => {
+      mockConfig.providerType = ProviderType.Gitlab;
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
+      await waitForConfiguration();
+      const evilHits: string[] = [];
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+          return new HttpResponse(null, { status: 302, headers: { location: "https://evil.example.com/x" } });
+        }),
+        http.get("https://evil.example.com/x", ({ request }) => {
+          evilHits.push(request.url);
+          return HttpResponse.json([]);
+        }),
+      );
+
+      const tokenInfo: TokenInfo = {
+        subject: "user123",
+        accessToken: "gitlab-access-token",
+        idToken: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expiresAt: 1_700_000_000,
+      };
+
+      await expect(provider.getUserinfo(tokenInfo)).rejects.toThrow(/status 302/);
+      // One request went out, the redirect target was never touched.
+      expect(seenGroups).toHaveLength(1);
+      expect(evilHits).toHaveLength(0);
+      expect(mockStore.setUserGroups).not.toHaveBeenCalled();
+    });
+
+    it("caches nothing when the second page fails through getUserinfo", async () => {
+      mockConfig.providerType = ProviderType.Gitlab;
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
+      await waitForConfiguration();
+      let calls = 0;
+      server.use(
+        http.get(groupsPath, ({ request }) => {
+          calls += 1;
+          seenGroups.push({ url: request.url, token: request.headers.get("authorization") });
+          if (calls > 1) return new HttpResponse(null, { status: 500 });
+          return HttpResponse.json(groupPage1, { headers: { link: linkTo(2) } });
+        }),
+      );
+
+      const tokenInfo: TokenInfo = {
+        subject: "user123",
+        accessToken: "gitlab-access-token",
+        idToken: "header.eyJzdWIiOiJ1c2VyMTIzIn0.signature",
+        expiresAt: 1_700_000_000,
+      };
+
+      await expect(provider.getUserinfo(tokenInfo)).rejects.toThrow(/status 500/);
+      // Exactly two requests went out and no partial group list was cached.
+      // (The userinfo cache write happens before the walk by existing design.)
+      expect(calls).toBe(2);
+      expect(mockStore.setUserGroups).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("proxy transport", () => {
+    it("passes customFetch to discovery when a transport is given", async () => {
+      mockConfig.authorizationEndpoint = undefined;
+      mockConfig.tokenEndpoint = undefined;
+      mockConfig.userinfoEndpoint = undefined;
+      mockConfig.jwksUri = undefined;
+
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore, {
+        fetch: vi.fn() as any,
+        close: () => Promise.resolve(),
+      });
+      await waitForConfiguration();
+
+      const options = vi.mocked(discovery).mock.calls.at(-1)?.[4] as any;
+      expect(options?.[customFetch]).toBeTypeOf("function");
+    });
+
+    it("does not pass customFetch without a transport", async () => {
+      mockConfig.authorizationEndpoint = undefined;
+      mockConfig.tokenEndpoint = undefined;
+      mockConfig.userinfoEndpoint = undefined;
+      mockConfig.jwksUri = undefined;
+
+      provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
+      await waitForConfiguration();
+
+      const options = vi.mocked(discovery).mock.calls.at(-1)?.[4] as any;
+      expect(options?.[customFetch]).toBeUndefined();
     });
   });
 

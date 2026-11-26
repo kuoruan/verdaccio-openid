@@ -1,5 +1,6 @@
-import { Groups } from "@gitbeaker/rest";
 import type { Request } from "express";
+
+import type { CustomFetch } from "openid-client";
 
 import type { ConfigHolder } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
@@ -14,8 +15,10 @@ import {
   type TokenInfo,
 } from "@/server/plugin/AuthProvider";
 import { getClaimsFromIdToken, hashObject } from "@/server/crypto";
+import { getGitlabGroups as fetchGitlabGroups } from "@/server/openid/provider/gitlab";
 import { getFullUrl } from "@/server/plugin/utils";
 import type { OpenIDStateStore, ProviderCache } from "@/server/store/Store";
+import type { ProxiedTransport } from "@/transport";
 
 import { createDiscoveryCooldownError, createDiscoveryError } from "./DiscoveryErrorUtils";
 
@@ -34,19 +37,25 @@ function getTokenCacheKey(token: OpenIDToken): string {
   return typeof token === "string" ? token : (token.subject ?? hashObject(token));
 }
 
+/** The name, subject and groups read from one claims source. */
+interface Identity {
+  name?: unknown;
+  subject?: unknown;
+  groups?: unknown;
+}
+
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private configuration?: OpenIDClient.Configuration;
-  private providerHost: string;
-  private scope: string;
   private discoveryPromise?: Promise<OpenIDClient.Configuration>;
   private lastDiscoveryFailure?: DiscoveryFailure;
+  private readonly customFetch?: typeof fetch;
 
   constructor(
     private readonly config: ConfigHolder,
     private readonly store: OpenIDStateStore & ProviderCache,
+    transport?: ProxiedTransport,
   ) {
-    this.providerHost = this.config.providerHost;
-    this.scope = this.config.scope;
+    this.customFetch = transport?.fetch;
 
     // Start configuration discovery in the background
     void (async () => {
@@ -59,9 +68,6 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     })();
   }
 
-  /**
-   * Get the discovered configuration, triggering discovery if not already done.
-   */
   private ensureConfiguration(): Promise<OpenIDClient.Configuration> {
     if (this.configuration) {
       return Promise.resolve(this.configuration);
@@ -111,13 +117,20 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     const openidClient = await getOpenIDClient();
 
     const configurationUri = this.config.configurationUri;
-    const providerHost = this.providerHost;
+    const providerHost = this.config.providerHost;
     const clientId = this.config.clientId;
     const clientSecret = this.config.clientSecret;
+
+    const { customFetch } = this;
+    // CustomFetchOptions is a subset of RequestInit at runtime; the cast
+    // only bridges openid-client's narrower static type.
+    const fetchHook: CustomFetch | undefined = customFetch && ((url, init) => customFetch(url, init as RequestInit));
 
     const options: OpenIDClient.DiscoveryRequestOptions = {
       timeout: CLIENT_HTTP_TIMEOUT,
     };
+
+    if (fetchHook) options[openidClient.customFetch] = fetchHook;
 
     if (configurationUri) {
       // Use the configuration URI directly
@@ -144,6 +157,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
       // Set timeout
       configuration.timeout = CLIENT_HTTP_TIMEOUT;
 
+      if (fetchHook) configuration[openidClient.customFetch] = fetchHook;
+
       return configuration;
     }
 
@@ -169,7 +184,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     const configuration = await this.ensureConfiguration();
 
     const url = openidClient.buildAuthorizationUrl(configuration, {
-      scope: this.scope,
+      scope: this.config.scope,
       redirect_uri: redirectUrl,
       state: state,
       nonce: nonce,
@@ -216,7 +231,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     if (!tokens.access_token) {
       throw new Error(ERRORS.NO_ACCESS_TOKEN_RETURNED);
     }
-    if (!tokens.id_token && this.scope.includes("openid")) {
+    if (!tokens.id_token && this.config.scope.includes("openid")) {
       throw new Error(ERRORS.NO_ID_TOKEN_RETURNED);
     }
 
@@ -294,56 +309,55 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
   }
 
   /**
+   * Pick the username, subject and groups out of one claims source.
+   *
+   * Each source fills only what the other sources left empty, so the first
+   * source that names the user wins and later sources only add the rest.
+   */
+  private pickIdentity(userinfo: Record<string, unknown>, into: Identity): void {
+    const { usernameClaim, groupsClaim } = this.config;
+
+    into.name ??= userinfo[usernameClaim];
+    into.subject ??= userinfo.sub;
+
+    if (groupsClaim) {
+      into.groups ??= userinfo[groupsClaim];
+    }
+  }
+
+  /**
    * Read the username and groups of a user through the configured claims.
    *
    * @param token the provider token
    * @returns the username and, when the claims carry any, the groups
    */
   async getUserinfo(token: OpenIDToken): Promise<ProviderUser> {
-    let username: unknown, groups: unknown, subject: unknown;
-
-    const usernameClaim = this.config.usernameClaim;
-    const groupsClaim = this.config.groupsClaim;
+    const identity: Identity = {};
 
     if (typeof token !== "string") {
-      /**
-       * username and groups can be in the id_token if the scope is openid.
-       */
+      // username and groups can be in the id_token if the scope is openid.
       try {
-        const userinfo = this.getUserinfoFromIdToken(token);
-
-        username = userinfo[usernameClaim];
-        subject ??= userinfo.sub;
-        if (groupsClaim) {
-          groups = userinfo[groupsClaim];
-        }
+        this.pickIdentity(this.getUserinfoFromIdToken(token), identity);
       } catch {
         debug("Could not get userinfo from id_token. Trying userinfo endpoint...");
       }
     }
 
-    if (!username || !groups) {
-      /**
-       * or we can get them from the userinfo endpoint.
-       */
+    if (!identity.name || !identity.groups) {
+      // or we can get them from the userinfo endpoint.
       try {
-        const userinfo = await this.getUserinfoFromEndpoint(token);
-
-        username ??= userinfo[usernameClaim];
-        subject ??= userinfo.sub;
-        if (groupsClaim) {
-          groups ??= userinfo[groupsClaim];
-        }
+        this.pickIdentity(await this.getUserinfoFromEndpoint(token), identity);
       } catch {
         debug("Could not get userinfo from userinfo endpoint.");
       }
     }
 
-    if (!username) {
-      throw new Error(`Could not get username with claim: "${usernameClaim}"`);
+    if (!identity.name) {
+      throw new Error(`Could not get username with claim: "${this.config.usernameClaim}"`);
     }
 
     // We prefer the groups from the providerType if it is set.
+    let groups = identity.groups;
     const providerType = this.config.providerType;
     if (providerType) {
       groups = await this.getGroupsWithProviderType(token, providerType);
@@ -354,9 +368,9 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     return {
-      name: String(username),
+      name: String(identity.name),
       groups: groups as string[] | undefined,
-      subject: typeof subject === "string" ? subject : undefined,
+      subject: typeof identity.subject === "string" ? identity.subject : undefined,
     };
   }
 
@@ -383,7 +397,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
     switch (providerType) {
       case ProviderType.Gitlab: {
-        groups = await this.getGitlabGroups(token);
+        groups = await fetchGitlabGroups(this.config.providerHost, token, this.customFetch);
         break;
       }
       default: {
@@ -398,31 +412,5 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
     }
 
     return groups;
-  }
-
-  /**
-   * Read the groups of the user from the GitLab API.
-   *
-   * Returns the full path of each group, not its name: a name is neither unique
-   * nor reserved, so anyone who may create a group could name it like a group
-   * they do not belong to and match `authorized-groups` with it. The full path
-   * is unique across GitLab (`parent/child`, or just `group` at the top level).
-   *
-   * @param token the provider token
-   * @returns the full paths of the groups the user is in
-   */
-  async getGitlabGroups(token: OpenIDToken): Promise<string[]> {
-    const group = new Groups({
-      host: this.providerHost,
-      oauthToken: typeof token === "string" ? token : token.accessToken,
-    });
-
-    // GitLab defaults `all_available` to false for users but to true for
-    // administrators, which would let an administrator token match every group
-    // on the instance. Pass it so the list is always the groups the user is in.
-    // https://docs.gitlab.com/api/groups/#list-groups
-    const userGroups = await group.all({ allAvailable: false });
-
-    return userGroups.map((g) => g.full_path);
   }
 }

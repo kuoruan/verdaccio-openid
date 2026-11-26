@@ -1,12 +1,15 @@
 import open from "open";
 
 import {
+  CLI_CLOSE_TIMEOUT_MS,
   CLI_OPEN_BROWSER_TIMEOUT_MS,
   CLI_TIMEOUT_MS,
   CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS,
   CLI_WEB_LOGIN_POLL_INTERVAL_MS,
 } from "@/cli/constants";
 import { AUTH_TOKEN_REGEX, npmLoginPath } from "@/constants";
+import { abortAfter, sleep, startDelay } from "@/timers";
+import { createTransport } from "@/transport";
 import { isNull, isObject } from "@/utils";
 
 import logger from "./logger";
@@ -36,96 +39,15 @@ export interface WebLoginOptions {
 export async function webLogin(registry: string, options: WebLoginOptions = {}): Promise<string> {
   const { timeoutMs = CLI_TIMEOUT_MS } = options;
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const signal = controller.signal;
+  const transport = createTransport();
+  const { signal, cancel } = abortAfter(timeoutMs);
 
   try {
     const registryUrl = new URL(registry);
+    const { login, done } = await startLogin(registry, registryUrl, transport.fetch, signal);
+    await openLoginPage(login, signal);
 
-    const start = await fetch(registry + npmLoginPath, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: "{}",
-      redirect: "manual",
-      signal,
-    });
-
-    if (start.status !== 200) {
-      discardBody(start);
-
-      throw new Error(`login request failed with status ${String(start.status)}`);
-    }
-
-    const started = await readJsonObject(start, "login request returned an unexpected response");
-
-    const { loginUrl, doneUrl } = started;
-
-    if (typeof loginUrl !== "string" || typeof doneUrl !== "string") {
-      throw new Error("login request returned an unexpected response");
-    }
-
-    const login = checkTransactionUrl(loginUrl, registryUrl);
-    const done = checkTransactionUrl(doneUrl, registryUrl);
-
-    // Printed before the browser is asked to open, so a slow or absent launcher
-    // still leaves the user a usable link.
-    logger.info("If the browser does not open, visit this URL:");
-    logger.info(login.href);
-
-    const openDeadline = new AbortController();
-    const openTimer = setTimeout(() => openDeadline.abort(), CLI_OPEN_BROWSER_TIMEOUT_MS);
-
-    try {
-      // Opening the browser gets its own short bound: a hung launcher must not
-      // consume the whole login, which keeps polling instead.
-      await openWithTimeout(login.href, AbortSignal.any([signal, openDeadline.signal]));
-    } catch (error) {
-      if (signal.aborted) throw error;
-
-      logger.error("Failed to open browser window.");
-      logger.warn("Please visit the following URL manually:");
-      logger.info(login.href);
-    } finally {
-      clearTimeout(openTimer);
-    }
-
-    let waitMs = CLI_WEB_LOGIN_POLL_INTERVAL_MS;
-
-    for (;;) {
-      await sleep(waitMs, signal);
-
-      const poll = await fetch(done.href, { redirect: "manual", signal });
-
-      switch (poll.status) {
-        case 202: {
-          discardBody(poll);
-          waitMs = retryAfterMs(poll.headers.get("retry-after"));
-          continue;
-        }
-
-        case 200: {
-          const completed = await readJsonObject(poll, "login completed with an unexpected response");
-          const { token } = completed;
-
-          if (typeof token !== "string" || !AUTH_TOKEN_REGEX.test(token)) {
-            throw new Error("login completed with an unexpected response");
-          }
-
-          return token;
-        }
-
-        case 401:
-          discardBody(poll);
-
-          throw new Error("login expired or was rejected");
-
-        default:
-          discardBody(poll);
-
-          throw new Error(`login polling failed with status ${String(poll.status)}`);
-      }
-    }
+    return await pollLogin(done, transport.fetch, signal);
   } catch (error) {
     if (signal.aborted) {
       throw new Error("login timed out");
@@ -133,7 +55,140 @@ export async function webLogin(registry: string, options: WebLoginOptions = {}):
 
     throw error;
   } finally {
-    clearTimeout(timeout);
+    cancel();
+    // The login owns its transport, so only a bounded wait: a hung proxy
+    // connection must not hold the CLI past the login's own deadline.
+    // A failing cleanup must not replace the token or the original error.
+    const linger = startDelay(CLI_CLOSE_TIMEOUT_MS);
+
+    try {
+      await Promise.race([transport.close(), linger.finished]);
+    } catch {
+      // Cleanup failure stays silent: the login result wins.
+    } finally {
+      linger.cancel();
+    }
+  }
+}
+
+/**
+ * Start the login: POST the login request, then resolve both transaction URLs.
+ *
+ * @param registry the registry URL the user configured
+ * @param registryUrl the parsed registry URL
+ * @param customFetch the fetch to send the start request with
+ * @param signal aborts the request when the login times out
+ * @returns the normalized login and done URLs
+ */
+async function startLogin(
+  registry: string,
+  registryUrl: URL,
+  customFetch: typeof fetch,
+  signal: AbortSignal,
+): Promise<{ login: URL; done: URL }> {
+  const start = await customFetch(registry + npmLoginPath, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: "{}",
+    redirect: "manual",
+    signal,
+  });
+
+  if (start.status !== 200) {
+    discardBody(start);
+
+    throw new Error(`login request failed with status ${String(start.status)}`);
+  }
+
+  const started = await readJsonObject(start, "login request returned an unexpected response");
+  const { loginUrl, doneUrl } = started;
+
+  if (typeof loginUrl !== "string" || typeof doneUrl !== "string") {
+    throw new Error("login request returned an unexpected response");
+  }
+
+  return {
+    login: checkTransactionUrl(loginUrl, registryUrl),
+    done: checkTransactionUrl(doneUrl, registryUrl),
+  };
+}
+
+/**
+ * Show the login URL and open it in the browser.
+ *
+ * A failed or timed-out launch is not fatal: the URL is already printed, so
+ * the login keeps polling while the user opens it by hand.
+ *
+ * @param login the normalized login URL
+ * @param signal aborts the wait when the login or browser deadline fires
+ */
+async function openLoginPage(login: URL, signal: AbortSignal): Promise<void> {
+  // Print before opening the browser, so a slow or absent launcher still leaves a usable link.
+  logger.info("If the browser does not open, visit this URL:");
+  logger.info(login.href);
+
+  const openDeadline = abortAfter(CLI_OPEN_BROWSER_TIMEOUT_MS);
+
+  try {
+    await openBrowser(login.href, AbortSignal.any([signal, openDeadline.signal]));
+  } catch (error) {
+    if (signal.aborted) throw error;
+
+    logger.error("Failed to open browser window.");
+    logger.warn("Please visit the following URL manually:");
+    logger.info(login.href);
+  } finally {
+    openDeadline.cancel();
+  }
+}
+
+/**
+ * Poll the done URL until the server hands out the token.
+ *
+ * @param done the normalized done URL
+ * @param fetchImpl the fetch to poll with
+ * @param signal aborts the wait when the login times out
+ * @returns the npm token the server hands out
+ */
+async function pollLogin(done: URL, fetchImpl: typeof fetch, signal: AbortSignal): Promise<string> {
+  let waitMs = CLI_WEB_LOGIN_POLL_INTERVAL_MS;
+
+  for (;;) {
+    await sleep(waitMs, signal);
+
+    const poll = await fetchImpl(done.href, { redirect: "manual", signal });
+
+    switch (poll.status) {
+      case 202: {
+        discardBody(poll);
+        waitMs = retryAfterMs(poll.headers.get("retry-after"));
+        continue;
+      }
+
+      case 200: {
+        const completed = await readJsonObject(poll, "login completed with an unexpected response");
+        const { token } = completed;
+
+        if (typeof token !== "string" || !AUTH_TOKEN_REGEX.test(token)) {
+          throw new Error("login completed with an unexpected response");
+        }
+
+        return token;
+      }
+
+      case 401: {
+        discardBody(poll);
+
+        throw new Error("login expired or was rejected");
+      }
+
+      default: {
+        const status = poll.status;
+        discardBody(poll);
+
+        throw new Error(`login polling failed with status ${String(status)}`);
+      }
+    }
   }
 }
 
@@ -208,32 +263,16 @@ function checkTransactionUrl(raw: string, registryUrl: URL): URL {
   return parsed;
 }
 
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  if (signal.aborted) return Promise.reject(signal.reason);
-
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      signal.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(signal.reason);
-    };
-
-    signal.addEventListener("abort", onAbort, { once: true });
-  });
-}
-
 /**
- * Open the browser without escaping the total timeout: `open` cannot be
- * cancelled, so a start that hangs past the deadline ends the login.
+ * Ask the OS to open the browser at the transaction URL.
+ *
+ * `open` cannot be cancelled: an abort only ends this wait, the browser
+ * itself keeps opening. The timeout lives in the signal handed in.
  *
  * @param url the transaction URL to open
- * @param signal aborted when the total timeout expires
+ * @param signal settles this wait early when the login or browser deadline fires
  */
-function openWithTimeout(url: string, signal: AbortSignal): Promise<void> {
+function openBrowser(url: string, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return Promise.reject(signal.reason);
 
   return new Promise((resolve, reject) => {

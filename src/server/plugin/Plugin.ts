@@ -14,9 +14,9 @@ import { debug } from "@/server/debugger";
 import { CliFlow, WebAuthFlow, WebFlow } from "@/server/flows";
 import logger, { setLogger } from "@/server/logger";
 import { OpenIDConnectAuthProvider } from "@/server/openid";
-import { registerGlobalProxy } from "@/server/proxy-agent";
 import { createStore } from "@/server/store";
 import type { Store } from "@/server/store/Store";
+import { createTransport, type ProxiedTransport } from "@/transport";
 
 import { AuthCore, type VerifiedUser } from "./AuthCore";
 import type { AuthProvider } from "./AuthProvider";
@@ -45,6 +45,7 @@ export class Plugin
   private readonly provider: AuthProvider;
   private readonly core: AuthCore;
   private readonly store: Store;
+  private readonly transport: ProxiedTransport;
 
   private storeClosing = false;
   private signalHandlers = new Map<NodeJS.Signals, () => void>();
@@ -57,29 +58,32 @@ export class Plugin
 
     const verdaccioConfig = options.config;
 
-    registerGlobalProxy({
+    const parsedConfig = new ParsedPluginConfig(config, verdaccioConfig);
+
+    const transport = createTransport({
       http_proxy: verdaccioConfig.http_proxy,
       https_proxy: verdaccioConfig.https_proxy,
       no_proxy: verdaccioConfig.no_proxy,
     });
-
-    const parsedConfig = new ParsedPluginConfig(config, verdaccioConfig);
 
     let store: Store;
     try {
       store = createStore(parsedConfig);
     } catch (e: any) {
       logger.error({ err: e }, "Failed to create store: @{err}");
+      // The plugin never came up, so drop the transport built for it.
+      void transport.close().catch(() => {});
       throw e;
     }
 
-    const provider = new OpenIDConnectAuthProvider(parsedConfig, store);
+    const provider = new OpenIDConnectAuthProvider(parsedConfig, store, transport);
     const core = new AuthCore(parsedConfig, provider);
 
     this.parsedConfig = parsedConfig;
     this.provider = provider;
     this.core = core;
     this.store = store;
+    this.transport = transport;
 
     // close store on process termination
     this.registerSignalHandlers();
@@ -108,15 +112,24 @@ export class Plugin
         if (this.storeClosing) return;
         this.storeClosing = true;
 
-        try {
-          debug("Received signal %s, closing store...", signal);
+        debug("Received signal %s, closing store...", signal);
 
-          await this.store.close();
+        // Start each close on its own tick so a synchronous throw or a hung
+        // store cannot keep the transport from starting: each is owned here,
+        // so a hung store must not keep the proxy connections alive.
+        const storeClosing = Promise.resolve().then(() => this.store.close());
+        const transportClosing = Promise.resolve().then(() => this.transport.close());
+        const [storeResult, transportResult] = await Promise.allSettled([storeClosing, transportClosing]);
 
-          debug("Store closed, good bye!");
-        } catch (e: any) {
-          debug("Error closing store: %s", e.message);
+        if (storeResult.status === "rejected") {
+          debug("Error closing store: %s", (storeResult.reason as any)?.message ?? storeResult.reason);
         }
+
+        if (transportResult.status === "rejected") {
+          debug("Error closing transport: %s", (transportResult.reason as any)?.message ?? transportResult.reason);
+        }
+
+        debug("Store closed, good bye!");
       };
 
       process.once(signal, handler);
