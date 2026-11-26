@@ -1,9 +1,14 @@
 import { fileURLToPath } from "node:url";
 
-import { pluginKey } from "@/constants";
+import { plugin, pluginKey } from "@/constants";
 
 export const staticPath = `/-/static/${pluginKey}`;
+
 export const publicRoot = fileURLToPath(new URL("../client", import.meta.url));
+
+/** Written by the client build: the entry's logical name → its hashed file. Sits outside `publicRoot`. */
+export const clientManifestPath = fileURLToPath(new URL("../client-manifest.json", import.meta.url));
+export const clientEntryName = `${plugin.name}.js`;
 
 // for Verdaccio <= 6.4, we patch the HTML at a known variable
 export const VERDACCIO_BASENAME_UI_OPTIONS_MARKER = "__VERDACCIO_BASENAME_UI_OPTIONS";

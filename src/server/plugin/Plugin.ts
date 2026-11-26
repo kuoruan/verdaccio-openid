@@ -7,6 +7,7 @@ import type { AllowAccess, AuthPackageAllow, RemoteUser } from "@verdaccio/types
 import type { Application } from "express";
 
 import { plugin } from "@/constants";
+import { loadClientEntry } from "@/server/client-assets";
 import ParsedPluginConfig, { type OpenIDConfig } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
@@ -136,7 +137,7 @@ export class Plugin
 
     const children = [
       new ServeStatic(),
-      new PatchHtml(this.parsedConfig),
+      new PatchHtml(this.parsedConfig, loadClientEntry()),
       new WebFlow(this.parsedConfig, this.core, this.provider, this.store),
       new CliFlow(),
       new WebAuthFlow(this.parsedConfig, this.core, this.provider, this.store),

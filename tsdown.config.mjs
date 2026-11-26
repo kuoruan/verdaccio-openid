@@ -12,6 +12,11 @@ const define = {
   "process.env.npm_package_version": JSON.stringify(packageVersion || ""),
 };
 
+/**
+ * A plugin to handle SVG files, either as raw text or as base64-encoded data.
+ *
+ * @returns {import('tsdown').TsdownPlugin} The SVG handling plugin.
+ */
 function svgPlugin() {
   return {
     name: "svg",
@@ -30,6 +35,31 @@ function svgPlugin() {
         const base64 = Buffer.from(code).toString("base64");
         return `export default "data:image/svg+xml;base64,${base64}"`;
       },
+    },
+  };
+}
+
+/**
+ * Map each client entry to its hashed file. The manifest sits outside the
+ * directory served to browsers.
+ *
+ * @returns {import('tsdown').TsdownPlugin} The client manifest plugin.
+ */
+function clientManifestPlugin() {
+  return {
+    name: "client-manifest",
+    generateBundle(_options, bundle) {
+      const manifest = {};
+
+      for (const [fileName, output] of Object.entries(bundle)) {
+        if (output.type === "chunk" && output.isEntry) manifest[`${output.name}.js`] = fileName.split("/").pop();
+      }
+
+      this.emitFile({
+        type: "asset",
+        fileName: "client-manifest.json",
+        source: `${JSON.stringify(manifest, null, 2)}\n`,
+      });
     },
   };
 }
@@ -64,18 +94,20 @@ export default defineConfig([
     },
     plugins: [svgPlugin()],
   },
-  // Client bundle: IIFE for browser, minified
+  // Client bundle: IIFE for browser, minified. The file is named after its
+  // content so the URL stays valid as long as the bytes do, and never states
+  // the plugin version.
   {
-    entry: { [`${packageName}-${packageVersion}`]: "src/client/verdaccio.ts" },
+    entry: { [packageName]: "src/client/verdaccio.ts" },
     format: ["iife"],
-    outDir: "dist/client",
+    outDir: "dist",
     define,
     platform: "browser",
     target: "ES6",
     minify: true,
     outputOptions: {
-      entryFileNames: "[name].js",
+      entryFileNames: "client/[name].[hash].js",
     },
-    plugins: [svgPlugin()],
+    plugins: [svgPlugin(), clientManifestPlugin()],
   },
 ]);

@@ -237,7 +237,7 @@ export function buildStatusPage(body: string, withBack: BackOptions = false): st
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${plugin.name} - ${plugin.version}</title>
+    <title>${plugin.name}</title>
     <style>${styles}</style>
     ${themeScript}
   </head>

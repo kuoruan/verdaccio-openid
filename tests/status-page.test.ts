@@ -8,9 +8,9 @@ describe("buildStatusPage", () => {
     expect(html).toContain("<p>Test</p>");
   });
 
-  it("should include the plugin name and version in the title", () => {
+  it("names the plugin in the title without stating its version", () => {
     const html = buildStatusPage("<p>Test</p>");
-    expect(html).toContain("<title>verdaccio-openid");
+    expect(html).toContain("<title>verdaccio-openid</title>");
   });
 
   it("should include the logo image", () => {
