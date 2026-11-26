@@ -1,5 +1,5 @@
 import { PENDING_TOKEN, STORE_VALUE_LABELS } from "./constants";
-import { isUndefOrNull, isUndefined, safeJsonParse } from "@/utils";
+import { isObject, isUndefOrNull, isUndefined, safeJsonParse } from "@/utils";
 
 import type { LoginResult, StoredValues, StoreKind, WebAuthnSession } from "./Store";
 
@@ -73,7 +73,7 @@ export function parseLoginResult(raw: unknown): LoginResult | undefined {
 
   const parsed = safeJsonParse(raw);
 
-  const { username, uiToken, npmToken } = (parsed ?? {}) as Record<string, unknown>;
+  const { username, uiToken, npmToken } = isObject(parsed) ? parsed : {};
 
   if (typeof username !== "string" || typeof uiToken !== "string" || typeof npmToken !== "string") {
     return undefined;

@@ -34,7 +34,7 @@ export function escapeHtml(value: string): string {
  *
  * @param backUrl the target to normalize
  * @param fallback the target to use when the value is not a usable link
- * @returns the escaped target
+ * @returns the escaped target, or the fallback unchanged when the target is invalid
  */
 export function safeUrl(backUrl: string, fallback = "/"): string {
   const value = backUrl.trim();
@@ -63,16 +63,16 @@ export function safeUrl(backUrl: string, fallback = "/"): string {
  * Parse JSON without throwing: a failure is reported as undefined.
  *
  * The parsed value is returned as-is (objects, arrays, scalars and null
- * included); callers keep their own shape checks. Only the store's
- * read-miss paths use it — config, token and client parsing keep their
- * own error policies.
+ * included); callers keep their own shape checks and error policies. A type
+ * argument describes the expected value but does not validate its shape.
  *
+ * @template T the expected type of the parsed value
  * @param raw the JSON text
  * @returns the parsed value, or undefined when it is not valid JSON
  */
-export function safeJsonParse(raw: string): unknown | undefined {
+export function safeJsonParse<T = unknown>(raw: string): T | undefined {
   try {
-    return JSON.parse(raw) as unknown;
+    return JSON.parse(raw) as T;
   } catch {
     return undefined;
   }
@@ -90,38 +90,79 @@ export function safeJsonParse(raw: string): unknown | undefined {
  */
 export function safeJsonStringify(value: unknown): string | undefined {
   try {
-    return JSON.stringify(value) as string | undefined;
+    return JSON.stringify(value);
   } catch {
     return undefined;
   }
 }
 
-/** Type guard for `undefined`, using a strict comparison. */
+/**
+ * Check whether a value is `undefined`.
+ *
+ * @param value the value to check
+ * @returns whether the value is `undefined`
+ */
 export function isUndefined(value: unknown): value is undefined {
   return value === undefined;
 }
 
-/** Type guard for `null`, using a strict comparison. */
+/**
+ * Check whether a value is `null`.
+ *
+ * @param value the value to check
+ * @returns whether the value is `null`
+ */
 export function isNull(value: unknown): value is null {
   return value === null;
 }
 
-/** Type guard for a non-null object, whether plain or not. */
-export function isObject(value: unknown): value is Record<string, unknown> {
+/**
+ * Check whether a value is a non-null object, including arrays.
+ *
+ * @template T the object type to preserve when narrowing
+ * @param value the value to check
+ * @returns whether the value is an object
+ */
+export function isObject<T extends object>(
+  value: T | string | number | boolean | bigint | symbol | null | undefined,
+): value is T;
+/**
+ * Check whether a value is a non-null object, including arrays.
+ *
+ * @param value the value to check
+ * @returns whether the value is an object
+ */
+export function isObject(value: unknown): value is Record<string, unknown>;
+export function isObject(value: unknown): value is object {
   return typeof value === "object" && value !== null;
 }
 
-/** Type guard for a string that holds more than whitespace. */
+/**
+ * Check whether a value is a string containing more than whitespace.
+ *
+ * @param value the value to check
+ * @returns whether the value is a non-empty string
+ */
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim() !== "";
 }
 
-/** Type guard for an array whose entries are all strings. */
+/**
+ * Check whether a value is an array whose entries are all strings.
+ *
+ * @param value the value to check
+ * @returns whether the value is an array of strings
+ */
 export function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === "string");
 }
 
-/** Type guard for `null` or `undefined`, using strict comparisons. */
+/**
+ * Check whether a value is `null` or `undefined`.
+ *
+ * @param value the value to check
+ * @returns whether the value is `null` or `undefined`
+ */
 export function isUndefOrNull(value: unknown): value is null | undefined {
   return value === null || value === undefined;
 }
@@ -132,7 +173,7 @@ export function isUndefOrNull(value: unknown): value is null | undefined {
  * The value is written to the log, where a password must not end up.
  *
  * @param value the proxy URL as configured
- * @returns the URL with its password replaced, or the value unchanged when it holds none
+ * @returns the value with its password hidden, or "***" for an unreadable value containing "@"
  */
 export function redactUrlCredentials(value: string): string {
   try {

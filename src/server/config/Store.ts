@@ -97,15 +97,15 @@ abstract class StoreConfig<T> {
     private configKey: string,
   ) {}
 
-  protected getConfigValue<K extends keyof T>(key: K, schema: Schema): T[K] {
-    const valueOrEnvironmentName = this.config[key as string] as string;
+  protected getConfigValue<K extends keyof T & string>(key: K, schema: Schema): T[K] {
+    const valueOrEnvironmentName = this.config[key];
 
-    const value = resolveConfigValue(valueOrEnvironmentName, `${plugin.name}-${this.configKey}-${key as string}`);
+    const value = resolveConfigValue(valueOrEnvironmentName, `${plugin.name}-${this.configKey}-${key}`);
 
     try {
       schema.validateSync(value);
     } catch (error: any) {
-      handleValidationError(error, this.configKey, key as string);
+      handleValidationError(error, this.configKey, key);
     }
 
     return value as T[K];

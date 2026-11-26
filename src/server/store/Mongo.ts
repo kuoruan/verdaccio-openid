@@ -281,7 +281,7 @@ export default class MongoStore extends BaseStore implements Store {
     // State-bound kinds keep the configured state TTL; cached userinfo keeps the data TTL.
     const ttl = kind === "userInfo" || kind === "userGroups" ? this.dataTTL : this.stateTTL;
 
-    await this.put(this.rowKey(kind, key, context), { [ROW_FIELD[kind]]: value } as DocumentFields, ttl);
+    await this.put(this.rowKey(kind, key, context), { [ROW_FIELD[kind]]: value }, ttl);
   }
 
   protected async remove(kind: StoreKind, key: string, context?: StoreContext): Promise<void> {

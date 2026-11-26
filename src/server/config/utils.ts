@@ -108,5 +108,5 @@ export function withTTL<T extends { ttl?: number | string }>(config: T): Omit<T,
   const { ttl, ...rest } = config;
   const resolved = getTTLValue(ttl);
 
-  return (isUndefined(resolved) ? rest : { ...rest, ttl: resolved }) as Omit<T, "ttl"> & { ttl?: number };
+  return isUndefined(resolved) ? rest : { ...rest, ttl: resolved };
 }

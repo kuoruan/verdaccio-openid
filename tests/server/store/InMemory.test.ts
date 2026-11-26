@@ -119,7 +119,7 @@ describe("InMemoryStore methods", () => {
   it("should report a corrupted login result as a miss", async () => {
     const store = new InMemoryStore();
 
-    await store.setLoginResult("bad", { username: "dave", uiToken: "ui", npmToken: "npm" } as any);
+    await store.setLoginResult("bad", { username: "dave", uiToken: "ui", npmToken: "npm" });
     (store as any).stateCache.set("openid-login:login:bad", "not-json");
 
     await expect(store.takeLoginResult("bad")).resolves.toBeUndefined();

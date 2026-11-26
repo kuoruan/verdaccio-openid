@@ -331,12 +331,26 @@ describe("AuthCore", () => {
       await expect(core.verifyLegacyToken(`${payload}.${otherSignature}`)).rejects.toThrow("Invalid token format");
     });
 
-    it("should reject a signed payload of another shape", async () => {
+    it("should reject a signed payload containing invalid JSON", async () => {
       const { core } = signableCore();
-      const token = signLegacyPayload({ name: "attacker" }, "test-secret");
+      const encoded = base64Encode("{");
+      const signature = createHmac("sha256", "test-secret").update(encoded).digest("base64url");
 
-      await expect(core.verifyLegacyToken(token)).rejects.toThrow("Invalid token format");
+      await expect(core.verifyLegacyToken(`${encoded}.${signature}`)).rejects.toMatchObject({
+        name: "TypeError",
+        message: "Invalid token format",
+      });
     });
+
+    it.each([{ name: "attacker" }, null, "attacker", 42, true, []])(
+      "should reject a signed payload of another shape: %j",
+      async (payload) => {
+        const { core } = signableCore();
+        const token = signLegacyPayload(payload, "test-secret");
+
+        await expect(core.verifyLegacyToken(token)).rejects.toThrow("Invalid token format");
+      },
+    );
 
     it("should verify a token it issued, with the groups frozen in it", async () => {
       const { core } = signableCore({ authorizedGroups: false });
@@ -539,7 +553,7 @@ function signedPayload(token: string): Record<string, unknown> {
  * Kept in sync with `AuthCore.legacyEncode` on purpose: a test must not import the code
  * it is checking.
  */
-function signLegacyPayload(payload: Record<string, unknown>, secret: string): string {
+function signLegacyPayload(payload: unknown, secret: string): string {
   const encoded = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const signature = createHmac("sha256", secret).update(encoded).digest("base64url");
 

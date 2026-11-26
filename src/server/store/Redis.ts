@@ -46,7 +46,7 @@ export default class RedisStore extends BaseStore implements Store {
   constructor(opts?: RedisConfig | string) {
     super();
 
-    if (!!opts && typeof opts === "object") {
+    if (isObject(opts)) {
       const { ttl, ...config } = opts;
       this.config = config;
       this.ttl = ttl ?? DEFAULT_STATE_TTL_MS;

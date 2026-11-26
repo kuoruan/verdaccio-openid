@@ -184,7 +184,7 @@ describe("FileStore methods", () => {
     },
   );
 
-  it.each(["not-json", '{"username":"dave"}', '["dave"]', "null"])(
+  it.each(["not-json", '{"username":"dave"}', '["dave"]', "null", "true", "42", '"dave"'])(
     "should report a corrupted login result as a miss: %s",
     async (raw) => {
       dbMock.getItem.mockResolvedValueOnce(raw);

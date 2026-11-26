@@ -161,13 +161,13 @@ function discardBody(response: Response): void {
  * @returns the body as a plain object
  */
 async function readJsonObject(response: Response, unexpected: string): Promise<Record<string, unknown>> {
-  const body = (await response.json()) as unknown;
+  const body: unknown = await response.json();
 
   if (!isObject(body) || Array.isArray(body)) {
     throw new Error(unexpected);
   }
 
-  return body as Record<string, unknown>;
+  return body;
 }
 
 /**

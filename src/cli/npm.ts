@@ -50,7 +50,7 @@ function getNpmConfig(): Record<string, unknown> {
   const npmConfigJson = runCommand("npm", ["config", "list", "--json"], false);
 
   // Cache the empty result too, so a broken config is not re-read on every call.
-  npmConfig = (safeJsonParse(npmConfigJson) as Record<string, unknown> | null | undefined) ?? {};
+  npmConfig = safeJsonParse<Record<string, unknown> | null>(npmConfigJson) ?? {};
 
   return npmConfig;
 }

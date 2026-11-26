@@ -9,11 +9,8 @@ import { isObject } from "@/utils";
 export async function interopDefault<T>(m: PromiseLike<T> | T): Promise<T extends { default: infer U } ? U : T> {
   const resolved = await m;
 
-  if (isObject(resolved) && "default" in resolved) {
-    return (resolved as unknown as { default: any }).default;
-  }
-
-  return resolved as any;
+  const value = isObject(resolved) && "default" in resolved ? resolved.default : resolved;
+  return value as T extends { default: infer U } ? U : T;
 }
 
 /**

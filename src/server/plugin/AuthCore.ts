@@ -5,7 +5,7 @@ import type { JWTSignOptions, RemoteUser, Security } from "@verdaccio/types";
 import type { ConfigHolder } from "@/server/config/Config";
 import { ERRORS } from "@/server/constants";
 import { debug } from "@/server/debugger";
-import { isNonEmptyString, isStringArray } from "@/utils";
+import { isNonEmptyString, isObject, isStringArray, isUndefined, safeJsonParse } from "@/utils";
 
 import type { AuthProvider, OpenIDToken } from "./AuthProvider";
 import { base64Decode, base64Encode, signHmac, verifyHmac } from "@/server/crypto";
@@ -317,11 +317,16 @@ export class AuthCore {
       throw new TypeError(ERRORS.INVALID_TOKEN);
     }
 
-    let payload: unknown;
+    let decoded: string;
 
     try {
-      payload = JSON.parse(base64Decode(encoded));
+      decoded = base64Decode(encoded);
     } catch {
+      throw new TypeError(ERRORS.INVALID_TOKEN);
+    }
+
+    const payload = safeJsonParse(decoded);
+    if (isUndefined(payload)) {
       throw new TypeError(ERRORS.INVALID_TOKEN);
     }
 
@@ -337,7 +342,7 @@ export class AuthCore {
    */
   private assertLegacyPayload(payload: unknown): LegacyPayload {
     // Only the fields below are read, so any other shape falls through to the rejection.
-    const { sub, at, n, g, exp } = (payload ?? {}) as Partial<AccessTokenPayload & UserPayload>;
+    const { sub, at, n, g, exp } = isObject(payload) ? payload : {};
     const subject = typeof sub === "string" ? sub : undefined;
 
     if (isNonEmptyString(at)) {

@@ -39,6 +39,7 @@ describe("WebAuthFlow", () => {
     };
     const store = {
       getWebAuthnSession: vi.fn().mockResolvedValue(undefined),
+      takeWebAuthnSession: vi.fn(),
       deleteWebAuthnSession: vi.fn(),
       setWebAuthnSession: vi.fn(),
     };
@@ -49,7 +50,7 @@ describe("WebAuthFlow", () => {
       issueNpmToken: vi.fn(),
     };
 
-    const flow = new WebAuthFlow({ urlPrefix: "" } as any, core as any, provider as any, store as any);
+    const flow = new WebAuthFlow({ urlPrefix: "" } as any, core as any, provider as any, store);
 
     const req = { query: { state: sessionId }, headers: { cookie: `${LOGIN_COOKIE_NAMES.npm}=${sessionId}` } } as any;
     const res = {
@@ -201,7 +202,7 @@ describe("WebAuthFlow", () => {
       issueNpmToken: vi.fn(),
     };
 
-    const flow = new WebAuthFlow({ urlPrefix: "" } as any, core as any, provider as any, store as any);
+    const flow = new WebAuthFlow({ urlPrefix: "" } as any, core as any, provider as any, store);
 
     const req = { query: { sessionId } } as any;
     const res = {
@@ -309,7 +310,7 @@ describe("WebAuthFlow", () => {
       deleteWebAuthnSession: vi.fn(),
       takeWebAuthnSession: vi.fn(),
     };
-    const flow = new WebAuthFlow({ urlPrefix: "/prefix" } as any, {} as any, {} as any, store as any);
+    const flow = new WebAuthFlow({ urlPrefix: "/prefix" } as any, {} as any, {} as any, store);
     const req = { query: {}, headers: { host: "registry.example.com" }, protocol: "https" } as any;
     const res = fakeResponse();
 

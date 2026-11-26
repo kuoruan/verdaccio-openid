@@ -43,7 +43,7 @@ function buildFlow({ store }: { store?: any } = {}) {
     }),
   };
 
-  const flow = new WebFlow({ urlPrefix: "" } as any, core as any, provider as any, (store ?? defaultStore) as any);
+  const flow = new WebFlow({ urlPrefix: "" } as any, core as any, provider, store ?? defaultStore);
 
   return { flow, provider, core, store: store ?? defaultStore, loginResults };
 }

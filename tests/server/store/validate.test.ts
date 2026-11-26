@@ -111,7 +111,7 @@ describe("BaseStore shared validation entry", () => {
 
   it("forwards the take context to the row key", async () => {
     const store = new InMemoryStore();
-    const rowKeySpy = vi.spyOn(store as any, "rowKey");
+    const rowKeySpy = vi.spyOn(store, "rowKey");
 
     await store.setWebAuthnSession("s1", { status: "ready", token: "t" });
     rowKeySpy.mockClear();
@@ -121,7 +121,7 @@ describe("BaseStore shared validation entry", () => {
 
   it("forwards a non-undefined take context to the row key on both kinds", async () => {
     const store = new InMemoryStore() as any;
-    const rowKeySpy = vi.spyOn(store as any, "rowKey");
+    const rowKeySpy = vi.spyOn(store, "rowKey");
     const context = { providerId: "probe" };
 
     rowKeySpy.mockClear();

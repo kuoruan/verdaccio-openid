@@ -32,7 +32,7 @@ function buildApp() {
       getLoginUrl: vi.fn(async (redirectUrl: string, state?: string) => `https://idp/auth?state=${state}`),
       getToken: vi.fn(async () => ({ accessToken: "at", subject: "sub" })),
       getUserinfo: vi.fn(async () => ({ name: "dave", groups: ["developers"], subject: "sub" })),
-    } as any,
+    },
     {
       setLoginResult: async (key: string, value: LoginResult) => void loginResults.set(key, value),
       takeLoginResult: async (key: string) => {
@@ -42,7 +42,7 @@ function buildApp() {
 
         return value;
       },
-    } as any,
+    },
   );
 
   flow.register_middlewares(app);

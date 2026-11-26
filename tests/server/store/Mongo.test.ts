@@ -429,7 +429,7 @@ describe("MongoStore — login result", () => {
       npmToken: "npm",
     });
 
-    const filter = collection.findOneAndDelete.mock.calls[0][0] as any;
+    const filter = collection.findOneAndDelete.mock.calls[0][0];
 
     expect(filter._id).toBe("openid-login:login:state-1");
     // An expired document is never handed out.

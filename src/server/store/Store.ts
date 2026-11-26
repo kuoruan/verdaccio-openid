@@ -228,7 +228,7 @@ export abstract class BaseStore {
       throw new TypeError("userinfo data must be an object");
     }
 
-    return this.writeValidated("userInfo", key, data as Record<string, unknown>, { providerId });
+    return this.writeValidated("userInfo", key, data, { providerId });
   }
 
   async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | undefined> {

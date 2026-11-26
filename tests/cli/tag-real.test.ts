@@ -245,7 +245,7 @@ describe("compat: webLogin against released login/done", () => {
         body: "{}",
       });
       expect(start.status).toBe(200);
-      const { loginUrl, doneUrl } = (await start.json()) as any;
+      const { loginUrl, doneUrl } = await start.json();
       expect(typeof loginUrl).toBe("string");
       expect(typeof doneUrl).toBe("string");
 

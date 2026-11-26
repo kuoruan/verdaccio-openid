@@ -35,7 +35,7 @@ describe("PatchHtml", () => {
 
   /** The options object as it appears in the injected inline script. */
   function injectedOptions(loginButtonText: string): string {
-    const patcher = new PatchHtml({ ...config, loginButtonText } as any);
+    const patcher = new PatchHtml({ ...config, loginButtonText });
     // @ts-expect-error insertTags is private
     const result: string = patcher.insertTags(HTML, request);
     const match = result.match(/__VERDACCIO_OPENID_OPTIONS=(\{.*?\})\s*<\/script>/);

@@ -1,3 +1,5 @@
+import { expectTypeOf } from "vitest";
+
 import {
   escapeHtml,
   isNonEmptyString,
@@ -82,6 +84,15 @@ describe("redactUrlCredentials", () => {
 });
 
 describe("safeJsonParse", () => {
+  it("keeps an optional expected type without validating the parsed shape", () => {
+    const parsed = safeJsonParse<{ a: number }>('{"a":1}');
+
+    expectTypeOf(parsed).toEqualTypeOf<{ a: number } | undefined>();
+    expectTypeOf(safeJsonParse("{}")).toEqualTypeOf<unknown>();
+    expect(parsed).toEqual({ a: 1 });
+    expect(safeJsonParse<{ a: number }>("null")).toBeNull();
+  });
+
   it("returns the parsed value on valid JSON", () => {
     expect(safeJsonParse('{"a":1}')).toEqual({ a: 1 });
     expect(safeJsonParse("[1,2]")).toEqual([1, 2]);
@@ -149,6 +160,25 @@ describe("isObject", () => {
     expect(isObject(undefined)).toBe(false);
     expect(isObject("object")).toBe(false);
     expect(isObject(0)).toBe(false);
+  });
+
+  it("preserves an object branch and supports unknown input", () => {
+    function ttl(value: { ttl: number } | string | undefined): number | undefined {
+      if (!isObject(value)) return undefined;
+
+      expectTypeOf(value).toEqualTypeOf<{ ttl: number }>();
+      return value.ttl;
+    }
+
+    expect(ttl({ ttl: 5000 })).toBe(5000);
+    expect(ttl("redis://localhost")).toBeUndefined();
+    expect(ttl(undefined)).toBeUndefined();
+
+    const value: unknown = { ttl: 5000 };
+    if (isObject(value)) {
+      expectTypeOf(value).toEqualTypeOf<Record<string, unknown>>();
+      expect(value.ttl).toBe(5000);
+    }
   });
 });
 

@@ -141,7 +141,7 @@ export function parseJwt(token: string): Record<string, any> | null {
         .join(""),
     );
 
-    return (safeJsonParse(jsonPayload) as Record<string, any>) ?? null;
+    return safeJsonParse<Record<string, any>>(jsonPayload) ?? null;
   } catch {
     return null;
   }
