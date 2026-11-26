@@ -7,7 +7,7 @@ import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS } from "@/server/store/consta
 // implementations per its needs.
 const { collection, db, client, MongoClientCtor } = vi.hoisted(() => {
   const collection = {
-    createIndex: vi.fn(),
+    createIndexes: vi.fn(),
     replaceOne: vi.fn(),
     findOne: vi.fn(),
     findOneAndDelete: vi.fn(),
@@ -46,7 +46,7 @@ function resetMocks() {
   client.db.mockClear();
   client.close.mockReset().mockResolvedValue(undefined);
 
-  collection.createIndex.mockReset().mockResolvedValue("expiresAt_ttl");
+  collection.createIndexes.mockReset().mockResolvedValue(["expiresAt_ttl"]);
   collection.replaceOne.mockReset().mockResolvedValue({ acknowledged: true, upsertedCount: 1 });
   collection.findOne.mockReset().mockResolvedValue(null);
   collection.findOneAndDelete.mockReset().mockResolvedValue(null);
@@ -79,11 +79,10 @@ describe("MongoStore — connection", () => {
     expect(MongoClientCtor).toHaveBeenCalledTimes(1);
     expect(MongoClientCtor).toHaveBeenCalledWith(URI);
     expect(client.connect).toHaveBeenCalledTimes(1);
-    expect(collection.createIndex).toHaveBeenCalledTimes(1);
-    expect(collection.createIndex).toHaveBeenCalledWith(
-      { expiresAt: 1 },
-      { name: "expiresAt_ttl", expireAfterSeconds: 0 },
-    );
+    expect(collection.createIndexes).toHaveBeenCalledTimes(1);
+    expect(collection.createIndexes).toHaveBeenCalledWith([
+      { key: { expiresAt: 1 }, name: "expiresAt_ttl", expireAfterSeconds: 0 },
+    ]);
   });
 
   it("uses the configured database and collection names", async () => {
@@ -113,7 +112,7 @@ describe("MongoStore — connection", () => {
   });
 
   it("keeps working when the TTL index cannot be created", async () => {
-    collection.createIndex.mockRejectedValue(Object.assign(new Error("unauthorized"), { code: 13 }));
+    collection.createIndexes.mockRejectedValue(Object.assign(new Error("unauthorized"), { code: 13 }));
 
     const store = new MongoStore(baseConfig);
 

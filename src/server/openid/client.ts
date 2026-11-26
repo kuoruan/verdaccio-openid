@@ -1,6 +1,5 @@
 import type * as OpenIDClient from "openid-client";
 
-let openidClient: typeof OpenIDClient | null = null;
 let openidClientPromise: Promise<typeof OpenIDClient> | null = null;
 
 /**
@@ -11,16 +10,7 @@ let openidClientPromise: Promise<typeof OpenIDClient> | null = null;
  * @returns The OpenID Client module
  */
 export async function getOpenIDClient(): Promise<typeof OpenIDClient> {
-  if (openidClient) {
-    return openidClient;
-  }
-
-  openidClientPromise ??= import("openid-client").then((module) => {
-    openidClient = module;
-    return module;
-  });
-
-  return openidClientPromise;
+  return (openidClientPromise ??= import("openid-client"));
 }
 
 export type * as OpenIDClient from "openid-client";

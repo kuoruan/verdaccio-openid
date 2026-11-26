@@ -5,6 +5,7 @@ import { authorizationCodeGrant, discovery, fetchUserInfo } from "openid-client"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConfigHolder } from "@/server/config/Config";
+import { hashObject } from "@/server/crypto";
 import logger from "@/server/logger";
 import { ERRORS } from "@/server/constants";
 import { OpenIDConnectAuthProvider } from "@/server/openid/AuthProvider";
@@ -659,6 +660,21 @@ describe("OpenIDConnectAuthProvider", () => {
       mockConfig.providerType = ProviderType.Gitlab;
       provider = new OpenIDConnectAuthProvider(mockConfig, mockStore);
       await waitForConfiguration();
+    });
+
+    it.each([
+      ["access token", "raw-token", "raw-token"],
+      ["subject", { accessToken: "token", subject: "user123" }, "user123"],
+      ["token without subject", { accessToken: "token" }, hashObject({ accessToken: "token" })],
+    ])("uses the same cache key for userinfo and groups: %s", async (_label, token, key) => {
+      mockConfig.usernameClaim = "name";
+
+      await provider.getUserinfo(token);
+
+      expect(mockStore.getUserInfo).toHaveBeenCalledWith(key, "openid");
+      expect(mockStore.setUserInfo).toHaveBeenCalledWith(key, expect.any(Object), "openid");
+      expect(mockStore.getUserGroups).toHaveBeenCalledWith(key, "openid");
+      expect(mockStore.setUserGroups).toHaveBeenCalledWith(key, expect.any(Array), "openid");
     });
 
     it("should fetch gitlab groups when providerType is Gitlab", async () => {

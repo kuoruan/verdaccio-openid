@@ -198,7 +198,7 @@ export default class MongoStore extends BaseStore implements Store {
    */
   private async ensureTTLIndex(collection: Collection<StoreDocument>): Promise<void> {
     try {
-      await collection.createIndex({ expiresAt: 1 }, { name: TTL_INDEX_NAME, expireAfterSeconds: 0 });
+      await collection.createIndexes([{ key: { expiresAt: 1 }, name: TTL_INDEX_NAME, expireAfterSeconds: 0 }]);
     } catch (err: any) {
       logger.warn(
         { error: err?.name ?? "unknown", code: err?.code },

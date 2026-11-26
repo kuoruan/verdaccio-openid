@@ -30,6 +30,10 @@ interface DiscoveryFailure {
   intervalMs: number;
 }
 
+function getTokenCacheKey(token: OpenIDToken): string {
+  return typeof token === "string" ? token : (token.subject ?? hashObject(token));
+}
+
 export class OpenIDConnectAuthProvider implements AuthProvider {
   private configuration?: OpenIDClient.Configuration;
   private providerHost: string;
@@ -262,17 +266,8 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @returns the user info claims
    */
   private async getUserinfoFromEndpoint(token: OpenIDToken): Promise<Record<string, unknown>> {
-    let accessToken: string;
-    let key: string;
-
-    if (typeof token === "string") {
-      accessToken = token;
-      key = token;
-    } else {
-      accessToken = token.accessToken;
-      key = token.subject ?? hashObject(token);
-    }
-
+    const accessToken = typeof token === "string" ? token : token.accessToken;
+    const key = getTokenCacheKey(token);
     let userinfo: Record<string, unknown> | undefined;
 
     try {
@@ -286,6 +281,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
 
       const configuration = await this.ensureConfiguration();
 
+      // Access-token-only sessions lack an ID-token subject; preserve the existing check policy for both forms.
       userinfo = await openidClient.fetchUserInfo(configuration, accessToken, openidClient.skipSubjectCheck);
 
       try {
@@ -373,7 +369,7 @@ export class OpenIDConnectAuthProvider implements AuthProvider {
    * @throws {ReferenceError} when the provider type has no group API
    */
   private async getGroupsWithProviderType(token: OpenIDToken, providerType: ProviderType): Promise<string[]> {
-    const key = typeof token === "string" ? token : (token.subject ?? hashObject(token));
+    const key = getTokenCacheKey(token);
 
     let groups: string[] | undefined;
 
