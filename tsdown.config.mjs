@@ -90,6 +90,7 @@ export default defineConfig([
     },
     css: {
       minify: true,
+      target: "chrome97",
     },
     plugins: [svgPlugin()],
   },
@@ -114,7 +115,7 @@ export default defineConfig([
     outDir: "dist",
     define,
     platform: "browser",
-    target: "ES6",
+    target: "chrome97",
     minify: true,
     css: {
       minify: true,

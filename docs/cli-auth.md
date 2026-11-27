@@ -28,7 +28,7 @@ The plugin serves three login paths. The CLI only uses the third one.
 
 | #   | Path                 | Client                                  | Server endpoints                                                             | Token delivery                                                                                  |
 | --- | -------------------- | --------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 1   | Browser Web UI login | Any browser                             | `GET /-/oauth/authorize` → `GET /-/oauth/callback` → `POST /-/oauth/session` | The browser that started the flow collects the credentials once, bound by the login cookie.     |
+| 1   | Browser Web UI login | Chrome 97 or later                      | `GET /-/oauth/authorize` → `GET /-/oauth/callback` → `POST /-/oauth/session` | The browser that started the flow collects the credentials once, bound by the login cookie.     |
 | 2   | npm Web Authn login  | `npm login --auth-type=web` (npm 8.14+) | `POST /-/v1/login` → `GET /-/v1/done`                                        | npm polls `doneUrl` until the server reports the token.                                         |
 | 3   | Plugin CLI login     | `npx verdaccio-openid` (this repo)      | `POST /-/v1/login` → `GET /-/v1/done`                                        | Same protocol as path 2; the CLI polls `doneUrl` and writes `.npmrc`. No local callback server. |
 

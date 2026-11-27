@@ -28,7 +28,7 @@ registry 必须提供 `/-/v1/login`（插件 `0.14.0` 及之后版本），否�
 
 | #   | 链路               | 客户端                                   | 服务端端点                                                                   | token 送达方式                                                                |
 | --- | ------------------ | ---------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | 浏览器 Web UI 登录 | 任意浏览器                               | `GET /-/oauth/authorize` → `GET /-/oauth/callback` → `POST /-/oauth/session` | 发起登录的浏览器凭登录 cookie 一次性取走凭据。                                |
+| 1   | 浏览器 Web UI 登录 | Chrome 97 及以上版本                     | `GET /-/oauth/authorize` → `GET /-/oauth/callback` → `POST /-/oauth/session` | 发起登录的浏览器凭登录 cookie 一次性取走凭据。                                |
 | 2   | npm Web Authn 登录 | `npm login --auth-type=web`（npm 8.14+） | `POST /-/v1/login` → `GET /-/v1/done`                                        | npm 轮询 `doneUrl` 直到服务端给出 token。                                     |
 | 3   | 插件 CLI 登录      | `npx verdaccio-openid`（本仓库）         | `POST /-/v1/login` → `GET /-/v1/done`                                        | 与链路 2 同一协议；CLI 轮询 `doneUrl` 并写入 `.npmrc`，不启动本地回调服务器。 |
 
