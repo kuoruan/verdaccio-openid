@@ -12,7 +12,7 @@ import {
   type RedisConfig,
   StoreType,
 } from "@/server/store/Store";
-import { isNonEmptyString, isObject, isStringArray, isUndefined, mergeDeep } from "@/utils";
+import { isNonEmptyString, isObject, isPlainObject, isStringArray, isUndefined, mergeDeep } from "@/utils";
 
 import {
   DynamoConfigSchema,
@@ -198,7 +198,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
           skipAbsent: true,
           message: "must be a Record<string, string[]>",
           test: (value) => {
-            if (!isObject(value)) {
+            if (!isPlainObject(value)) {
               return false;
             }
             return Object.values(value).every((item) => isStringArray(item));

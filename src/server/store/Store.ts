@@ -3,7 +3,7 @@ import type { ClusterNode as RedisClusterNode, ClusterOptions as RedisClusterOpt
 import type { InitOptions as FileInitOptions } from "node-persist";
 
 import { webAuthnProviderId } from "@/server/constants";
-import { isObject, isUndefOrNull, isUndefined, safeJsonParse, safeJsonStringify } from "@/utils";
+import { isObject, isPlainObject, isUndefOrNull, isUndefined, safeJsonParse, safeJsonStringify } from "@/utils";
 import { loginResultNamespace, PENDING_TOKEN } from "./constants";
 
 /** The credentials a finished login hands to the browser. */
@@ -230,7 +230,7 @@ export abstract class BaseStore {
   }
 
   setUserInfo(key: string, data: unknown, providerId: string): MaybePromise<void> {
-    if (!isObject(data)) {
+    if (!isPlainObject(data)) {
       throw new TypeError("userinfo data must be an object");
     }
 

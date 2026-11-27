@@ -6,7 +6,7 @@ import ms, { type StringValue } from "ms";
 import { pluginKey } from "@/constants";
 import { CONFIG_ENV_NAME_REGEX } from "@/server/constants";
 import logger from "@/server/logger";
-import { isObject, isUndefined, safeJsonParse } from "@/utils";
+import { isPlainObject, isUndefined, safeJsonParse } from "@/utils";
 
 /**
  * Resolve a configuration value that may name an environment variable.
@@ -46,7 +46,7 @@ export function getEnvironmentValue(name: string): unknown {
   const v = safeJsonParse(value);
 
   // Only return the parsed value if it is an object.
-  if (isObject(v)) {
+  if (isPlainObject(v)) {
     return v;
   }
 

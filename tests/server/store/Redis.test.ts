@@ -142,6 +142,14 @@ describe("RedisStore", () => {
     await expect(store.getUserInfo("test-user", "openid")).resolves.toBeUndefined();
   });
 
+  it("should treat a JSON array as a miss", async () => {
+    const store = new RedisStore();
+
+    redisClient.get.mockResolvedValueOnce(JSON.stringify(["alice", "dev"]));
+
+    await expect(store.getUserInfo("test-user", "openid")).resolves.toBeUndefined();
+  });
+
   it("should treat a hash left by an earlier version as a miss and drop it", async () => {
     const store = new RedisStore();
 

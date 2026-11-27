@@ -314,14 +314,17 @@ describe("webLogin", () => {
     await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/polling failed/);
   });
 
-  it.each([{}, { token: "" }, { token: "bad token!" }])("fails on an unusable 200 payload %j", async (body) => {
-    server.use(
-      http.post(loginPath, () => HttpResponse.json(transactionUrls())),
-      http.get(donePath, () => HttpResponse.json(body)),
-    );
+  it.each([{}, [], ["token"], { token: "" }, { token: "bad token!" }])(
+    "fails on an unusable 200 payload %j",
+    async (body) => {
+      server.use(
+        http.post(loginPath, () => HttpResponse.json(transactionUrls())),
+        http.get(donePath, () => HttpResponse.json(body)),
+      );
 
-    await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/unexpected response/);
-  });
+      await expect(login({ timeoutMs: 60_000 })).rejects.toThrow(/unexpected response/);
+    },
+  );
 
   it("fails when the start request is not a 200 with two URLs", async () => {
     server.use(http.post(loginPath, () => new HttpResponse(null, { status: 404 })));

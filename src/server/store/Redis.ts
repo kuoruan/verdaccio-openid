@@ -2,7 +2,7 @@ import type { Cluster, Redis as RedisClient } from "ioredis";
 
 import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./constants";
 import { importOptional } from "@/server/utils";
-import { isNull, isObject, safeJsonParse } from "@/utils";
+import { isNull, isObject, isPlainObject, safeJsonParse } from "@/utils";
 
 import { isDataKind } from "./utils";
 
@@ -71,7 +71,7 @@ const REDIS_CODECS: Record<StoreKind, RedisCodec> = {
 
       const parsed: unknown = safeJsonParse(raw);
 
-      return isObject(parsed) ? parsed : undefined;
+      return isPlainObject(parsed) ? parsed : undefined;
     },
     // JSON keeps the shape of the claims: a hash would stringify arrays and
     // nested objects, so the groups read back would no longer match.

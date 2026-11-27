@@ -10,7 +10,7 @@ import {
 import { AUTH_TOKEN_REGEX, npmLoginPath } from "@/constants";
 import { abortAfter, sleep, startDelay } from "@/timers";
 import { createTransport } from "@/transport";
-import { isNull, isObject, describeProxyConfig, resolveProxyConfig } from "@/utils";
+import { isNull, isPlainObject, describeProxyConfig, resolveProxyConfig } from "@/utils";
 
 import logger from "./logger";
 
@@ -272,7 +272,7 @@ function discardBody(response: Response): void {
 async function readJsonObject(response: Response, unexpected: string): Promise<Record<string, unknown>> {
   const body: unknown = await response.json();
 
-  if (!isObject(body) || Array.isArray(body)) {
+  if (!isPlainObject(body)) {
     throw new Error(unexpected);
   }
 

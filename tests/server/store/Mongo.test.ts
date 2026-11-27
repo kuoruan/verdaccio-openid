@@ -229,6 +229,7 @@ describe("MongoStore — user info and groups", () => {
 
     expect(() => store.setUserInfo("u", "nope", "p")).toThrow(TypeError);
     expect(() => store.setUserInfo("u", null, "p")).toThrow(TypeError);
+    expect(() => store.setUserInfo("u", ["nope"], "p")).toThrow(TypeError);
   });
 
   it("setUserInfo / getUserInfo round-trip under the data TTL", async () => {
