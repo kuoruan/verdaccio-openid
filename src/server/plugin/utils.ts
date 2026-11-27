@@ -105,7 +105,7 @@ export function getFullUrl(urlPrefix: string, req: Request): URL {
 
   const hasPrefix = !!(cleanPrefix && (reqPath === cleanPrefix || reqPath.startsWith(cleanPrefix + "/")));
 
-  return hasPrefix ? new URL(reqPath, baseUrl) : new URL(baseUrl + reqPath);
+  return new URL(hasPrefix ? reqPath : baseUrl + reqPath, baseUrl);
 }
 
 /**
