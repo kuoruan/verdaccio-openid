@@ -218,6 +218,24 @@ describe("getBaseUrl", () => {
 
     expect(getBaseUrl("/prefix", req, true)).toBe("http://localhost");
   });
+
+  it("should strip every trailing slash, not just the last one", () => {
+    // A VERDACCIO_PUBLIC_URL of `https://registry.example.com/base//` reaches us
+    // with both slashes intact, and the base url is used as an `.npmrc` key.
+    vi.mocked(getPublicUrl)
+      .mockReturnValueOnce("https://registry.example.com/base//")
+      .mockReturnValueOnce("https://registry.example.com/base//");
+
+    const req = {
+      hostname: "registry.example.com",
+      protocol: "https",
+      ip: "127.0.0.1",
+      headers: {},
+    } as Request;
+
+    expect(getBaseUrl("/prefix", req, true)).toBe("https://registry.example.com/base");
+    expect(getBaseUrl("/prefix", req)).toBe("https://registry.example.com/base//");
+  });
 });
 
 describe("getFullUrl", () => {

@@ -78,7 +78,7 @@ export function isNowBefore(expireAt: number): boolean {
 export function getBaseUrl(urlPrefix: string, req: Request, noTrailingSlash = false): string {
   const base = getPublicUrl(urlPrefix, req);
 
-  return noTrailingSlash ? base.replace(/\/$/, "") : base;
+  return noTrailingSlash ? stripTrailingSlashes(base) : base;
 }
 
 /**
