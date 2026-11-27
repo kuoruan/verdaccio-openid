@@ -5,7 +5,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { SESSION_EXCHANGE_TIMEOUT_MS } from "@/client/constants";
+import { dialogOpenIDLoginTestId, loginButtonSelector, SESSION_EXCHANGE_TIMEOUT_MS } from "@/client/constants";
 import { init, retry } from "@/client/init";
 
 const { clearCredentials, isUITokenExpired, saveCredentials } = vi.hoisted(() => ({
@@ -177,6 +177,62 @@ describe("init", () => {
 
     expect(clearCredentials).toHaveBeenCalled();
     expect(location.assign).toHaveBeenCalledWith("https://registry.example.com/");
+  });
+
+  it("intercepts a click on a node nested inside the login button", async () => {
+    document.body.innerHTML = `<button type="button" data-testid="header--button-login"><span id="label"><svg><path id="icon"></path></svg></span></button>`;
+
+    await init();
+
+    // The target is the deep node, not the button the selector matches.
+    document.getElementById("icon")!.dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true }));
+
+    expect(location.assign).toHaveBeenCalledWith("https://registry.example.com/-/oauth/authorize");
+  });
+
+  it("ignores a click whose target is not an element", async () => {
+    await init();
+
+    expect(() => document.dispatchEvent(new MouseEvent("click", { bubbles: true }))).not.toThrow();
+    expect(location.assign).not.toHaveBeenCalled();
+  });
+
+  describe("with the password login kept", () => {
+    const DIALOG = `<div data-testid="login--dialog"><div class="MuiDialogContent-root"></div></div>`;
+    const injectedButtons = () => document.querySelectorAll(`[data-testid="${dialogOpenIDLoginTestId}"]`);
+
+    beforeEach(() => {
+      window.__VERDACCIO_OPENID_OPTIONS = { keepPasswdLogin: true, loginButtonText: "Login with OpenID Connect" };
+    });
+
+    it("adds the button to a dialog that mounts after the click", async () => {
+      await init();
+
+      expect(injectedButtons()).toHaveLength(0);
+
+      document.querySelector<HTMLElement>(loginButtonSelector)!.click();
+
+      // The dialog is mounted during the ~25ms it takes the host to render it.
+      vi.advanceTimersByTime(0);
+      expect(injectedButtons()).toHaveLength(0);
+
+      document.body.insertAdjacentHTML("beforeend", DIALOG);
+      vi.advanceTimersByTime(100);
+
+      expect(injectedButtons()).toHaveLength(1);
+    });
+
+    it("does not add the button twice when the dialog is clicked again", async () => {
+      await init();
+      document.body.insertAdjacentHTML("beforeend", DIALOG);
+
+      for (const _ of [1, 2]) {
+        document.querySelector<HTMLElement>(loginButtonSelector)!.click();
+        vi.advanceTimersByTime(200);
+      }
+
+      expect(injectedButtons()).toHaveLength(1);
+    });
   });
 });
 

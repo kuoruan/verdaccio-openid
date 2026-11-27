@@ -27,18 +27,6 @@ import { getBaseUrl } from "./utils";
 import { injectOpenIDStyles, syncUsage } from "./usage-panels";
 
 /**
- * Drop the query params left over from the login redirect and reload.
- *
- * Uses `history.replaceState` rather than `location.href` so the redirect URL
- * does not end up in the browser history.
- */
-function reloadToPathname() {
-  history.replaceState(null, "", location.pathname);
-
-  location.reload();
-}
-
-/**
  * Run an action `times` times via `setTimeout`, each `100 * i` ms apart.
  *
  * Calls run unconditionally, but the ones still pending become no-ops as soon
@@ -69,7 +57,7 @@ export function retry(action: () => void, times = 5, isDone?: () => boolean): vo
  * @returns whether the matched element appears in the event's composed path
  */
 function hasElementInPath(selector: string, e: MouseEvent): boolean {
-  const path = e.path || e.composedPath?.();
+  const path = e.composedPath();
   // A selector can match several controls (e.g. both logout entries); any of
   // them in the path means the click belongs to this plugin.
   return Array.from(document.querySelectorAll(selector)).some((element) => path.includes(element));
@@ -147,34 +135,38 @@ function addOpenIDLoginButton(callback: () => void): void {
  * We replace this behaviour and instead redirect to the route that handles OAuth.
  */
 export async function init(): Promise<void> {
+  const baseUrl = getBaseUrl(true);
   const { code } = parseQueryParams(location.search);
 
-  if (await didExchangeCredentials(code)) {
-    reloadToPathname();
-    return;
-  }
+  const exchanged = await didExchangeCredentials(code, baseUrl);
 
   // A code that could not be exchanged must not stay in the URL: it is spent or
   // it never belonged to this browser, and the next login needs a clean address.
+  // `replaceState` keeps the redirect URL out of the browser history.
   if (code) {
     history.replaceState(null, "", location.pathname);
+  }
+
+  if (exchanged) {
+    location.reload();
+    return;
   }
 
   if (isUITokenExpired()) {
     clearCredentials();
   }
 
-  const baseUrl = getBaseUrl(true);
-
   const gotoOpenIDLoginUrl = () => {
     location.assign(baseUrl + loginHref);
   };
 
-  if (window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin) {
-    const updateLoginDialog = () => addOpenIDLoginButton(gotoOpenIDLoginUrl);
+  // With the password login kept, the dialog mounts after the click that opens
+  // it, so the button is added from the same listener that refreshes the panels.
+  const updateLoginDialog = window.__VERDACCIO_OPENID_OPTIONS?.keepPasswdLogin
+    ? () => addOpenIDLoginButton(gotoOpenIDLoginUrl)
+    : undefined;
 
-    document.addEventListener("click", () => retry(updateLoginDialog, 2));
-  } else {
+  if (!updateLoginDialog) {
     interruptClick(loginButtonSelector, gotoOpenIDLoginUrl);
   }
 
@@ -191,7 +183,11 @@ export async function init(): Promise<void> {
 
   // Dialogs mount ~25ms after the click that opened them, history buttons fire
   // no click at all.
-  document.addEventListener("click", () => retry(syncUsage, 3));
+  document.addEventListener("click", () => {
+    if (updateLoginDialog) retry(updateLoginDialog, 2);
+
+    retry(syncUsage, 3);
+  });
   window.addEventListener("popstate", () => retry(syncUsage, 2));
 }
 
@@ -204,9 +200,11 @@ export async function init(): Promise<void> {
  * are never trusted on their own, so a link cannot sign this browser in as
  * somebody else.
  *
+ * @param code the one-time code from the redirect, if any
+ * @param baseUrl the registry base URL, without a trailing slash
  * @returns whether a complete set of credentials was stored
  */
-async function didExchangeCredentials(code: string | undefined): Promise<boolean> {
+async function didExchangeCredentials(code: string | undefined, baseUrl: string): Promise<boolean> {
   if (!code) {
     return false;
   }
@@ -216,7 +214,7 @@ async function didExchangeCredentials(code: string | undefined): Promise<boolean
   const timer = setTimeout(() => controller.abort(), SESSION_EXCHANGE_TIMEOUT_MS);
 
   try {
-    const response = await fetch(getBaseUrl(true) + sessionPath, {
+    const response = await fetch(baseUrl + sessionPath, {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
