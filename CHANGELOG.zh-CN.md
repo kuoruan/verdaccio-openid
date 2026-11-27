@@ -1,5 +1,29 @@
 # verdaccio-openid
 
+## v0.21.0
+
+_发布于 2026-11-27_
+
+### Minor Changes
+
+- 登录凭证不再放在重定向 URL 里，而是交给发起登录的浏览器：HttpOnly cookie 绑定浏览器，重定向只带一次性 code，浏览器再用同源 `POST /-/oauth/session` 出示该 cookie 领取凭证。npm WebAuth 登录同样绑定。待领取的凭证存放在所配存储的独立 key 下；Redis、MongoDB 和 DynamoDB 以一次操作取出并删除，in-memory 仅覆盖本进程，file 后端先读后删且无锁，单进程使用。
+- 新增 `--no-proxy`，用于忽略代理环境变量，直接连接；新增 `--unsafe-urls`，用于跳过对返回的登录与 token URL 的协议、凭据、origin 与路径检查。`--unsafe-urls` 仅用于信任的 registry：恶意 registry 可能把任意协议的 URL 交给系统打开，或让 CLI 轮询其他 origin 获取 token。TLS 证书验证仍然启用。
+- CLI 改走 npm 自身的 Web 登录协议（`POST /-/v1/login`，打开 `loginUrl` 并轮询 `doneUrl`）：token 经服务端应答的轮询连接返回，不再经过无身份验证的本地回调服务器。该协议自 `0.14.0` 起已有应答，这条路径无需同步升级；更早的服务端没有该端点，不在此 CLI 支持范围内。 服务端不再为旧的本地回调协议签发 token：`GET /-/oauth/authorize/cli` 与 `GET /-/oauth/callback/cli`（`CliFlow`）一律返回 `400 this login flow is no longer supported: CLI 0.20.0 and older must upgrade to 0.21.0 or newer (npx verdaccio-openid@latest)`，不再重定向 token。CLI `0.20.0` 及更早版本使用该链路，且不校验回调来源就接受其中携带的 token，这个缺口只能由客户端关闭。请用 `npx verdaccio-openid@latest` 升级 CLI；新版 CLI 对 `0.14.0` 及之后的服务端直接可用，两者无需同时升级。这对旧 CLI 是破坏性变更，因此发布为 `0.21.0` 而非补丁版本。
+- 出站请求遵循 `http_proxy`、`https_proxy` 和 `no_proxy`：服务端从 Verdaccio 配置读取，CLI 登录从自身环境变量读取。 去掉 `@gitbeaker/rest`：GitLab 分组改经该传输逐页读取。
+- GitLab 组按完整路径而非组名匹配。 `provider-type: gitlab` 时用户组取自组名，但组名不唯一、也不保留：有建组权限的人可以建一个与目标组同名的组来匹配 `authorized-groups`。现在组取自 GitLab 保证唯一的完整路径（`team/backend`，顶层组为 `backend`）。 组名不是完整路径的配置需要更新。顶层组不受影响，因为名称与路径通常一致。位于 `team` 下、配置为 `backend` 的组，需要在 `auth` 与 `middlewares` 两个 section 的 `authorized-groups` 和 `group-users` 里都改成 `team/backend`。
+
+### Patch Changes
+
+- 客户端脚本不再按插件版本命名：构建产出一个内容哈希文件并记入不公开的 manifest，页面加载该文件而非 `verdaccio-openid-<version>.js`。独立状态页的标题不再写插件版本。发布的包只带本次构建的资源。
+- 默认 security 配置改用本地小函数合并，不再依赖 `deepmerge`，减少一个运行时依赖。应用的默认值与宿主覆盖的键保持不变。
+- 去掉 `global-agent`：出站请求已走按实例创建的代理传输。服务端与 CLI 登录在使用代理时会记录脱敏后的代理配置，未使用时不输出。
+- 用 `node:util` 的 `parseArgs` 取代 `minimist` 依赖。
+- 加固登录周边的环节而非登录本身：页面转义展示内容，回退链接只留在本站；CLI 在打印服务端消息前清除终端控制序列；未设置的 store `ttl` 不再传入，无效的 `ttl` 直接报配置错误；file 存储目录保持 `0700`；不再记录代理密码；Redis 用户信息以 JSON 存取。 新的 web 登录路径（见 `cli-web-login` changeset）对 `0.14.0` 及之后的服务端直接可用，无需同步升级。
+- 读取 JSON 时只把纯对象当作对象：从用户信息缓存读回的数组、或传给 `setUserInfo` 的数组，现在会被拒绝，而不再当作记录使用。
+- 构建时压缩客户端和状态页的内联 CSS，并优化客户端登录图标。
+- 将 store 接口按领域切分为 `OpenIDStateStore`、`ProviderCache`、`WebAuthnStore`、`LoginResultStore` 四片，每条登录链路只依赖自己用的那片。登录结果改为类型化对象而非 JSON 字符串：序列化下沉到后端，损坏的行按未命中处理；WebAuthn 会话是 `pending`/`ready` 取值，未完成的登录取不走。各处未命中统一为 `undefined`，缓存方法不再可选。除 Redis user info 行外存储格式不变：它之前是 hash（会把数组和嵌套对象压成字符串），现在是 JSON 字符串。旧版本写入的行会被读成一次未命中然后替换；升级期间不要让新旧版本共用同一个 Redis 库。
+- 使用 `body-parser` 解析 JSON 请求体，不再在运行时依赖 Express。
+
 ## v0.20.0
 
 _发布于 2026-11-24_
