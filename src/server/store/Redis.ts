@@ -4,6 +4,8 @@ import { DEFAULT_DATA_TTL_MS, DEFAULT_STATE_TTL_MS, PENDING_TOKEN } from "./cons
 import { importOptional } from "@/server/utils";
 import { isNull, isObject, safeJsonParse } from "@/utils";
 
+import { isDataKind } from "./utils";
+
 import {
   BaseStore,
   type TakeKind,
@@ -15,33 +17,89 @@ import {
   type StoredValues,
 } from "./Store";
 
-// Read the value and delete it in one step, so a second reader finds nothing.
-const TAKE_LOGIN_RESULT_SCRIPT = `
+/**
+ * Read a consumable row and delete it in one step. `ARGV[1]` is the value to keep;
+ * with no ARGV every string read is consumed.
+ */
+const TAKE_VALUE_SCRIPT = `
 local value = redis.call("GET", KEYS[1])
-if not value then
-  return false
-end
-redis.call("DEL", KEYS[1])
-return value
-`;
-
-const TAKE_WEB_AUTHN_TOKEN_SCRIPT = `
-local value = redis.call("GET", KEYS[1])
-if not value then
-  return false
-end
-if value ~= ARGV[1] then
+if value and value ~= ARGV[1] then
   redis.call("DEL", KEYS[1])
 end
 return value
 `;
 
+type RedisConnection = RedisClient | Cluster;
+
+type RedisCodec = {
+  read: (redis: RedisConnection, rowKey: string) => Promise<unknown>;
+  write: (redis: RedisConnection, rowKey: string, value: unknown, ttl: number) => Promise<void>;
+};
+
+async function readString(redis: RedisConnection, rowKey: string): Promise<string | undefined> {
+  return (await redis.get(rowKey)) ?? undefined;
+}
+
+function writeString(redis: RedisConnection, rowKey: string, value: unknown, ttl: number): Promise<void> {
+  // ioredis answers SET with `"OK" | null`, which is not a `Promise<void>`.
+  return redis.set(rowKey, value as string, "PX", ttl).then(() => {});
+}
+
+const REDIS_CODECS: Record<StoreKind, RedisCodec> = {
+  state: { read: readString, write: writeString },
+  webAuthn: { read: readString, write: writeString },
+  loginResult: { read: readString, write: writeString },
+  userInfo: {
+    read: async (redis, rowKey) => {
+      let raw: string | null;
+
+      try {
+        raw = await redis.get(rowKey);
+      } catch (error: any) {
+        // A hash written by an earlier version answers GET with WRONGTYPE. Treat it
+        // as a miss, so the caller refetches and stores it in the current format.
+        if (error?.message?.includes("WRONGTYPE")) {
+          await redis.del(rowKey);
+
+          return undefined;
+        }
+
+        throw error;
+      }
+
+      if (isNull(raw)) return undefined;
+
+      const parsed: unknown = safeJsonParse(raw);
+
+      return isObject(parsed) ? parsed : undefined;
+    },
+    // JSON keeps the shape of the claims: a hash would stringify arrays and
+    // nested objects, so the groups read back would no longer match.
+    write: (redis, rowKey, value, ttl) => writeString(redis, rowKey, JSON.stringify(value), ttl),
+  },
+  userGroups: {
+    read: async (redis, rowKey) => {
+      const groups = await redis.lrange(rowKey, 0, -1);
+
+      return groups.length === 0 ? undefined : groups;
+    },
+    write: async (redis, rowKey, value, ttl) => {
+      const pipeline = redis.multi();
+
+      pipeline.del(rowKey);
+      pipeline.rpush(rowKey, ...(value as string[]));
+      pipeline.pexpire(rowKey, ttl);
+
+      await pipeline.exec();
+    },
+  },
+};
+
 /** Store backed by Redis, so state and caches survive a restart and can be shared. */
 export default class RedisStore extends BaseStore implements Store {
   private readonly ttl: number;
   private readonly config?: Omit<RedisConfig, "ttl"> | string;
-  private redis?: RedisClient | Cluster;
-  private redisPromise?: Promise<RedisClient | Cluster>;
+  private redisPromise?: Promise<RedisConnection>;
 
   constructor(opts?: RedisConfig | string) {
     super();
@@ -56,9 +114,7 @@ export default class RedisStore extends BaseStore implements Store {
     }
   }
 
-  private async getClient(): Promise<RedisClient | Cluster> {
-    if (this.redis) return this.redis;
-
+  private async getClient(): Promise<RedisConnection> {
     this.redisPromise ??= (async () => {
       try {
         const { Cluster, Redis } = await importOptional(
@@ -67,24 +123,23 @@ export default class RedisStore extends BaseStore implements Store {
         );
 
         if (!this.config) {
-          this.redis = new Redis();
-        } else if (typeof this.config === "string") {
-          this.redis = new Redis(this.config);
-        } else if (this.config?.nodes?.length) {
+          return new Redis();
+        }
+        if (typeof this.config === "string") {
+          return new Redis(this.config);
+        }
+        if (this.config?.nodes?.length) {
           const { nodes, username, password, redisOptions, ...restOpts } = this.config as Omit<
             RedisClusterConfig,
             "ttl"
           >;
 
-          this.redis = new Cluster(nodes, {
+          return new Cluster(nodes, {
             redisOptions: { username, password, ...redisOptions },
             ...restOpts,
           });
-        } else {
-          this.redis = new Redis(this.config);
         }
-
-        return this.redis;
+        return new Redis(this.config);
       } catch (err) {
         this.redisPromise = undefined;
         throw err;
@@ -100,45 +155,9 @@ export default class RedisStore extends BaseStore implements Store {
     context?: StoreContext,
   ): Promise<StoredValues[K] | undefined> {
     const redis = await this.getClient();
-
     const rowKey = this.rowKey(kind, key, context);
 
-    switch (kind) {
-      case "state":
-      case "webAuthn":
-      case "loginResult":
-        return ((await redis.get(rowKey)) ?? undefined) as StoredValues[K] | undefined;
-      case "userInfo": {
-        let raw: string | null;
-
-        try {
-          raw = await redis.get(rowKey);
-        } catch (error: any) {
-          // A hash written by an earlier version answers GET with WRONGTYPE. Treat it
-          // as a miss, so the caller refetches and stores it in the current format.
-          if (error?.message?.includes("WRONGTYPE")) {
-            await redis.del(rowKey);
-
-            return undefined;
-          }
-
-          throw error;
-        }
-
-        if (isNull(raw)) return undefined;
-
-        const parsed: unknown = safeJsonParse(raw);
-
-        return (isObject(parsed) ? parsed : undefined) as StoredValues[K] | undefined;
-      }
-      case "userGroups": {
-        const groups = await redis.lrange(rowKey, 0, -1);
-
-        if (groups.length === 0) return undefined;
-
-        return groups as StoredValues[K];
-      }
-    }
+    return (await REDIS_CODECS[kind].read(redis, rowKey)) as StoredValues[K] | undefined;
   }
 
   protected async write<K extends StoreKind>(
@@ -148,31 +167,10 @@ export default class RedisStore extends BaseStore implements Store {
     context?: StoreContext,
   ): Promise<void> {
     const redis = await this.getClient();
-
     const rowKey = this.rowKey(kind, key, context);
+    const ttl = isDataKind(kind) ? DEFAULT_DATA_TTL_MS : this.ttl;
 
-    switch (kind) {
-      case "state":
-      case "webAuthn":
-      case "loginResult":
-        await redis.set(rowKey, value as string, "PX", this.ttl);
-        return;
-      case "userInfo":
-        // JSON keeps the shape of the claims: a hash would stringify arrays and
-        // nested objects, so the groups read back would no longer match.
-        await redis.set(rowKey, JSON.stringify(value), "PX", DEFAULT_DATA_TTL_MS);
-        return;
-      case "userGroups": {
-        const pipeline = redis.multi();
-
-        pipeline.del(rowKey);
-        pipeline.rpush(rowKey, ...(value as string[]));
-        pipeline.pexpire(rowKey, DEFAULT_DATA_TTL_MS);
-
-        await pipeline.exec();
-        return;
-      }
-    }
+    await REDIS_CODECS[kind].write(redis, rowKey, value, ttl);
   }
 
   protected async remove(kind: StoreKind, key: string, context?: StoreContext): Promise<void> {
@@ -184,33 +182,23 @@ export default class RedisStore extends BaseStore implements Store {
   protected async take(kind: TakeKind, key: string, context?: StoreContext): Promise<string | undefined> {
     const redis = await this.getClient();
 
-    let response: unknown;
-    switch (kind) {
-      case "webAuthn":
-        response = await redis.eval(
-          TAKE_WEB_AUTHN_TOKEN_SCRIPT,
-          1,
-          this.rowKey("webAuthn", key, context),
-          PENDING_TOKEN,
-        );
-        break;
-      case "loginResult":
-        response = await redis.eval(TAKE_LOGIN_RESULT_SCRIPT, 1, this.rowKey("loginResult", key, context));
-        break;
-    }
+    const keep = kind === "webAuthn" ? [PENDING_TOKEN] : [];
+
+    const response = await redis.eval(TAKE_VALUE_SCRIPT, 1, this.rowKey(kind, key, context), ...keep);
 
     return typeof response === "string" ? response : undefined;
   }
 
   async close(): Promise<void> {
-    let redis: RedisClient | Cluster | undefined;
+    let redis: RedisConnection | undefined;
 
     try {
-      redis = this.redis ?? (await this.redisPromise);
+      redis = await this.redisPromise;
     } catch {
       // initialization failed, nothing to disconnect
     }
 
+    this.redisPromise = undefined;
     if (!redis) return;
 
     try {
@@ -218,8 +206,5 @@ export default class RedisStore extends BaseStore implements Store {
     } catch {
       redis.disconnect();
     }
-
-    this.redis = undefined;
-    this.redisPromise = undefined;
   }
 }

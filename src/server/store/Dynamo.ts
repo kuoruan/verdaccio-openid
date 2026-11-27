@@ -5,7 +5,7 @@ import logger from "@/server/logger";
 import { importOptional } from "@/server/utils";
 import { isUndefined } from "@/utils";
 
-import { validateStoredValue } from "./utils";
+import { isDataKind, validateStoredValue } from "./utils";
 
 import {
   BaseStore,
@@ -84,7 +84,7 @@ function classify(err: unknown): "transient" | "permanent" {
  *   3. TLS to DynamoDB is enforced by the AWS SDK by default
  *      (HTTPS-only public endpoint).
  *   4. User-controlled `key` parameters (e.g. session IDs, OIDC
- *      state nonces) are bounded in size by assertSize() so a
+ *      state nonces) are bounded in size by validateStoredValue() so a
  *      hostile client cannot blow the 400 KB DynamoDB item limit
  *      or run up the bill with pathological payloads.
  *
@@ -117,7 +117,6 @@ export default class DynamoStore extends BaseStore implements Store {
   private readonly pk: string;
   private readonly stateTTLSeconds: number;
   private readonly dataTTLSeconds: number;
-  private client?: DynamoDBDocumentClient;
   private clientPromise?: Promise<DynamoDBDocumentClient>;
 
   constructor(opts?: DynamoConfig) {
@@ -140,8 +139,6 @@ export default class DynamoStore extends BaseStore implements Store {
   }
 
   private async getClient(): Promise<DynamoDBDocumentClient> {
-    if (this.client) return this.client;
-
     this.clientPromise ??= (async () => {
       try {
         const [{ DynamoDBClient }, { DynamoDBDocumentClient }] = await Promise.all([
@@ -156,10 +153,9 @@ export default class DynamoStore extends BaseStore implements Store {
         ]);
 
         const raw = new DynamoDBClient({ region: this.config.region });
-        this.client = DynamoDBDocumentClient.from(raw, {
+        return DynamoDBDocumentClient.from(raw, {
           marshallOptions: { removeUndefinedValues: true },
         });
-        return this.client;
       } catch (err) {
         this.clientPromise = undefined;
         throw err;
@@ -265,7 +261,7 @@ export default class DynamoStore extends BaseStore implements Store {
   ): Promise<StoredValues[K] | undefined> {
     // `state`, `webAuthn` and `loginResult` are read right after a write on
     // another connection, so they ask for a strongly consistent read.
-    const consistent = kind !== "userInfo" && kind !== "userGroups";
+    const consistent = !isDataKind(kind);
     const item = await this.get<Record<string, unknown>>(this.rowKey(kind, key, context), consistent);
 
     return item?.[ROW_FIELD[kind]] as StoredValues[K] | undefined;
@@ -278,7 +274,7 @@ export default class DynamoStore extends BaseStore implements Store {
     context?: StoreContext,
   ): Promise<void> {
     // State-bound kinds keep the configured state TTL; cached userinfo keeps the data TTL.
-    const ttl = kind === "userInfo" || kind === "userGroups" ? this.dataTTLSeconds : this.stateTTLSeconds;
+    const ttl = isDataKind(kind) ? this.dataTTLSeconds : this.stateTTLSeconds;
 
     await this.put(this.rowKey(kind, key, context), { [ROW_FIELD[kind]]: value }, ttl);
   }
@@ -384,15 +380,14 @@ export default class DynamoStore extends BaseStore implements Store {
     let client: DynamoDBDocumentClient | undefined;
 
     try {
-      client = this.client ?? (await this.clientPromise);
+      client = await this.clientPromise;
     } catch {
       // initialization failed, nothing to destroy
     }
 
+    this.clientPromise = undefined;
     if (!client) return;
 
     client.destroy();
-    this.client = undefined;
-    this.clientPromise = undefined;
   }
 }

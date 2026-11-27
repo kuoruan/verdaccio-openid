@@ -3,10 +3,8 @@ import type { ClusterNode as RedisClusterNode, ClusterOptions as RedisClusterOpt
 import type { InitOptions as FileInitOptions } from "node-persist";
 
 import { webAuthnProviderId } from "@/server/constants";
-import { isObject, isUndefined, safeJsonStringify } from "@/utils";
+import { isObject, isUndefOrNull, isUndefined, safeJsonParse, safeJsonStringify } from "@/utils";
 import { loginResultNamespace, PENDING_TOKEN } from "./constants";
-
-import { parseLoginResult, toWebAuthnSession } from "./utils";
 
 /** The credentials a finished login hands to the browser. */
 export interface LoginResult {
@@ -206,16 +204,24 @@ export abstract class BaseStore {
     return this.writeValidated("state", key, nonce, { providerId });
   }
 
-  async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
+  /** Report an oversized key as a miss: it can never match a stored row. */
+  private async readValidated<K extends StoreKind>(
+    kind: K,
+    key: string,
+    read: () => MaybePromise<StoredValues[K] | undefined>,
+    context?: StoreContext,
+  ): Promise<StoredValues[K] | undefined> {
     try {
-      this.validate("state", key, undefined, { providerId });
+      this.validate(kind, key, undefined, context);
     } catch {
-      // An oversized key can never match a stored row: report it as a
-      // miss instead of failing the login. The storage call stays outside
-      // the catch so database errors still propagate.
       return undefined;
     }
-    return this.read("state", key, { providerId });
+    // The storage call stays outside the catch so database errors still propagate.
+    return read();
+  }
+
+  async getOpenIDState(key: string, providerId: string): Promise<string | undefined> {
+    return this.readValidated("state", key, () => this.read("state", key, { providerId }), { providerId });
   }
 
   async deleteOpenIDState(key: string, providerId: string): Promise<void> {
@@ -232,12 +238,7 @@ export abstract class BaseStore {
   }
 
   async getUserInfo(key: string, providerId: string): Promise<Record<string, unknown> | undefined> {
-    try {
-      this.validate("userInfo", key, undefined, { providerId });
-    } catch {
-      return undefined;
-    }
-    return this.read("userInfo", key, { providerId });
+    return this.readValidated("userInfo", key, () => this.read("userInfo", key, { providerId }), { providerId });
   }
 
   setUserGroups(key: string, groups: string[], providerId: string): MaybePromise<void> {
@@ -251,12 +252,9 @@ export abstract class BaseStore {
   }
 
   async getUserGroups(key: string, providerId: string): Promise<string[] | undefined> {
-    try {
-      this.validate("userGroups", key, undefined, { providerId });
-    } catch {
-      return undefined;
-    }
-    return this.read("userGroups", key, { providerId });
+    return this.readValidated("userGroups", key, () => this.read("userGroups", key, { providerId }), {
+      providerId,
+    });
   }
 
   setWebAuthnSession(key: string, session: WebAuthnSession): MaybePromise<void> {
@@ -265,17 +263,21 @@ export abstract class BaseStore {
   }
 
   async getWebAuthnSession(key: string): Promise<WebAuthnSession | undefined> {
-    try {
-      this.validate("webAuthn", key, undefined);
-    } catch {
-      return undefined;
-    }
-    return toWebAuthnSession(await this.read("webAuthn", key));
+    const raw = await this.readValidated("webAuthn", key, () => this.read("webAuthn", key));
+
+    if (isUndefOrNull(raw)) return undefined;
+
+    return raw === PENDING_TOKEN ? { status: "pending" } : { status: "ready", token: raw };
   }
 
   async takeWebAuthnSession(key: string): Promise<WebAuthnSession | undefined> {
     this.validate("webAuthn", key, undefined);
-    return toWebAuthnSession(await this.take("webAuthn", key, undefined));
+
+    const raw = await this.take("webAuthn", key, undefined);
+
+    if (isUndefOrNull(raw)) return undefined;
+
+    return raw === PENDING_TOKEN ? { status: "pending" } : { status: "ready", token: raw };
   }
 
   async deleteWebAuthnSession(key: string): Promise<void> {
@@ -293,12 +295,21 @@ export abstract class BaseStore {
   }
 
   async takeLoginResult(key: string): Promise<LoginResult | undefined> {
-    try {
-      this.validate("loginResult", key, undefined);
-    } catch {
+    const raw = await this.readValidated("loginResult", key, () => this.take("loginResult", key, undefined));
+
+    // A row written by another version, or corrupted on disk, must not reach the
+    // browser: it is reported as a miss instead of failing the exchange.
+    if (typeof raw !== "string") return undefined;
+
+    const parsed = safeJsonParse(raw);
+
+    const { username, uiToken, npmToken } = isObject(parsed) ? parsed : {};
+
+    if (typeof username !== "string" || typeof uiToken !== "string" || typeof npmToken !== "string") {
       return undefined;
     }
-    return parseLoginResult(await this.take("loginResult", key, undefined));
+
+    return { username, uiToken, npmToken };
   }
 }
 

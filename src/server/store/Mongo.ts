@@ -5,7 +5,7 @@ import logger from "@/server/logger";
 import { importOptional } from "@/server/utils";
 import { isUndefined } from "@/utils";
 
-import { validateStoredValue } from "./utils";
+import { isDataKind, validateStoredValue } from "./utils";
 
 import {
   BaseStore,
@@ -127,7 +127,6 @@ export default class MongoStore extends BaseStore implements Store {
   private readonly stateTTL: number;
   private readonly dataTTL: number;
   private client?: MongoClient;
-  private collection?: Collection<StoreDocument>;
   private collectionPromise?: Promise<Collection<StoreDocument>>;
 
   constructor(opts: MongoConfig) {
@@ -156,8 +155,6 @@ export default class MongoStore extends BaseStore implements Store {
   }
 
   private async getCollection(): Promise<Collection<StoreDocument>> {
-    if (this.collection) return this.collection;
-
     this.collectionPromise ??= (async () => {
       try {
         const { MongoClient } = await importOptional(
@@ -175,8 +172,6 @@ export default class MongoStore extends BaseStore implements Store {
           await this.ensureTTLIndex(collection);
 
           this.client = client;
-          this.collection = collection;
-
           return collection;
         } catch (err) {
           await client.close().catch(() => undefined);
@@ -278,8 +273,7 @@ export default class MongoStore extends BaseStore implements Store {
     value: StoredValues[K],
     context?: StoreContext,
   ): Promise<void> {
-    // State-bound kinds keep the configured state TTL; cached userinfo keeps the data TTL.
-    const ttl = kind === "userInfo" || kind === "userGroups" ? this.dataTTL : this.stateTTL;
+    const ttl = isDataKind(kind) ? this.dataTTL : this.stateTTL;
 
     await this.put(this.rowKey(kind, key, context), { [ROW_FIELD[kind]]: value }, ttl);
   }
@@ -366,7 +360,6 @@ export default class MongoStore extends BaseStore implements Store {
     const client = this.client;
 
     this.client = undefined;
-    this.collection = undefined;
     this.collectionPromise = undefined;
 
     if (!client) return;

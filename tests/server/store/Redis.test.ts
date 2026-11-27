@@ -274,12 +274,10 @@ describe("RedisStore", () => {
 
     expect(redisClient.eval).toHaveBeenCalledTimes(1);
     expect(redisClient.eval).toHaveBeenCalledWith(expect.any(String), 1, "openid-login:login:state-1");
-    const [script] = redisClient.eval.mock.calls[0] as [string];
-    // The delete is part of the script, so a second reader finds nothing.
-    expect(script).toContain('redis.call("DEL", KEYS[1])');
-    // The login script takes no ARGV: a PENDING_TOKEN here would mean the
-    // webAuthn script was dispatched by mistake.
-    expect(script).not.toContain("ARGV");
+    const [, , , ...argv] = redisClient.eval.mock.calls[0] as [string, number, string, ...unknown[]];
+    // The shared take script keeps the row named by ARGV[1]; the login call
+    // passes no ARGV, so the row is always consumed.
+    expect(argv).toEqual([]);
   });
 
   it.each(["webAuthn", "loginResult"] as const)(
@@ -320,5 +318,28 @@ describe("RedisStore", () => {
 
     await expect(store.close()).resolves.toBeUndefined();
     expect(redisClient.disconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it("should reconnect on the next operation after close", async () => {
+    const store = new RedisStore();
+
+    await store.setOpenIDState("key", "nonce", "provider");
+    await store.close();
+
+    expect(redisClient.quit).toHaveBeenCalledTimes(1);
+
+    await store.setOpenIDState("key", "nonce", "provider");
+    expect(RedisCtor).toHaveBeenCalledTimes(2);
+  });
+
+  it("should retry the connection after a failed init", async () => {
+    const store = new RedisStore();
+    RedisCtor.mockImplementationOnce(() => {
+      throw new Error("refused");
+    });
+
+    await expect(store.setOpenIDState("key", "nonce", "provider")).rejects.toThrow("refused");
+    await store.setOpenIDState("key", "nonce", "provider");
+    expect(RedisCtor).toHaveBeenCalledTimes(2);
   });
 });

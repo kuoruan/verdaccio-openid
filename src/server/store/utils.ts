@@ -1,7 +1,7 @@
-import { PENDING_TOKEN, STORE_VALUE_LABELS } from "./constants";
-import { isObject, isUndefOrNull, isUndefined, safeJsonParse } from "@/utils";
+import { STORE_VALUE_LABELS } from "./constants";
+import { isUndefined } from "@/utils";
 
-import type { LoginResult, StoredValues, StoreKind, WebAuthnSession } from "./Store";
+import type { StoredValues, StoreKind } from "./Store";
 
 /** Largest key the DynamoDB and MongoDB backends accept, in bytes (defence in depth). */
 const MAX_KEY_BYTES = 1024;
@@ -9,18 +9,9 @@ const MAX_KEY_BYTES = 1024;
 /** Largest value the DynamoDB and MongoDB backends accept, in bytes (defence in depth). */
 const MAX_VALUE_BYTES = 64 * 1024;
 
-/**
- * Reject an input larger than the backend accepts.
- *
- * @param backend the store name, used as the message prefix
- * @param label what the value is, e.g. `store key`
- * @param value the encoded input
- * @param max the limit, in bytes
- */
-function assertSize(backend: string, label: string, value: string, max: number): void {
-  if (Buffer.byteLength(value, "utf8") > max) {
-    throw new Error(`${backend}: ${label} exceeds ${max} byte limit`);
-  }
+/** Whether a kind holds cached provider data, which shares the data TTL. */
+export function isDataKind(kind: StoreKind): kind is "userInfo" | "userGroups" {
+  return kind === "userInfo" || kind === "userGroups";
 }
 
 /**
@@ -37,47 +28,15 @@ export function validateStoredValue<K extends StoreKind>(
   key: string,
   value: StoredValues[K] | undefined,
 ): void {
-  assertSize(backend, "store key", key, MAX_KEY_BYTES);
-  if (isUndefined(value)) return;
-  assertSize(
-    backend,
-    STORE_VALUE_LABELS[kind],
-    typeof value === "string" ? value : JSON.stringify(value),
-    MAX_VALUE_BYTES,
-  );
-}
-
-/**
- * Map the raw stored token to the session it represents.
- *
- * @param raw the stored value, or null/undefined when there is none
- * @returns the session, or undefined when there is none
- */
-export function toWebAuthnSession(raw: string | null | undefined): WebAuthnSession | undefined {
-  if (isUndefOrNull(raw)) return undefined;
-
-  return raw === PENDING_TOKEN ? { status: "pending" } : { status: "ready", token: raw };
-}
-
-/**
- * Parse the login result a store row holds.
- *
- * A row written by another version, or corrupted on disk, must not reach the
- * browser: it is reported as a miss instead of failing the exchange.
- *
- * @param raw the stored value, or null/undefined when there is none
- * @returns the credentials, or undefined when there is nothing usable
- */
-export function parseLoginResult(raw: unknown): LoginResult | undefined {
-  if (typeof raw !== "string") return undefined;
-
-  const parsed = safeJsonParse(raw);
-
-  const { username, uiToken, npmToken } = isObject(parsed) ? parsed : {};
-
-  if (typeof username !== "string" || typeof uiToken !== "string" || typeof npmToken !== "string") {
-    return undefined;
+  if (Buffer.byteLength(key, "utf8") > MAX_KEY_BYTES) {
+    throw new Error(`${backend}: store key exceeds ${MAX_KEY_BYTES} byte limit`);
   }
 
-  return { username, uiToken, npmToken };
+  if (isUndefined(value)) return;
+
+  const encoded = typeof value === "string" ? value : JSON.stringify(value);
+
+  if (Buffer.byteLength(encoded, "utf8") > MAX_VALUE_BYTES) {
+    throw new Error(`${backend}: ${STORE_VALUE_LABELS[kind]} exceeds ${MAX_VALUE_BYTES} byte limit`);
+  }
 }
