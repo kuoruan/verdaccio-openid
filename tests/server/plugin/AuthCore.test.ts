@@ -264,7 +264,7 @@ describe("AuthCore", () => {
       // auth is not set — signJWT throws synchronously
 
       expect(() => core.issueUiToken("testuser", [])).toThrow(ReferenceError);
-      expect(() => core.issueUiToken("testuser", [])).toThrow("Unexpected error, auth is not initialized");
+      expect(() => core.issueUiToken("testuser", [])).toThrow("Authentication is not initialized.");
     });
   });
 
@@ -468,9 +468,7 @@ describe("AuthCore", () => {
       // auth not set — legacyEncrypt throws synchronously
 
       await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow(ReferenceError);
-      await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow(
-        "Unexpected error, auth is not initialized",
-      );
+      await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow("Authentication is not initialized.");
     });
 
     it("should throw when legacy encryption returns falsy", async () => {
@@ -482,7 +480,7 @@ describe("AuthCore", () => {
       vi.mocked(mockAuthInstance.aesEncrypt).mockReturnValue("" as any);
 
       await expect(core.issueNpmToken("testuser", [], "token")).rejects.toThrow(
-        "Internal server error, failed to encrypt token",
+        "The registry could not encrypt the token.",
       );
     });
   });

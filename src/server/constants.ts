@@ -30,11 +30,22 @@ export const SESSION_ID_REGEX = /^[A-Za-z0-9_-]+$/;
 
 /** Answer for a CLI that still calls the removed loopback login routes. */
 export const messageCliUpgrade =
-  "this login flow is no longer supported: CLI 0.20.0 and older must upgrade to " +
-  "0.21.0 or newer (npx verdaccio-openid@latest)";
+  "This login flow is no longer supported: CLI 0.20.0 and older must upgrade to " +
+  "0.21.0 or newer (npx verdaccio-openid@latest).";
+
+/** The WebAuthn login URL reached the server without the session id it needs. */
+export const messageSessionIdMissing = "The login link is incomplete. Run the login command again.";
+export const messageSessionIdInvalid = "The login link is not valid. Run the login command again.";
+
+/** The WebAuthn session was consumed or expired before the CLI collected it. */
+export const messageSessionExpired = "This login has expired or was already used. Run the login command again.";
 
 export const messageGroupRequired = "You are not a member of the required access group.";
 export const messageLoggedAndCloseWindow = "You have logged in successfully and may close this window.";
+
+/** Shown when the callback does not reach the browser that started the login. */
+export const messageLoginCannotContinue =
+  "This login was started in a different browser or has expired. Start the login again from this browser.";
 
 /**
  * Cookies that bind each login flow to the browser that started it.
@@ -59,9 +70,9 @@ export const LOGIN_COOKIE_MAX_AGE_MS = 5 * 60 * 1000;
 export const ERRORS = {
   INVALID_TOKEN: "Invalid token format",
   INVALID_ID_TOKEN: "Invalid ID token",
-  TOKEN_ENCRYPTION_FAILED_NPM: "Internal server error, failed to encrypt npm token",
-  TOKEN_ENCRYPTION_FAILED: "Internal server error, failed to encrypt token",
-  AUTH_NOT_INITIALIZED: "Unexpected error, auth is not initialized",
+  TOKEN_ENCRYPTION_FAILED_NPM: "The registry could not encrypt the npm token.",
+  TOKEN_ENCRYPTION_FAILED: "The registry could not encrypt the token.",
+  AUTH_NOT_INITIALIZED: "Authentication is not initialized.",
   CONFIGURATION_DISCOVERY_FAILED: "Could not discover OpenID configuration",
   CONFIGURATION_DISCOVERY_RETRY_LATER: "OpenID configuration discovery is cooling down after a recent failure",
   PROVIDER_HOST_NOT_SET: "Provider host is not set",

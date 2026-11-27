@@ -98,7 +98,7 @@ describe("syncUsage", () => {
     syncUsage();
 
     expect(panelText()).toEqual(["npm set registry http://localhost:4873/"]);
-    expect(hint()?.textContent).toBe("Sign in with OpenID Connect to get an auth token.");
+    expect(hint()?.textContent).toBe("Log in with OpenID Connect to get an auth token.");
   });
 
   it("keeps password commands and frames OIDC as an alternative while password login works", () => {
@@ -167,7 +167,7 @@ describe("syncUsage", () => {
     expect(document.querySelector<HTMLElement>('[data-testid="help-login-command"]')!.parentElement!.hidden).toBe(true);
     expect(document.querySelector<HTMLElement>('[data-testid="help-login-yarn-plugin"]')!.hidden).toBe(true);
     expect(document.querySelector('[data-testid="help-guide"] .verdaccio-openid-hint')?.textContent).toBe(
-      "Sign in with OpenID Connect to get an auth token.",
+      "Log in with OpenID Connect to get an auth token.",
     );
   });
 
@@ -185,8 +185,8 @@ describe("syncUsage", () => {
     // The scoped `[data-openid-hidden][hidden]` rule only applies with the marker.
     expect(rows.every((row) => row.hasAttribute(hiddenMarker))).toBe(true);
     expect(rows.map((row) => row.parentElement!.querySelector(".verdaccio-openid-hint")?.textContent)).toEqual([
-      "Sign in with OpenID Connect to get an auth token.",
-      "Sign in with OpenID Connect to get an auth token.",
+      "Log in with OpenID Connect to get an auth token.",
+      "Log in with OpenID Connect to get an auth token.",
     ]);
   });
 
@@ -204,7 +204,7 @@ describe("syncUsage", () => {
 
   it("re-renders the hint after the UI language changes", () => {
     syncUsage();
-    expect(hint()?.textContent).toBe("Sign in with OpenID Connect to get an auth token.");
+    expect(hint()?.textContent).toBe("Log in with OpenID Connect to get an auth token.");
 
     window.localStorage.setItem("language", JSON.stringify("zh-CN"));
     syncUsage();

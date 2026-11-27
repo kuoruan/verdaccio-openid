@@ -58,4 +58,4 @@ npm 自身无法执行 Web Authn 登录时使用 CLI 认证，例如 npm 版本�
 
 本表描述当前版本的服务端。`0.14.0`–`0.20.x` 的服务端仍提供旧的 loopback 流程，旧 CLI 在其上仍可用，但这组组合保留了此次升级要关闭的缺陷：旧客户端不校验回调来源。
 
-服务端收到旧的 `?port=N` 请求时返回 `400 this login flow is no longer supported: CLI 0.20.0 and older must upgrade to 0.21.0 or newer (npx verdaccio-openid@latest)`。
+服务端收到旧的 `?port=N` 请求时返回 `400 This login flow is no longer supported: CLI 0.20.0 and older must upgrade to 0.21.0 or newer (npx verdaccio-openid@latest).`。

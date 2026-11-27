@@ -54,6 +54,10 @@ import { getOpenIDClient } from "@/server/openid/client";
 import { clearLoginCookie, getLoginCookie, setLoginCookie } from "@/server/cookies";
 import {
   messageLoggedAndCloseWindow,
+  messageLoginCannotContinue,
+  messageSessionExpired,
+  messageSessionIdInvalid,
+  messageSessionIdMissing,
   SESSION_ID_LENGTH,
   SESSION_ID_REGEX,
   webAuthnProviderId,
@@ -110,13 +114,13 @@ export class WebAuthFlow implements PluginMiddleware {
     const sessionId = req.query.sessionId as string | undefined;
 
     if (!sessionId) {
-      next(errorUtils.getBadRequest("missing sessionId"));
+      next(errorUtils.getBadRequest(messageSessionIdMissing));
 
       return;
     }
 
     if (!isValidSessionId(sessionId)) {
-      next(errorUtils.getBadRequest("invalid sessionId"));
+      next(errorUtils.getBadRequest(messageSessionIdInvalid));
 
       return;
     }
@@ -125,7 +129,7 @@ export class WebAuthFlow implements PluginMiddleware {
       const session = await this.store.takeWebAuthnSession(sessionId);
 
       if (!session) {
-        next(errorUtils.getUnauthorized("invalid or expired session"));
+        next(errorUtils.getUnauthorized(messageSessionExpired));
 
         return;
       }
@@ -148,13 +152,13 @@ export class WebAuthFlow implements PluginMiddleware {
     const sessionId = req.query.sessionId as string | undefined;
 
     if (!sessionId) {
-      res.status(400).send(buildErrorPage(new Error("missing sessionId")));
+      res.status(400).send(buildErrorPage(new Error(messageSessionIdMissing)));
 
       return;
     }
 
     if (!isValidSessionId(sessionId)) {
-      res.status(400).send(buildErrorPage(new Error("invalid sessionId")));
+      res.status(400).send(buildErrorPage(new Error(messageSessionIdInvalid)));
 
       return;
     }
@@ -184,19 +188,19 @@ export class WebAuthFlow implements PluginMiddleware {
     const sessionId = req.query.state as string | undefined;
 
     if (!sessionId) {
-      res.status(400).send(buildErrorPage(new Error("missing sessionId")));
+      res.status(400).send(buildErrorPage(new Error(messageSessionIdMissing)));
 
       return;
     }
 
     if (!isValidSessionId(sessionId)) {
-      res.status(400).send(buildErrorPage(new Error("invalid sessionId")));
+      res.status(400).send(buildErrorPage(new Error(messageSessionIdInvalid)));
 
       return;
     }
 
     if (getLoginCookie(req, "npm") !== sessionId) {
-      res.status(400).send(buildErrorPage(new Error("login state does not match this browser")));
+      res.status(400).send(buildErrorPage(new Error(messageLoginCannotContinue)));
 
       return;
     }
@@ -205,7 +209,7 @@ export class WebAuthFlow implements PluginMiddleware {
       const session = await this.store.getWebAuthnSession(sessionId);
 
       if (session?.status !== "pending") {
-        res.status(401).send(buildErrorPage(new Error("invalid or expired session")));
+        res.status(401).send(buildErrorPage(new Error(messageSessionExpired)));
 
         return;
       }

@@ -17,4 +17,4 @@ export const CLI_WEB_LOGIN_POLL_INTERVAL_MS = 2_000;
 /** The longest gap the CLI leaves between web-login polls, whatever the server asks for. */
 export const CLI_WEB_LOGIN_MAX_POLL_INTERVAL_MS = 5_000;
 
-export const messageNpmConfigUpdated = "All done. We've updated your npm configuration.";
+export const messageNpmConfigUpdated = "Updated your npm configuration.";

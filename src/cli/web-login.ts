@@ -69,7 +69,7 @@ export async function webLogin(registry: string, options: WebLoginOptions = {}):
     return await pollLogin(done, transport.fetch, signal);
   } catch (error) {
     if (signal.aborted) {
-      throw new Error("login timed out");
+      throw new Error("The login timed out.");
     }
 
     throw error;
@@ -107,7 +107,7 @@ function createLoginTransport(useProxy: boolean) {
   const transport = createTransport(config);
   const proxies = describeProxyConfig(config);
   if (proxies) {
-    logger.info("login uses proxies:", JSON.stringify(proxies));
+    logger.info("Using proxies:", JSON.stringify(proxies));
   }
   return transport;
 }
@@ -189,8 +189,7 @@ async function openLoginPage(login: URL, signal: AbortSignal): Promise<void> {
   } catch (error) {
     if (signal.aborted) throw error;
 
-    logger.error("Failed to open browser window.");
-    logger.warn("Please visit the following URL manually:");
+    logger.error("Could not open a browser. Open this URL to log in:");
     logger.info(login.href);
   } finally {
     openDeadline.cancel();

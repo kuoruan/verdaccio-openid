@@ -11,6 +11,7 @@ import { debug } from "@/server/debugger";
 import logger from "@/server/logger";
 import { getOpenIDClient } from "@/server/openid/client";
 import { clearLoginCookie, getLoginCookie, setLoginCookie } from "@/server/cookies";
+import { messageLoginCannotContinue } from "@/server/constants";
 import { AuthCore } from "@/server/plugin/AuthCore";
 import type { AuthProvider } from "@/server/plugin/AuthProvider";
 import type { PluginMiddleware } from "@/server/plugin/Plugin";
@@ -72,9 +73,7 @@ export class WebFlow implements PluginMiddleware {
       // Only the browser that started this login may finish it. Without this,
       // a login started elsewhere could be completed here with another account.
       if (!isNonEmptyString(state) || getLoginCookie(req, "ui") !== state) {
-        res
-          .status(400)
-          .send(buildErrorPage(new Error("login state does not match this browser"), { backUrl: baseUrl }));
+        res.status(400).send(buildErrorPage(new Error(messageLoginCannotContinue), { backUrl: baseUrl }));
 
         return;
       }

@@ -58,4 +58,4 @@ Use the CLI flow when npm cannot run its own Web Authn login, such as with npm v
 
 This table describes the current server release. Servers `0.14.0`–`0.20.x` still serve the old loopback flow, so an old CLI keeps working there — but that pairing keeps the flaw this upgrade closes: the old client accepts any callback sender.
 
-A server that receives the old `?port=N` request answers `400 this login flow is no longer supported: CLI 0.20.0 and older must upgrade to 0.21.0 or newer (npx verdaccio-openid@latest)`.
+A server that receives the old `?port=N` request answers `400 This login flow is no longer supported: CLI 0.20.0 and older must upgrade to 0.21.0 or newer (npx verdaccio-openid@latest).`.

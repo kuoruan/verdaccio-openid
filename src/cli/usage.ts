@@ -9,7 +9,6 @@ import { getNpmRegistry, isPublicRegistry } from "./npm";
 
 const usageLines = [
   "========================= Usage =========================",
-  "You are using a public npm registry or mirror.",
   "Point npm at your Verdaccio URL first:",
   "",
   "npm config set registry <URL>",
@@ -18,8 +17,8 @@ const usageLines = [
   "",
   `npx ${plugin.name} --registry <URL>`,
   "",
-  "--no-proxy    Connect without using environment proxies.",
-  "--unsafe-urls Skip security checks on login and token URLs (unsafe).",
+  "--no-proxy     Connect without using environment proxies.",
+  "--unsafe-urls  Skip security checks on login and token URLs (unsafe).",
   "========================================================",
 ];
 
@@ -43,12 +42,18 @@ export function validateRegistry(cliRegistry?: unknown): string {
 
   try {
     if (!isUndefined(cliRegistry) && !isNonEmptyString(cliRegistry)) {
-      throw new Error("--registry expects a URL");
+      throw new Error("The --registry option expects a URL.");
     }
     registry = isUndefined(cliRegistry) ? getNpmRegistry() : stripTrailingSlashes(cliRegistry.trim());
-    const url = new URL(registry);
+
+    let url: URL;
+    try {
+      url = new URL(registry);
+    } catch {
+      throw new Error("The registry URL is not valid.");
+    }
     if (url.protocol !== "http:" && url.protocol !== "https:") {
-      throw new Error("registry must use HTTP or HTTPS");
+      throw new Error("The registry must use HTTP or HTTPS.");
     }
     isPublic = isPublicRegistry(url);
   } catch (error) {
@@ -58,6 +63,7 @@ export function validateRegistry(cliRegistry?: unknown): string {
   }
 
   if (isPublic) {
+    logger.error("Refusing to log in to a public npm registry or mirror.");
     printUsage();
     process.exit(1);
   }

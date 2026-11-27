@@ -36,11 +36,11 @@ describe("loginHint", () => {
   });
 
   it("frames OpenID Connect as an alternative when asked", () => {
-    expect(loginHint(true)).toBe("Or sign in with OpenID Connect to get an auth token.");
+    expect(loginHint(true)).toBe("Or log in with OpenID Connect to get an auth token.");
   });
 
   it("states OpenID Connect plainly otherwise", () => {
-    expect(loginHint(false)).toBe("Sign in with OpenID Connect to get an auth token.");
+    expect(loginHint(false)).toBe("Log in with OpenID Connect to get an auth token.");
   });
 });
 

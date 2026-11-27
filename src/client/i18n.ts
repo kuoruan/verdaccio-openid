@@ -23,8 +23,8 @@ type MessageTable = Record<string, Record<MessageKey, string>>;
 const MESSAGES = {
   "en-US": {
     loginDialogDivider: "or",
-    usageLoginHint: "Sign in with OpenID Connect to get an auth token.",
-    usageLoginHintAlternative: "Or sign in with OpenID Connect to get an auth token.",
+    usageLoginHint: "Log in with OpenID Connect to get an auth token.",
+    usageLoginHintAlternative: "Or log in with OpenID Connect to get an auth token.",
   },
   "cs-CZ": {
     loginDialogDivider: "nebo",

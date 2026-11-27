@@ -187,7 +187,7 @@ describe("webLogin", () => {
       http.get(donePath, () => HttpResponse.json({ token: "npm-token" })),
     );
     await expect(login({ useProxy: false, timeoutMs: 60_000 })).resolves.toBe("npm-token");
-    expect(vi.mocked(mockLogger).info).not.toHaveBeenCalledWith("login uses proxies:", expect.anything());
+    expect(vi.mocked(mockLogger).info).not.toHaveBeenCalledWith("Using proxies:", expect.anything());
   }, 15_000);
 
   it("allows cross-origin transaction URLs only with the unsafe option", async () => {
@@ -362,7 +362,7 @@ describe("webLogin", () => {
     const logger = vi.mocked(mockLogger);
     expect(logger.info).toHaveBeenCalledWith(authorizeUrl);
     // Without a proxy in the environment nothing proxy-related is logged.
-    expect(logger.info).not.toHaveBeenCalledWith("login uses proxies:", expect.anything());
+    expect(logger.info).not.toHaveBeenCalledWith("Using proxies:", expect.anything());
     expect(logger.info.mock.invocationCallOrder[0]).toBeLessThan(openMock.mock.invocationCallOrder[0]);
   }, 15_000);
 
@@ -378,7 +378,7 @@ describe("webLogin", () => {
     await expect(login({ timeoutMs: 60_000 })).resolves.toBe("npm-token");
 
     expect(vi.mocked(mockLogger).info).toHaveBeenCalledWith(
-      "login uses proxies:",
+      "Using proxies:",
       JSON.stringify({ no_proxy: "localhost" }),
     );
   }, 15_000);
@@ -399,7 +399,7 @@ describe("webLogin", () => {
     expect(polls).toBe(2);
 
     const logger = vi.mocked(mockLogger);
-    expect(logger.error).toHaveBeenCalledWith("Failed to open browser window.");
+    expect(logger.error).toHaveBeenCalledWith("Could not open a browser. Open this URL to log in:");
     expect(logger.info).toHaveBeenCalledWith(authorizeUrl);
   });
 
@@ -418,8 +418,7 @@ describe("webLogin", () => {
     await expect(login({ timeoutMs: 60_000 })).resolves.toBe("npm-token");
 
     const logger = vi.mocked(mockLogger);
-    expect(logger.error).toHaveBeenCalledWith("Failed to open browser window.");
-    expect(logger.warn).toHaveBeenCalledWith("Please visit the following URL manually:");
+    expect(logger.error).toHaveBeenCalledWith("Could not open a browser. Open this URL to log in:");
     expect(logger.info).toHaveBeenCalledWith(authorizeUrl);
   }, 15_000);
 
@@ -438,8 +437,7 @@ describe("webLogin", () => {
     await expect(login({ timeoutMs: 60_000 })).resolves.toBe("npm-token");
 
     const logger = vi.mocked(mockLogger);
-    expect(logger.error).toHaveBeenCalledWith("Failed to open browser window.");
-    expect(logger.warn).toHaveBeenCalledWith("Please visit the following URL manually:");
+    expect(logger.error).toHaveBeenCalledWith("Could not open a browser. Open this URL to log in:");
     expect(logger.info).toHaveBeenCalledWith(authorizeUrl);
   }, 15_000);
 

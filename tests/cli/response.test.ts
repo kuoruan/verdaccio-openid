@@ -12,7 +12,7 @@ vi.mock("@/cli/npm", () => ({
 }));
 
 vi.mock("@/cli/constants", () => ({
-  messageNpmConfigUpdated: "All done. We've updated your npm configuration.",
+  messageNpmConfigUpdated: "Updated your npm configuration.",
 }));
 
 describe("respondWithCliSuccess", () => {
@@ -25,7 +25,7 @@ describe("respondWithCliSuccess", () => {
   it("reports the updated npm configuration and its path", () => {
     respondWithCliSuccess();
 
-    expect(logger.success).toHaveBeenCalledWith("All done. We've updated your npm configuration.");
+    expect(logger.success).toHaveBeenCalledWith("Updated your npm configuration.");
     expect(logger.info).toHaveBeenCalledWith("Path:", expect.any(String));
   });
 });

@@ -12,8 +12,8 @@ interface Environment {
 }
 
 const english = {
-  hint: "Sign in with OpenID Connect to get an auth token.",
-  alternative: "Or sign in with OpenID Connect to get an auth token.",
+  hint: "Log in with OpenID Connect to get an auth token.",
+  alternative: "Or log in with OpenID Connect to get an auth token.",
 };
 
 /** Stub the two language sources the plugin reads, as the UI would leave them. */
