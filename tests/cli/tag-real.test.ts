@@ -10,7 +10,8 @@
  *   and `{status:"pending",message:"token not ready yet"}`; ready returns a token.
  * - v0.20.0: missing returns 401; pending returns 202 with the same header and
  *   `{}`; ready returns and consumes a token. Session IDs must have 43 characters.
- * - worktree: the current login/done handlers are mounted directly.
+ * - worktree: the current login/done handlers are mounted directly, bypassing
+ *   `register_middlewares`, so the body parser is mounted by hand.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
@@ -18,6 +19,7 @@ import type { Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import bodyParser from "body-parser";
 import express from "express";
 import type { AddressInfo } from "node:net";
 
@@ -195,7 +197,7 @@ describe("compat: webLogin against released login/done", () => {
     const store = mapStore();
     const flow = makeFlow(store);
     const app = express();
-    app.use(express.json());
+    app.use(bodyParser.json());
     app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
     let polls = 0;
     app.get("/prefix/-/v1/done", (req, _res, next) => {
@@ -228,7 +230,9 @@ describe("compat: webLogin against released login/done", () => {
     const store = mapStore();
     const flow = makeFlow(store);
     const app = express();
-    app.use(express.json());
+    // The handlers are mounted directly, so `register_middlewares`, which owns
+    // the body parser, is bypassed and the parser is mounted here instead.
+    app.use(bodyParser.json());
     app.post("/prefix/-/v1/login", (req, res, next) => flow.login(req, res, next));
     app.get("/prefix/-/v1/done", (req, res, next) => flow.done(req, res, next));
 

@@ -42,7 +42,8 @@
  */
 
 import { errorUtils } from "@verdaccio/core";
-import express, { type Application, type Handler } from "express";
+import bodyParser from "body-parser";
+import type { Application, Handler } from "express";
 
 import { npmDonePath, npmLoginPath } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/paths";
@@ -80,7 +81,7 @@ export class WebAuthFlow implements PluginMiddleware {
   ) {}
 
   register_middlewares(app: Application): void {
-    app.post(npmLoginPath, express.json(), this.login);
+    app.post(npmLoginPath, bodyParser.json(), this.login);
     app.get(npmDonePath, this.done);
     app.get(webAuthnAuthorizePath, this.authorize);
     app.get(webAuthnCallbackPath, this.callback);

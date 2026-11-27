@@ -1,5 +1,5 @@
+import bodyParser from "body-parser";
 import type { Application, Handler } from "express";
-import express from "express";
 
 import { sessionPath } from "@/constants";
 import { getAuthorizePath, getCallbackPath } from "@/paths";
@@ -32,7 +32,7 @@ export class WebFlow implements PluginMiddleware {
   register_middlewares(app: Application) {
     app.get(webAuthorizePath, this.authorize);
     app.get(webCallbackPath, this.callback);
-    app.post(sessionPath, express.json(), this.session);
+    app.post(sessionPath, bodyParser.json(), this.session);
   }
 
   /** Send the visitor to the provider, remembering the request state. */

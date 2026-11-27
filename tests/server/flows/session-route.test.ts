@@ -2,21 +2,20 @@
  * The `POST /-/oauth/session` route on a real express app: the cookie a
  * browser carries decides whether the code behind it can be collected.
  */
-import type { AddressInfo } from "node:net";
-
 import express from "express";
 
 import { LOGIN_COOKIE_NAMES } from "@/server/constants";
 import type { LoginResult } from "@/server/store/Store";
 import { WebFlow } from "@/server/flows/WebFlow";
 
+import { listen } from "@root/tests/helpers/listen";
+
 const CODE = "code-1";
 
+/** No global parser: the route has to parse its own body. */
 function buildApp() {
   const loginResults = new Map<string, LoginResult>();
   const app = express();
-
-  app.use(express.json());
 
   const flow = new WebFlow(
     { urlPrefix: "" } as any,
@@ -75,8 +74,7 @@ async function login(port: number, { cookie }: { cookie?: string } = {}) {
 describe("POST /-/oauth/session", () => {
   it("hands the credentials to the browser that carries the cookie, and only once", async () => {
     const { app } = buildApp();
-    const server = app.listen(0);
-    const port = (server.address() as AddressInfo).port;
+    const { port, close } = await listen(app);
 
     try {
       const { setCookie, uiUrl } = await login(port, { cookie: CODE });
@@ -110,9 +108,25 @@ describe("POST /-/oauth/session", () => {
       // The code is spent.
       await expect(session(setCookie.split(";")[0])).resolves.toMatchObject({ status: 401 });
     } finally {
-      await new Promise<void>((resolve, reject) => {
-        server.close((error) => (error ? reject(error) : resolve()));
-      });
+      await close();
     }
   }, 15_000);
+
+  it("refuses a body that is not JSON", async () => {
+    const { app } = buildApp();
+    const { port, close } = await listen(app);
+
+    try {
+      const response = await fetch(`http://127.0.0.1:${port}/-/oauth/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: '{"code":',
+      });
+
+      expect(response.status).toBe(400);
+      await expect(response.text()).resolves.not.toContain("missing code");
+    } finally {
+      await close();
+    }
+  });
 });
