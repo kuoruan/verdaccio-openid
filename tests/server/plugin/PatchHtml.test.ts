@@ -201,15 +201,9 @@ describe("PatchHtml cache policy", () => {
     ).cacheControl;
   }
 
-  it("asks a patched page to be revalidated when the host set nothing", async () => {
-    expect(await cacheControlOf(undefined, page)).toBe("no-cache");
-  });
-
-  it("tightens a cacheable policy the host already set instead of replacing it", async () => {
-    expect(await cacheControlOf("public, max-age=600", page)).toBe("public, max-age=600, no-cache");
-  });
-
-  it("leaves a stricter policy alone", async () => {
+  it("leaves the host cache policy of a patched page alone", async () => {
+    expect(await cacheControlOf(undefined, page)).toBeNull();
+    expect(await cacheControlOf("public, max-age=600", page)).toBe("public, max-age=600");
     expect(await cacheControlOf("no-store", page)).toBe("no-store");
   });
 

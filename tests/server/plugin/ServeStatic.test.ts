@@ -47,11 +47,11 @@ describe("ServeStatic", () => {
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("serves a hashed script as immutable for a year", async () => {
+  it("serves a hashed script without imposing its own cache policy", async () => {
     const response = await fetch(`${base}/${hashed}`);
 
     expect(response.status).toBe(200);
-    expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=0");
     expect(await response.text()).toBe("window.__openid = 1;");
   });
 
@@ -66,10 +66,9 @@ describe("ServeStatic", () => {
     expect(revalidated.body).toBe("");
   });
 
-  it("does not mark a missing script as immutable", async () => {
+  it("does not set a cache policy of its own for a missing script", async () => {
     const response = await fetch(`${base}/missing.abc123.js`);
 
     expect(response.status).toBe(404);
-    expect(response.headers.get("cache-control") ?? "").not.toMatch(/immutable/);
   });
 });

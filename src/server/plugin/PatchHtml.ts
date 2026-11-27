@@ -10,6 +10,7 @@ import logger from "@/server/logger";
 
 import type { PluginMiddleware } from "./Plugin";
 import { getBaseUrl } from "./utils";
+import { isUndefined } from "@/utils";
 
 /** Matches the closing body tag and captures its indentation. */
 const BODY_LINE = /^(\s*)<\/body>/m;
@@ -57,15 +58,8 @@ export class PatchHtml implements PluginMiddleware {
       try {
         const patched = this.patch(html, req);
 
-        if (patched !== undefined) {
+        if (!isUndefined(patched)) {
           body = patched;
-          // The page names a content-hashed script, so revalidate it on every
-          // visit; keep what the host set and only tighten it.
-          const policy = res.getHeader("Cache-Control");
-
-          if (!(typeof policy === "string" && /\b(no-cache|no-store)\b/.test(policy))) {
-            res.setHeader("Cache-Control", policy ? `${policy}, no-cache` : "no-cache");
-          }
         }
       } catch (err: any) {
         logger.error({ message: err?.message ?? err }, "Failed to patch HTML: @{message}");

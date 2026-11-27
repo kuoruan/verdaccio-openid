@@ -102,7 +102,3 @@ _auth=YWxpY2U6ZXlKaGJHY2lPaUpJVXpJMU5pSjkuLi4=
 ### AES legacy token（不推荐）
 
 在设置 `security.api.legacy: true` 且没有 `security.api.jwt` 时（这是 Verdaccio 的默认安全配置），Verdaccio 加密而不是签名 npm token。这类 token 的过期时间与签发时使用的 provider token 一致，不遵循 `security.api.jwt.sign.expiresIn`，并且与签发时的账号绑定。旧版本插件签发的 token 会被拒绝，用户需要重新登录一次。
-
-## 客户端脚本缓存
-
-页面只加载一个按内容哈希命名的客户端脚本，附一年期 `immutable` 缓存；页面本身每次重新验证。发布的包只含本次构建的资源，不会附带旧脚本。先把新旧脚本一起放到共享源站上，再提供新 HTML；等所有副本和已缓存的页面切过去、回滚窗口关闭后，再清理旧脚本。升级前渲染的页面仍能加载到它自己的脚本。

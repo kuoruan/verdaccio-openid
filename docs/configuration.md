@@ -102,7 +102,3 @@ _auth=YWxpY2U6ZXlKaGJHY2lPaUpJVXpJMU5pSjkuLi4=
 ### AES legacy tokens (not recommended)
 
 When `security.api.legacy: true` is set and `security.api.jwt` is not (Verdaccio's default security configuration), Verdaccio encrypts npm tokens instead of signing them. Such a token expires together with the provider token it was issued for, not according to `security.api.jwt.sign.expiresIn`, and it stays tied to the account it was issued to. Tokens issued by earlier versions of the plugin are rejected, so those users have to log in once more.
-
-## Client script caching
-
-The page loads one client script named after its content hash, served with a one-year `immutable` cache policy, while the page itself is always revalidated. A published package only contains the resources of its own build and never carries old scripts. Before serving new HTML, put the old and new scripts together on the shared origin. Keep them until every replica and cached page has moved over and the rollback window has closed; then clear the old scripts.
