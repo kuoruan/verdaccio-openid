@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import process from "node:process";
-import minimist from "minimist";
+import { parseArgs } from "node:util";
 
 import logger, { logPluginInfo } from "./logger";
 import { saveNpmToken } from "./npm";
@@ -9,18 +9,17 @@ import { respondWithCliSuccess, cliErrorMessage } from "./response";
 import { validateRegistry } from "./usage";
 import { webLogin } from "./web-login";
 
-type Args = {
-  registry?: string;
-  proxy?: boolean;
-  "unsafe-urls"?: boolean;
-};
-
-const args = minimist<Args>(process.argv.slice(2), {
-  string: ["registry"],
-  boolean: ["proxy", "unsafe-urls"],
-  default: { proxy: true },
+const { values } = parseArgs({
+  args: process.argv.slice(2),
+  options: {
+    registry: { type: "string" },
+    "no-proxy": { type: "boolean" },
+    "unsafe-urls": { type: "boolean" },
+  },
+  // Unknown arguments stay ignored, as they were before.
+  strict: false,
 });
-const registry = validateRegistry(args.registry);
+const registry = validateRegistry(values.registry);
 
 logPluginInfo();
 
@@ -31,8 +30,8 @@ logPluginInfo();
 async function main(): Promise<void> {
   try {
     const token = await webLogin(registry, {
-      useProxy: args.proxy !== false,
-      validateUrls: args["unsafe-urls"] !== true,
+      useProxy: values["no-proxy"] !== true,
+      validateUrls: values["unsafe-urls"] !== true,
     });
 
     saveNpmToken(token, registry);
