@@ -1,6 +1,5 @@
 import { defaultSecurity } from "@verdaccio/config";
 import type { Config } from "@verdaccio/types";
-import merge from "deepmerge";
 
 import ParsedPluginConfig from "@/server/config/Config";
 import { ProviderType } from "@/server/plugin/AuthProvider";
@@ -32,7 +31,19 @@ describe("ParsedPluginConfig", () => {
 
   it("should merge default security with verdaccio config", () => {
     const config = new ParsedPluginConfig(mockConfig, mockVerdaccioConfig);
-    expect(config.security).toEqual(merge(defaultSecurity, {}));
+    expect(config.security).toEqual(defaultSecurity);
+  });
+
+  it("should keep the defaults the verdaccio config does not override", () => {
+    const config = new ParsedPluginConfig(mockConfig, {
+      ...mockVerdaccioConfig,
+      security: { web: { sign: { algorithm: "HS512" } }, api: { legacy: false } },
+    } as unknown as Config);
+
+    expect(config.security).toEqual({
+      web: { sign: { algorithm: "HS512", expiresIn: "1h" }, verify: {} },
+      api: { ...defaultSecurity.api, legacy: false },
+    });
   });
 
   it("should return packages from verdaccio config", () => {

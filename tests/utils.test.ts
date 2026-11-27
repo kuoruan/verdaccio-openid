@@ -6,9 +6,11 @@ import {
   isNonEmptyString,
   isNull,
   isObject,
+  isPlainObject,
   isStringArray,
   isUndefOrNull,
   isUndefined,
+  mergeDeep,
   redactUrlCredentials,
   resolveProxyConfig,
   safeJsonParse,
@@ -251,6 +253,74 @@ describe("isObject", () => {
       expectTypeOf(value).toEqualTypeOf<Record<string, unknown>>();
       expect(value.ttl).toBe(5000);
     }
+  });
+});
+
+describe("isPlainObject", () => {
+  it("accepts plain objects and rejects arrays, null and primitives", () => {
+    expect(isPlainObject({})).toBe(true);
+    expect(isPlainObject({ a: 1 })).toBe(true);
+    expect(isPlainObject([])).toBe(false);
+    expect(isPlainObject(null)).toBe(false);
+    expect(isPlainObject(undefined)).toBe(false);
+    expect(isPlainObject("object")).toBe(false);
+    expect(isPlainObject(0)).toBe(false);
+  });
+
+  it("preserves an object branch and supports unknown input", () => {
+    function expiresIn(signOptions: { expiresIn: string } | string | undefined): string | undefined {
+      if (!isPlainObject(signOptions)) return undefined;
+
+      expectTypeOf(signOptions).toEqualTypeOf<{ expiresIn: string }>();
+      return signOptions.expiresIn;
+    }
+
+    expect(expiresIn({ expiresIn: "1h" })).toBe("1h");
+    expect(expiresIn("1h")).toBeUndefined();
+
+    const value: unknown = { expiresIn: "1h" };
+    if (isPlainObject(value)) {
+      expectTypeOf(value).toEqualTypeOf<Record<string, unknown>>();
+      expect(value.expiresIn).toBe("1h");
+    }
+  });
+});
+
+describe("mergeDeep", () => {
+  it("merges nested objects with the source winning", () => {
+    const target = { web: { sign: { expiresIn: "1h" }, verify: {} }, api: { legacy: true } };
+
+    expect(mergeDeep(target, { api: { legacy: false } })).toEqual({
+      web: { sign: { expiresIn: "1h" }, verify: {} },
+      api: { legacy: false },
+    });
+    expect(mergeDeep(target, { web: { sign: { algorithm: "HS512" } } })).toEqual({
+      web: { sign: { expiresIn: "1h", algorithm: "HS512" }, verify: {} },
+      api: { legacy: true },
+    });
+  });
+
+  it("replaces arrays instead of joining them", () => {
+    expect(mergeDeep({ verify: { algorithms: ["HS256"] } }, { verify: { algorithms: ["HS512"] } })).toEqual({
+      verify: { algorithms: ["HS512"] },
+    });
+  });
+
+  it("returns the target when there is no source", () => {
+    const target = { api: { legacy: true } };
+
+    expect(mergeDeep(target, undefined)).toEqual(target);
+    expect(mergeDeep(target, {})).not.toBe(target);
+  });
+
+  it("does not modify either argument", () => {
+    const target = { web: { sign: { expiresIn: "1h" } } };
+    const source = { web: { sign: { algorithm: "HS512" } } };
+
+    mergeDeep(target, source);
+
+    expect(target).toEqual({ web: { sign: { expiresIn: "1h" } } });
+    expect(source).toEqual({ web: { sign: { algorithm: "HS512" } } });
   });
 });
 

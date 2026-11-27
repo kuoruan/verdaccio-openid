@@ -150,6 +150,48 @@ export function isObject(value: unknown): value is object {
 }
 
 /**
+ * Check whether a value is a plain object, excluding arrays and `null`.
+ *
+ * @template T the object type to preserve when narrowing
+ * @param value the value to check
+ * @returns whether the value is a plain object
+ */
+export function isPlainObject<T extends object>(
+  value: T | string | number | boolean | bigint | symbol | null | undefined,
+): value is T;
+/**
+ * Check whether a value is a plain object, excluding arrays and `null`.
+ *
+ * @param value the value to check
+ * @returns whether the value is a plain object
+ */
+export function isPlainObject(value: unknown): value is Record<string, unknown>;
+export function isPlainObject(value: unknown): value is object {
+  return isObject(value) && !Array.isArray(value);
+}
+
+/**
+ * Deep merge plain objects, with values from `source` winning. Arrays and
+ * primitives replace instead of merging, and neither argument is modified.
+ *
+ * @template T the object type to return
+ * @param target the base object
+ * @param source the values to apply on top, if any
+ * @returns the merged object
+ */
+export function mergeDeep<T extends object>(target: T, source: object | undefined): T {
+  const merged = { ...target } as Record<string, unknown>;
+
+  for (const [key, value] of Object.entries(source ?? {})) {
+    const current = merged[key];
+
+    merged[key] = isPlainObject(current) && isPlainObject(value) ? mergeDeep(current, value) : value;
+  }
+
+  return merged as T;
+}
+
+/**
  * Check whether a value is a string containing more than whitespace.
  *
  * @param value the value to check

@@ -1,6 +1,5 @@
 import { defaultSecurity } from "@verdaccio/config";
 import type { Config, PackageList, Security } from "@verdaccio/types";
-import merge from "deepmerge";
 import { boolean, mixed, object, Schema, string } from "yup";
 
 import { plugin, pluginKey } from "@/constants";
@@ -13,7 +12,7 @@ import {
   type RedisConfig,
   StoreType,
 } from "@/server/store/Store";
-import { isNonEmptyString, isObject, isStringArray, isUndefined } from "@/utils";
+import { isNonEmptyString, isObject, isStringArray, isUndefined, mergeDeep } from "@/utils";
 
 import {
   DynamoConfigSchema,
@@ -106,7 +105,7 @@ export default class ParsedPluginConfig implements ConfigHolder {
   }
 
   public get security(): Security {
-    return merge(defaultSecurity, this.verdaccioConfig.security ?? {});
+    return mergeDeep(defaultSecurity, this.verdaccioConfig.security);
   }
 
   public get packages(): PackageList {
