@@ -1,5 +1,29 @@
 # verdaccio-openid
 
+## 0.21.0
+
+_Released 2026-11-27_
+
+### Minor Changes
+
+- Hand the UI credentials to the browser instead of putting them in the redirect URL: the login is bound to the browser that started it with an HttpOnly cookie, the redirect carries a single-use code, and the credentials are fetched with a same-origin `POST /-/oauth/session` that presents that cookie. The npm WebAuth login is bound the same way. Pending credentials live under their own key in the configured store; Redis, MongoDB and DynamoDB consume them in one operation, the in-memory store only covers its own process, and the file store reads and then deletes without a lock, so use it with a single Verdaccio process.
+- Add `--no-proxy` to connect without environment proxies and `--unsafe-urls` to skip the protocol, credentials, origin, and path checks on the returned login and token URLs. Use `--unsafe-urls` only with a trusted registry: a malicious one could pass a URL of any scheme to the system opener or make the CLI poll another origin for a token. TLS certificate verification stays enabled.
+- The CLI now logs in through npm's own web protocol (`POST /-/v1/login`, then open `loginUrl` and poll `doneUrl`), so the token travels over the polling connection the server answers instead of an unauthenticated local callback server. The protocol has been answered since `0.14.0`, so no lockstep upgrade is needed on this path; servers that predate the endpoint are not supported by this CLI. The server no longer signs a token for the old loopback protocol: `GET /-/oauth/authorize/cli` and `GET /-/oauth/callback/cli` (`CliFlow`) answer `400 this login flow is no longer supported: CLI 0.20.0 and older must upgrade to 0.21.0 or newer (npx verdaccio-openid@latest)` and never redirect a token. CLI `0.20.0` and older used that path and accepted whatever token the callback carried without checking the caller, so only the client can close that gap. Upgrade the CLI with `npx verdaccio-openid@latest`; a new CLI works against any server since `0.14.0`, so the CLI and the server do not have to be upgraded together. This is a breaking change for the old CLI, which is why the release is `0.21.0` rather than a patch.
+- Honor `http_proxy`, `https_proxy` and `no_proxy` for outbound requests. The server reads them from the Verdaccio config; the CLI login reads them from its own environment. Drop `@gitbeaker/rest`: GitLab groups are read page by page over that transport instead.
+- Match GitLab groups by their full path rather than their name. With `provider-type: gitlab`, the groups of a user were read from the group _name_. A name is not unique and not reserved: anyone who is allowed to create a group could create one named like a group they are not a member of and match `authorized-groups` with it. Groups now come from the full path, which GitLab keeps unique (`team/backend`, or `backend` for a top-level group). This needs an update where configured group names are not full paths. Top-level groups are unaffected, because their name and path usually agree. A group configured as `backend` that lives inside `team` has to become `team/backend` in `authorized-groups` and `group-users`, both in the `auth` and the `middlewares` sections.
+
+### Patch Changes
+
+- Stop naming the client script after the plugin version: the build emits one content-hashed file and records it in a manifest that is never served, and the page loads that file instead of `verdaccio-openid-<version>.js`. The standalone status page no longer states the plugin version in its title. A published package ships only its own build's resources.
+- Merge the default security settings with a small local helper instead of `deepmerge`, dropping one runtime dependency. The defaults applied and the keys the host overrides are unchanged.
+- Drop `global-agent`: outbound requests already go through the per-instance proxy transport. The server and the CLI login log the proxy configuration in use, with credentials hidden, and stay silent when no proxy is configured.
+- Replace the `minimist` dependency with `node:util` `parseArgs`.
+- Harden the pieces around the login rather than the login itself: pages escape what they show and the back link stays on this registry; the CLI strips terminal escape sequences before it prints a server message; an unset store `ttl` is left out and an invalid one is a configuration error; the file store keeps its directory at `0700`; proxy passwords are no longer logged; the Redis store keeps user info as JSON. The new web-login path (see the `cli-web-login` changeset) works against any server since `0.14.0` with no lockstep upgrade.
+- Treat only plain objects as objects when reading JSON: an array read back from the user info cache, or passed to `setUserInfo`, is now rejected instead of being used as a record.
+- Minify the inline client and status page CSS and optimize the client login icon at build time.
+- Group the store interface into domain slices (`OpenIDStateStore`, `ProviderCache`, `WebAuthnStore`, `LoginResultStore`) so each flow depends only on the slice it uses. The login result is now a typed object instead of a JSON string: backends serialize it and reject corrupted rows as a miss, and a WebAuthn session is a `pending`/`ready` value so a pending login can never be consumed. Misses read as `undefined` everywhere, and the optional cache methods are required. Storage layout is unchanged except for Redis user info rows: they used to be hashes (which stringified arrays and nested objects) and are now JSON strings. A row written by the old version reads as a miss once and is then replaced; do not mix versions against the same Redis database during the rollout.
+- Use `body-parser` for JSON request bodies instead of depending on Express at runtime.
+
 ## 0.20.0
 
 _Released 2026-11-24_
