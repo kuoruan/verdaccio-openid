@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import process from "node:process";
 
+import { optimize as optimizeSvg } from "svgo";
 import { defineConfig } from "tsdown";
 
 const packageName = process.env.npm_package_name;
@@ -15,24 +16,31 @@ const define = {
 /**
  * A plugin to handle SVG files, either as raw text or as base64-encoded data.
  *
+ * @param {object} [options]
+ * @param {boolean} [options.optimize] optimize SVG with SVGO before inlining it
  * @returns {import('tsdown').TsdownPlugin} The SVG handling plugin.
  */
-function svgPlugin() {
+function svgPlugin({ optimize = false } = {}) {
   return {
     name: "svg",
     load: {
       filter: { id: /\.svg(\?raw)?$/ },
       handler(id) {
-        if (id.endsWith("?raw")) {
-          const filePath = id.slice(0, -4);
-          const code = fs.readFileSync(filePath, "utf8");
-          return `export default ${JSON.stringify(code)}`;
-        }
+        const raw = id.endsWith("?raw");
+        const filePath = raw ? id.slice(0, -4) : id;
+        const code = fs.readFileSync(filePath, "utf8");
+        const output = optimize
+          ? optimizeSvg(code, {
+              path: filePath,
+              multipass: true,
+              // Preserve SVG descriptions for accessibility.
+              plugins: [{ name: "preset-default", params: { overrides: { removeDesc: false } } }],
+            }).data
+          : code;
 
-        if (!id.endsWith(".svg")) return null;
+        if (raw) return `export default ${JSON.stringify(output)}`;
 
-        const code = fs.readFileSync(id, "utf8");
-        const base64 = Buffer.from(code).toString("base64");
+        const base64 = Buffer.from(output).toString("base64");
         return `export default "data:image/svg+xml;base64,${base64}"`;
       },
     },
@@ -80,6 +88,9 @@ export default defineConfig([
     outputOptions: {
       exports: "named",
     },
+    css: {
+      minify: true,
+    },
     plugins: [svgPlugin()],
   },
   // CLI bundle: ESM only, executable
@@ -105,9 +116,12 @@ export default defineConfig([
     platform: "browser",
     target: "ES6",
     minify: true,
+    css: {
+      minify: true,
+    },
     outputOptions: {
       entryFileNames: "client/[name].[hash].js",
     },
-    plugins: [svgPlugin(), clientManifestPlugin()],
+    plugins: [svgPlugin({ optimize: true }), clientManifestPlugin()],
   },
 ]);

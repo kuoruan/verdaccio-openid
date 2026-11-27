@@ -1,0 +1,58 @@
+/* tests/client/styles.test.ts checks these selectors against constants.ts. */
+.verdaccio-openid-hint {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  line-height: 1.43;
+  opacity: 0.75;
+}
+[hidden] + .verdaccio-openid-hint {
+  margin-top: 0;
+}
+/* The host rows can carry an inline display, which outranks the browser's
+   [hidden] rule; scoping the override to the rows this plugin hides keeps it
+   from affecting anything else on the page. */
+[data-openid-hidden][hidden] {
+  display: none !important;
+}
+.verdaccio-openid-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 12px 0;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.6;
+}
+.verdaccio-openid-divider::before,
+.verdaccio-openid-divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid currentColor;
+  opacity: 0.4;
+}
+button.verdaccio-openid-login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid rgba(128, 128, 128, 0.5);
+  border-radius: 4px;
+  font-weight: 600;
+  line-height: 1.75;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+}
+button.verdaccio-openid-login svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+button.verdaccio-openid-login:hover,
+button.verdaccio-openid-login:focus-visible {
+  background: rgba(128, 128, 128, 0.15);
+}

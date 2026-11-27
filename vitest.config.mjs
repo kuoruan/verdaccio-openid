@@ -11,5 +11,7 @@ export default {
   test: {
     globals: true,
     include: ["tests/**/*.{test,spec}.ts"],
+    // Load CSS instead of empty strings; module IDs include the `?inline` query.
+    css: { include: [/\.css/] },
   },
 };

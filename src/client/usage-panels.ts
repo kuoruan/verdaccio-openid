@@ -4,6 +4,7 @@
  * The host renders this markup itself, so the module works with what is there:
  * command rows are cloned to keep their styling, hints are plain paragraphs.
  */
+import openIDStyles from "@/client/styles.css?inline";
 import {
   commandRowClass,
   helpLoginCommandSelector,
@@ -11,7 +12,6 @@ import {
   hiddenMarker,
   hintClass,
   openIDStyleId,
-  openIDStyles,
   usageRowSelector,
   usageTabsSelector,
 } from "@/client/constants";
